@@ -1,0 +1,160 @@
+
+    <div class="model-docs" id="user">
+        <h2 class="model-title">User</h2>
+        <p class="model-description">A user in the system.</p>
+        
+        <table class="field-table">
+            <thead>
+                <tr>
+                    <th>Field</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Required</th>
+                    <th>Default</th>
+                </tr>
+            </thead>
+            <tbody>
+    
+                <tr>
+                    <td>id</td>
+                    <td><code>int</code></td>
+                    <td>Unique identifier for the user</td>
+                    <td>Yes</td>
+                    <td><code>PydanticUndefined</code></td>
+                </tr>
+        
+                <tr>
+                    <td>username</td>
+                    <td><code>str</code></td>
+                    <td>User's login name</td>
+                    <td>Yes</td>
+                    <td><code>PydanticUndefined</code></td>
+                </tr>
+        
+                <tr>
+                    <td>email</td>
+                    <td><code>str</code></td>
+                    <td>User's email address</td>
+                    <td>Yes</td>
+                    <td><code>PydanticUndefined</code></td>
+                </tr>
+        
+                <tr>
+                    <td>full_name</td>
+                    <td><code>Optional[str]</code></td>
+                    <td>User's full name</td>
+                    <td>Yes</td>
+                    <td><code>-</code></td>
+                </tr>
+        
+                <tr>
+                    <td>age</td>
+                    <td><code>Optional[int]</code></td>
+                    <td>User's age in years</td>
+                    <td>Yes</td>
+                    <td><code>-</code></td>
+                </tr>
+        
+                <tr>
+                    <td>tags</td>
+                    <td><code>List[str]</code></td>
+                    <td>List of user tags</td>
+                    <td>Yes</td>
+                    <td><code>list()</code></td>
+                </tr>
+        
+                <tr>
+                    <td>car</td>
+                    <td><code>Optional[<a href="#car">Car</a>]</code></td>
+                    <td>User's car details</td>
+                    <td>Yes</td>
+                    <td><code>-</code></td>
+                </tr>
+        
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="model-docs" id="car">
+        <h2 class="model-title">Car</h2>
+        <p class="model-description">Details about a car.</p>
+        
+        <table class="field-table">
+            <thead>
+                <tr>
+                    <th>Field</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Required</th>
+                    <th>Default</th>
+                </tr>
+            </thead>
+            <tbody>
+    
+                <tr>
+                    <td>make</td>
+                    <td><code>str</code></td>
+                    <td>The manufacturer of the car</td>
+                    <td>Yes</td>
+                    <td><code>PydanticUndefined</code></td>
+                </tr>
+        
+                <tr>
+                    <td>price</td>
+                    <td><code>int</code></td>
+                    <td>The price of the car in dollars</td>
+                    <td>Yes</td>
+                    <td><code>PydanticUndefined</code></td>
+                </tr>
+        
+            </tbody>
+        </table>
+    </div>
+    
+        <style>
+            .model-docs {
+                font-family: system-ui, -apple-system, sans-serif;
+                margin: 2rem;
+                scroll-margin-top: 2rem;
+            }
+            .model-title {
+                color: #2D3748;
+                margin-bottom: 1rem;
+            }
+            .model-description {
+                color: #4A5568;
+                margin-bottom: 2rem;
+            }
+            .field-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 2rem;
+            }
+            .field-table th,
+            .field-table td {
+                padding: 0.75rem;
+                text-align: left;
+                border-bottom: 1px solid #E2E8F0;
+            }
+            .field-table th {
+                background-color: #F7FAFC;
+                font-weight: 600;
+                color: #4A5568;
+            }
+            .field-table td code {
+                background-color: #EDF2F7;
+                padding: 0.2rem 0.4rem;
+                border-radius: 0.25rem;
+                font-family: monospace;
+            }
+            .field-table td a {
+                color: #4A5568;
+                text-decoration: none;
+                border-bottom: 1px dashed #4A5568;
+            }
+            .field-table td a:hover {
+                color: #2D3748;
+                border-bottom-style: solid;
+            }
+        </style>
+        

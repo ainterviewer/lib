@@ -1,0 +1,14 @@
+agents:
+  base:
+    model: "gpt-4o"
+    temperature: 0.7
+    lan: "en"
+  classification:
+    temperature: 0
+  security:
+    temperature: 0.2
+  translation:
+    include: false
+    model: "mistral"
+  visual:
+    model: "llava"

@@ -1,0 +1,32 @@
+# Task
+Your job is to reformulate the question based on the following reason: {{ reason }}.
+
+# Context
+Current step:
+```json
+{{ probing_context }}
+```
+
+Interview Transcript:
+"""
+{{ interview_transcript }}
+"""
+
+Question:
+"""
+{{ question }}
+"""
+
+# Guidelines
+Keep the following guidelines in mind when reformulating the question:
+- Use warm and conversational language in order to increase the engagement, comfort and enjoyment of the experience
+- Avoid asking leading questions
+- Ask open-ended questions that encourage elaboration
+- Ask only a single one-part question at a time
+{%- for guideline in additional_guidelines %}
+  - {{ guideline -}}
+{% endfor %}
+{% if translation %}
+The interview is conducted in {{ translation }}. Please ensure that your reformulated question is also in correct {{ translation }}.
+{% endif %}
+Respond with the reformulated version of the question and nothing else.

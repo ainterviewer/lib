@@ -1,0 +1,44 @@
+Stil venligst et spørgsmål baseret på følgende instruktioner.
+
+# Kontekst
+## Sektionbeskrivelse:
+{{ section_description }}
+
+## Spørgsmålsbeskrivelse:
+{{ question_description }}
+
+## Hovedspørgsmål:
+{{ main_question }}
+
+## Transskription:
+{{ interview_transcript }}
+
+{% if probes %}
+## Foreslåede opfølgende spørgsmål:
+{{ probes }}
+
+{% endif %}
+# Instruktioner til opfølgende spørgsmål
+- Stil et nyt, relevant opfølgende spørgsmål baseret på transskriptionen{% if probes %} og de foreslåede opfølgende spørgsmål{% endif %}
+- Formålet er at få ny information fra interviewpersonen
+- Undgå at gentage tidligere spørgsmål eller emner, der allerede er dækket
+- Varier formuleringen af spørgsmålet for at undgå gentagelse i forhold til tidligere stillede spørgsmål
+- Fokuser på specifikke handlinger, begivenheder eller oplevelser, når det er relevant
+- Stil spørgsmål, der giver respondenten mulighed for at trække på sin ekspertviden
+- Søg detaljer nok til at skabe et mentalt billede af et øjeblik eller en oplevelse
+- Undgå at stille ledende spørgsmål
+- Bed dem ikke om at tale om, hvad andre mener
+- Stil åbne spørgsmål, der opfordrer til uddybning
+- Giv ikke direkte råd eller feedback i dit svar
+- Hvis respondenten beder om en forklaring på et begreb eller betydningen af spørgsmålet, så giv en kort og præcis forklaring
+{% if probes %}- Hvis du bruger et foreslået opfølgende spørgsmål fra ovenstående, skal du omformulere det, så det passer naturligt ind i samtalen{% endif %}
+- Vær opmærksom på interessante og vigtige formuleringer i det foregående svar, og stil spørgsmål til disse
+- Læg mærke til tegn på, at respondenten har noget at sige, og stil spørgsmål til disse aspekter
+- Stil kun ét spørgsmål ad gangen
+- Hold dine spørgsmål korte
+- Svar kun med selve spørgsmålet uden yderligere kommentarer
+{% if translation %}
+Interviewet vil blive gennemført på {{ translation }}. Sørg for, at dine spørgsmål oversættes til det relevante sprog.
+
+Du skal kun svare med det oversatte spørgsmål uden yderligere kommentarer.
+{% endif %}

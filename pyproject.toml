@@ -1,0 +1,86 @@
+[project]
+name = "ainterviewer"
+version = "0.3.0"
+description = "Python framework for creating automated interviews with the use of LLMs"
+readme = "README.md"
+authors = [{ name = "Tobias Gårdhus", email = "tobias_gaardhus@hotmail.com" }]
+requires-python = ">=3.12.0"
+
+dependencies = [
+  "fastapi[standard]>=0.115,<=0.116",
+  "jinja2>=3.1.6",
+  "jinjax>=0.50",
+  "litellm>=1.68.1",
+  "ollama==0.3.2",
+  "openai>=1.72.0",
+  "polars>=1.30.0",
+  "pyarrow>=20.0.0",
+  "pydantic-extra-types>=2.10.4",
+  "pydantic-settings>=2.7.1",
+  "pydantic>=2.9,<3",
+  "pyyaml>=6.0.2",
+  "requests>=2.32.3",
+  "structlog>=25.3.0",
+  "types-aioboto3[ec2]>=13.4.0",
+  "uvicorn[standard]>=0.34.3",
+  "websockets>=15.0.1",
+]
+
+[project.optional-dependencies]
+local = [
+  "accelerate>=1.7.0",
+  "faster-whisper>=1.1.1",
+  "gguf>=0.17.0",
+  "protobuf>=5.29.5",
+  "sentencepiece>=0.2.0",
+  "torch>=2.7.0",
+  "transformers>=4.52.4",
+]
+analysis = [
+  "adbc-driver-sqlite>=1.6.0",
+  "ipykernel>=6.29.5",
+  "marimo[recommended]>=0.13.2",
+  "matplotlib>=3.10.3",
+  "pandas>=2.2.3",
+  "plotly>=6.3.0",
+  "pyarrow>=20.0.0",
+  "rich>=14.0.0",
+  "sentence-transformers>=4.1.0",
+  "ua-parser[regex]>=1.0.1",
+  "umap-learn>=0.5.9.post2",
+  "user-agents>=2.2.0",
+  "watchdog>=6.0.0",
+]
+
+[dependency-groups]
+dev = [
+  "deptry>=0.23.0",
+  "djlint>=1.36.4",
+  "inquirer>=3.4.0",
+  "ipykernel>=6.29.5",
+  "locust>=2.37.7",
+  "locust-plugins[websocket]>=4.7.0",
+  "nbstripout>=0.8.1",
+  "playwright>=1.52.0",
+  "pre-commit>=4.2.0",
+  "psycopg2-binary>=2.9.10",
+  "pytest>=8.4.0",
+  "ruff>=0.11.12",
+]
+
+[tool.locust]
+locustfile = "scripts/locust_file.py"
+host = "http://localhost:8666"
+
+[tool.djlint]
+profile = "jinja"
+indent = 4
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]
+
+[tool.marimo.runtime]
+watcher_on_save = "autorun"
