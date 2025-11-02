@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Literal, Tuple, Type
+from typing import Literal, final
 from zoneinfo import ZoneInfo
 
 from pydantic import (
@@ -27,8 +27,6 @@ from ainterviewer.types import DatabaseType, EC2Access, TimeDelta
 
 class Settings(BaseSettings):
     debugging: bool = False
-    translation_port: int = 8668
-    translation_host: str | None = None
 
     app: AppSettings
     database: DatabaseSettings
@@ -36,12 +34,6 @@ class Settings(BaseSettings):
     aws: AWSSettings
     secrets: Secrets
     services: ServiceSettings
-
-    @field_validator("translation_host", mode="after")
-    def set_translation_host(cls, v, values: ValidationInfo):
-        if v is None:
-            return f"0.0.0.0:{values.data['translation_port']}"
-        return v
 
     @model_validator(mode="after")
     def validate_aws(self, info: ValidationInfo):
@@ -59,6 +51,7 @@ class Settings(BaseSettings):
 
         return self
 
+    @final
     class Config:
         extra = "ignore"
         env_file = ".env"
@@ -71,12 +64,12 @@ class Settings(BaseSettings):
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: Type[BaseSettings],
+        settings_cls: type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
-    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (TomlConfigSettingsSource(settings_cls), env_settings, dotenv_settings)
 
 
@@ -85,10 +78,10 @@ class AppSettings(BaseModel):
     ainterviewer_port: int = 8666
     ainterviewer_host: str | None = None
     jwt_secret_key: str
-    jwt_interview_token_expiration: dict[str, int] = Field(
+    jwt_interview_token_expiration: dict[str, float] = Field(
         default_factory=lambda: TimeDelta(days=3).model_dump()
     )
-    jwt_auth_token_expiration: dict[str, int] = Field(
+    jwt_auth_token_expiration: dict[str, float] = Field(
         default_factory=lambda: TimeDelta(days=1).model_dump()
     )
     session_secret_key: str
@@ -128,21 +121,14 @@ class DatabaseSettings(BaseModel):
 class LLMSettings(BaseModel):
     llm_host: str = "0.0.0.0"
     llm_port: int = 8880
-    llm_ports: list[int] = Field(default_factory=list)
     model_storage: Literal["local", "s3_bucket"] = "local"
     vllm_api_key: str = ""
     available_models: list[str] = Field(default_factory=lambda: ["gpt-5-mini"])
     default_model: str = "gpt-5-mini"
     seed: int = 4268
 
-    @field_validator("llm_ports")
-    def set_llm_ports(cls, v, values: ValidationInfo):
-        if not v:
-            return [values.data["llm_port"]]
-        return v
-
     @field_validator("llm_host")
-    def set_llm_host(cls, v, values: ValidationInfo):
+    def set_llm_host(cls, v: str, values: ValidationInfo):
         if not v:
             return f"0.0.0.0:{values.data['llm_port']}"
         return v
@@ -225,7 +211,7 @@ class EmailAccount(BaseModel):
     password: SecretStr
 
 
-settings = Settings()  # type: ignore
+settings = Settings()  # pyright: ignore[reportCallIssue]
 
 if __name__ == "__main__":
     print(settings.aws.ec2_downtime)
