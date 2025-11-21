@@ -1,6 +1,6 @@
 [project]
 name = "ainterviewer"
-version = "0.1.1"
+version = "0.2.1"
 description = "Python framework for creating automated interviews with the use of LLMs"
 readme = "README.md"
 authors = [{ name = "Tobias Gårdhus", email = "tobias_gaardhus@hotmail.com" }]
@@ -86,7 +86,7 @@ known-third-party = ["alembic"]
 watcher_on_save = "autorun"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = { "" = "src" }
 include-package-data = true
 
 [tool.setuptools.packages.find]
