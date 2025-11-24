@@ -90,6 +90,7 @@ class AppSettings(BaseModel):
 
 class DatabaseSettings(BaseModel):
     db: DatabaseType = DatabaseType.SQLITE
+    db_path: str = "storage"
 
     db_username: str | None = None
     db_password: SecretStr | None = None
@@ -107,7 +108,7 @@ class DatabaseSettings(BaseModel):
     @property
     def connection_string(self) -> str:
         if self.db == DatabaseType.SQLITE:
-            connection_string = f"sqlite:///app/{self.database_file}"
+            connection_string = f"sqlite:///{self.db_path}/{self.database_file}"
         else:
             if not self.db_username or not self.db_password:
                 raise ValueError(
@@ -211,7 +212,7 @@ class EmailAccount(BaseModel):
     password: SecretStr
 
 
-settings = Settings()  # pyright: ignore[reportCallIssue]
+settings = Settings()  # ty: ignore[missing-argument]
 
 if __name__ == "__main__":
     print(settings.aws.ec2_downtime)
