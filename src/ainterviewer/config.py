@@ -48,7 +48,7 @@ class AgentConfigs(BaseModel):
 class AgentConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
-    model: str = settings.llm.default_model  # type: ignore
+    model: str = settings.llm.default_model
     temperature: Temperature = Field(default=0.7)
     lang: LanguageCode = "EN"
     include: bool = True

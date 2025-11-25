@@ -65,10 +65,6 @@ async def chat(
             api_key=settings.secrets.openai_api_key,
             reasoning_effort="minimal",
         )
-    elif model.startswith("bedrock/"):
-        chat_completion: ModelResponse = await chat(
-            model=model, aws_region_name=settings.aws.aws_bedrock_region
-        )
     elif model.startswith("gemini/"):
         # map system roles for gemini compatability
         messages = [
@@ -81,7 +77,7 @@ async def chat(
             api_key=settings.secrets.google_ai_api_key,
         )
     else:
-        server_endpoint = f"http://{settings.llm.llm_host}:{settings.llm.llm_port}/v1"
+        server_endpoint = f"{settings.llm.llm_endpoint}/v1"
 
         model_kwargs = {}
 
@@ -93,6 +89,9 @@ async def chat(
 
         if guided_choice:
             model_kwargs["extra_body"] = dict(guided_choice=guided_choice)
+
+        if model in ("gpt-oss-120b"):
+            model_kwargs["reasoning_effort"] = "low"
 
         chat_completion: ModelResponse = await chat(
             api_base=server_endpoint,
