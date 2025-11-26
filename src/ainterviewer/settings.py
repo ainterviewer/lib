@@ -17,8 +17,10 @@ def BaseSettingsConfigDict(**kwargs) -> SettingsConfigDict:
         env_file=".env",
         extra="ignore",
         use_enum_values=True,
+        env_nested_delimiter="__",
         validate_assignment=True,
         frozen=True,
+        env_file_encoding="utf-8",
         **kwargs,
     )
 
@@ -27,7 +29,6 @@ class LLMSettings(BaseModel):
     llm_host: str = "0.0.0.0"
     llm_port: int = 8880
     model_storage: Literal["local", "s3_bucket"] = "local"
-    available_models: list[str] = Field(default_factory=lambda: ["gpt-5-mini"])
     default_model: str = "gpt-5-mini"
     seed: int = 4268
 
@@ -54,7 +55,6 @@ class Settings(BaseSettings):
 
     model_config = BaseSettingsConfigDict(
         toml_file="config.toml",
-        env_nested_delimiter="__",
         pyproject_toml_table_header=("tool", "ainterviewer"),
     )
 
@@ -68,9 +68,9 @@ class Settings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
-            TomlConfigSettingsSource(settings_cls),
             env_settings,
             dotenv_settings,
+            TomlConfigSettingsSource(settings_cls),
             PyprojectTomlConfigSettingsSource(settings_cls),
         )
 
@@ -81,3 +81,4 @@ if __name__ == "__main__":
     print(settings.model_dump_json(indent=4))
     print(settings.llm.llm_endpoint)
     print(settings.debug)
+    print(settings.secrets.openai_api_key.get_secret_value())
