@@ -7,7 +7,6 @@ from typing import Generator
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ainterviewer.exceptions import ConfigError
 from ainterviewer.lpm.types import Temperature
 from ainterviewer.settings import settings
 from ainterviewer.types import LanguageCode
