@@ -71,6 +71,7 @@ def get_default_prompts() -> tuple[dict[str, dict[str, str]], dict[str, str]]:
     prompt_files = Path(__file__).parent.glob("templates/EN/*.jinja")
 
     agent_prompts: dict[str, dict[str, str]] = defaultdict(dict)
+
     extra_prompts: dict[str, str] = {}
 
     for prompt in prompt_files:
@@ -86,7 +87,7 @@ def get_default_prompts() -> tuple[dict[str, dict[str, str]], dict[str, str]]:
 
 
 _agent_prompts, _extra_prompts = get_default_prompts()
-DEFAULT_PROMPTS = Prompts(**_agent_prompts, extra_prompts=_extra_prompts)
+DEFAULT_PROMPTS = Prompts(**_agent_prompts, extra_prompts=_extra_prompts)  # ty: ignore[invalid-argument-type]
 
 
 class BasePrompts(ABC):

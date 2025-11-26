@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from enum import StrEnum
 from pathlib import Path
 from random import choice, randint, uniform
-from typing import List
+from typing import Any, List
 
 from pydantic import BaseModel, Field
 
@@ -102,7 +103,7 @@ class CommunicationTraits(BaseModel):
     style: List[str]
     tone: List[str]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[str, Any]]:
         yield from self.__dict__.items()
 
 
@@ -113,9 +114,8 @@ def generate_synthetic_person(background_info: BackgroundInfoOptions):
     location = choice(background_info.locations)
     age = randint(*background_info.age_range)
     personality = choice(background_info.personalities)
-    communication_traits: CommunicationTrait = {
-        key: choice(value)  # type: ignore
-        for key, value in background_info.communication_traits
+    communication_traits: CommunicationTrait = {  # ty: ignore[invalid-assignment]
+        key: choice(value) for key, value in background_info.communication_traits
     }
     extra_traits = (
         choice(background_info.extra_traits) if background_info.extra_traits else None

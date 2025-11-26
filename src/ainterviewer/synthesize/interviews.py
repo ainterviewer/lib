@@ -11,12 +11,7 @@ from pydantic import UUID4
 
 from ainterviewer.agents import AnsweringAgent
 from ainterviewer.config import read_agent_configs, read_interview_config
-from ainterviewer.interfaces import (
-    IOProtocol,
-    OutgoingData,
-    OutgoingMessage,
-    PersistenceProtocol,
-)
+from ainterviewer.interfaces import IOProtocol, OutgoingData, OutgoingMessage
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides.interview_guide import Image, InterviewGuideContent
 from ainterviewer.interview_guides.survey_item import SurveyItem
