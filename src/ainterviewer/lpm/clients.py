@@ -62,7 +62,7 @@ async def chat(
         # see ainterviewer.lpm.utils.get_classification_response_tokens
         chat_completion: ModelResponse = await chat(
             model=model,
-            api_key=settings.secrets.openai_api_key,
+            api_key=settings.secrets.openai_api_key.get_secret_value(),
             reasoning_effort="minimal",
         )
     elif model.startswith("gemini/"):
@@ -95,7 +95,7 @@ async def chat(
 
         chat_completion: ModelResponse = await chat(
             api_base=server_endpoint,
-            api_key=settings.secrets.vllm_api_key,
+            api_key=settings.secrets.vllm_api_key.get_secret_value(),
             **model_kwargs,
         )
 
