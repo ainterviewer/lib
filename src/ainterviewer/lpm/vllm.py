@@ -77,6 +77,7 @@ class VLLMModelConfig(BaseModel):
     @field_validator("model")
     def validate_model(cls, model: str) -> str:
         if settings.llm.model_storage == "s3_bucket":
+            # FIXME: This should not be hardcoded
             return "s3://ainterviewer-sodas/data/llms/" + model.split("/")[-1]
         return model
 

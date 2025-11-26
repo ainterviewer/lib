@@ -69,11 +69,6 @@ class DatabaseType(StrEnum):
     POSTGRESQL = "postgresql"
 
 
-class EC2Access(StrEnum):
-    PRIVATE = "private"
-    PUBLIC = "public"
-
-
 class Feedback(StrEnum):
     POSITIVE = "positive"
     NEGATIVE = "negative"
