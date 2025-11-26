@@ -27,7 +27,6 @@ class LLMSettings(BaseModel):
     llm_host: str = "0.0.0.0"
     llm_port: int = 8880
     model_storage: Literal["local", "s3_bucket"] = "local"
-    vllm_api_key: str = ""
     available_models: list[str] = Field(default_factory=lambda: ["gpt-5-mini"])
     default_model: str = "gpt-5-mini"
     seed: int = 4268
@@ -42,6 +41,7 @@ class Secrets(BaseSettings):
     openai_api_key: SecretStr | None = None
     google_ai_api_key: SecretStr | None = None
     openrouter_api_key: SecretStr | None = None
+    vllm_api_key: SecretStr = SecretStr("")
 
     model_config = BaseSettingsConfigDict(env_prefix="")
 
