@@ -6,8 +6,7 @@ bump TYPE: && publish
 
 publish:
   #!/usr/bin/env bash
-  #
-  VERSION="$(uv run -m ainterviewer --version)"
+  VERSION="$(uv version --short)"
 
   uv sync
   git add .
