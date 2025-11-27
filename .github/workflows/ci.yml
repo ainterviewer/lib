@@ -10,14 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
         with:
           python-version-file: "pyproject.toml"
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - run: uv sync --locked --dev
-      # - run: uv run ruff check .
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync environment
+        run: uv sync --locked --dev
+
+      - run: uv run ruff check src
       - run: uv run ruff format --check src
       # - run: uv run pytest -q
 
