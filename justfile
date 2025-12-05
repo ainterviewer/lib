@@ -6,12 +6,11 @@ default:
 release VERSION: && publish
     uv version {{ VERSION }}
 
-# TYPE = major, minor, patch. RC=rc to add dev
+# TYPE = major, minor, patch. --rc to act as staging release
 [group("Release")]
 bump TYPE RC="": && publish
-    uv version --bump {{ TYPE }} {{ if RC == "rc" { "--bump rc" } else { "" } }}
+    uv version --bump {{ TYPE }} {{ if RC == "--rc" { "--bump rc" } else { "" } }}
 
-[group("Release")]
 stage:
     uv version --bump rc
 
