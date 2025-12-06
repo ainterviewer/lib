@@ -2,10 +2,11 @@
 default:
     @just --list
 
-[doc("Bump: supply TYPE (major/minor/patch). Add --rc to initialize a new release candidate (used in staging builds).
+[doc("Bump: supply TYPE (major/minor/patch/rc/stable). Add --rc to initialize a new release candidate (used in staging builds).
 Examples:
-  just bump TYPE=patch
-  just bump TYPE=minor --rc")]
+  just bump patch
+  just bump minor --rc
+  just bump stable")]
 [group("Release")]
 bump TYPE RC="":
     #!/usr/bin/env bash
