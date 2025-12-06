@@ -8,7 +8,7 @@ Examples:
   just bump minor --rc
   just bump stable")]
 [group("Release")]
-bump TYPE RC="":
+bump TYPE RC="": && publish
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -25,7 +25,7 @@ bump TYPE RC="":
         uv version --bump {{ TYPE }}
     fi
 
-[group("Release")]
+[private]
 publish:
     #!/usr/bin/env bash
     set -euo pipefail
