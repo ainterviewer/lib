@@ -39,12 +39,12 @@ publish:
 
     # If VERSION does NOT end with "rc"
     if [[ ! "$VERSION" =~ rc ]]; then
-        echo "Creating/Updating 'latest' tag"
-        git tag -f latest
+        echo "Creating/Updating 'latest-stable' tag"
+        git tag -f latest-stable
     fi
 
     git push --follow-tags
     # Push latest tag if updated
     if [[ ! "$VERSION" =~ rc ]]; then
-        git push -f origin latest
+        git push -f origin latest-stable
     fi
