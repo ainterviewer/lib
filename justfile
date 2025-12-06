@@ -2,17 +2,10 @@
 default:
     @just --list
 
-[group("Release")]
-release VERSION: && publish
-    uv version {{ VERSION }}
-
-# TYPE = major, minor, patch. --rc to act as staging release
+# Supply `major, minor, patch` (followed by `--rc` to initialize as a new staging release). Or `just bump rc` to bump the current rc version.
 [group("Release")]
 bump TYPE RC="": && publish
     uv version --bump {{ TYPE }} {{ if RC == "--rc" { "--bump rc" } else { "" } }}
-
-stage:
-    uv version --bump rc
 
 [group("Release")]
 publish:
