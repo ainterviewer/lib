@@ -1,5 +1,5 @@
 base:
-  model: "gemma3-27b"
+  model: "gpt-oss-120b"
   temperature: 1
 probing:
   few_shot_examples:
@@ -9,7 +9,6 @@ probing:
     - Kan du give et eksempel?
     - Hvad tænkte du i øjeblikket?
     - Hvordan påvirkede det dig?
-    - Hvad gjorde du konkret?
     - Hvorfor er det vigtigt for dig?
     - Hvad betyder det for dig?
 classification:

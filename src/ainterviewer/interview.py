@@ -120,6 +120,7 @@ class AInterviewer:
         }
 
         self.probing_agent = ProbingAgent(
+            interview_framing=interview_guide.framing,
             few_shot_examples=_agent_configs["probing"].pop("few_shot_examples"),
             template_loader=template_loader,
             model=agent_configs.probing.model,
@@ -609,6 +610,11 @@ class AInterviewer:
 
         # https://s.epinionglobal.com/mrIWeb/mrIWeb.srf?I.Project=P2100211_TEST&i.user2=n&i.user5=complete&id=ID1
 
+        if question.alternative_main_questions:
+            question.main_question = random.choice(
+                question.alternative_main_questions + [question.main_question]
+            )
+
         if question.variables:
             question.main_question = fill_variables_in_message(
                 text=question.main_question,
@@ -987,9 +993,11 @@ class AInterviewer:
             additional_guidelines=additional_guidelines,
         )
 
+        self.probing_agent.logger.info(f"Reformulating question: {prompt}")
         message = await self.probing_agent.chat_api(
             [{"role": "user", "content": prompt}]
         )
+        self.probing_agent.logger.info(f"Reformulating question: {message}")
 
         time_spend = time.time() - start_time
 

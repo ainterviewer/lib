@@ -7,6 +7,7 @@ from ainterviewer.utils import get_language_dict
 class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
     def __init__(
         self,
+        interview_framing: str | None,
         few_shot_examples: list[str] | None = None,
         *args,
         **kwargs,
@@ -14,6 +15,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         """An agent that probes an interviewee based on an interview an interview guide and the answers."""
         super().__init__(*args, **kwargs)
 
+        self.interview_framing = interview_framing
         self.few_shot_examples = few_shot_examples
         self.messages = [
             {"role": MessageRole.SYSTEM, "content": self.prompts.system_prompt},
@@ -35,6 +37,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         )
 
         probing_prompt = self.prompts.generate_probing_prompt(
+            interview_framing=self.interview_framing,
             section_description=section_description,
             question_description=question_description,
             main_question=main_question,

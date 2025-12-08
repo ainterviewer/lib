@@ -1,28 +1,36 @@
+import sqlite3
+
 import polars as pl
 
 from .utils import get_device
 
 
 def read_from_database(
-    db_uri: str = "sqlite://app/db.sqlite",
+    db_path: str = "app/db.sqlite",
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    projects = pl.read_database_uri(
-        uri=db_uri, query="SELECT * FROM project", engine="adbc"
+    conn = sqlite3.connect(db_path)
+
+    projects = pl.read_database(
+        query="SELECT * FROM project",
+        connection=conn,
     )
 
-    interviews = pl.read_database_uri(
-        uri=db_uri,
-        query="SELECT * FROM interview",
-        engine="adbc",
-    ).with_columns(
+    interviews = pl.read_database(query="SELECT * FROM interview", connection=conn)
+    interviews = interviews.with_columns(
         created_at=pl.col("created_at").str.to_datetime(
-            format="%Y-%m-%d %H:%M:%S%.6f", time_unit="ms"
+            format="%Y-%m-%d %H:%M:%S%.6f",
+            time_unit="ms",
+            strict=False,
         ),
         device=pl.col("user_agent").map_elements(get_device),
     )
 
     messages = (
-        pl.read_database_uri(uri=db_uri, query="SELECT * FROM message", engine="adbc")
+        pl.read_database(
+            query="SELECT * FROM message",
+            connection=conn,
+            schema_overrides={"feedback": pl.String},
+        )
         .with_columns(
             created_at=pl.col("created_at").str.to_datetime(
                 format="%Y-%m-%d %H:%M:%S%.6f", time_unit="ms"

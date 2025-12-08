@@ -180,6 +180,10 @@ class Question(BaseModel):
         description="A description of the question, may be used to reformulate the question and improve the relevance of the probes.",
     )
     main_question: str = Field(description="The question to ask the interviewee")
+    alternative_main_questions: list[str] | None = Field(
+        None,
+        description="List of alternative formulations of the main question, will be chosen at random.",
+    )
     probes: Optional[list[str]] = Field(
         None,
         description="A list of possible follow-up questions to ask after the main question",

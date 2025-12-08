@@ -52,12 +52,11 @@ class ProbingAgentPrompts(BasePrompts):
         self.system_prompt = self.generate_system_prompt()
 
     def generate_system_prompt(self) -> str:
-        return self.get_template("probing_agent_system_prompt.jinja").render(
-            end_of_probe=CustomTokens.end_of_probe
-        )
+        return self.get_template("probing_agent_system_prompt.jinja").render()
 
     def generate_probing_prompt(
         self,
+        interview_framing: str,
         section_description: str,
         question_description: str,
         main_question: str,
@@ -67,6 +66,7 @@ class ProbingAgentPrompts(BasePrompts):
         few_shot_examples: list[str] | None = None,
     ) -> str:
         return self.get_template("probing_agent_instruction_prompt.jinja").render(
+            interview_framing=interview_framing,
             section_description=section_description,
             question_description=question_description,
             main_question=main_question,

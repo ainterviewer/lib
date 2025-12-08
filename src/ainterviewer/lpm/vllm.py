@@ -64,9 +64,11 @@ class VLLMModelConfig(BaseModel):
     gpu_memory_utilization: float | None = Field(0.95, ge=0, le=1)
     max_model_len: Optional[int] = None
     max_num_seq: Optional[int] = 20
-    max_seq_len_to_capture: Optional[int] = None
     quantization: Optional[QuantizationMethods] = None
     load_format: Optional[str] = None
+    async_scheduling: Optional[bool] = None
+    tensor_parallel_size: Optional[int] = None
+    enable_expert_parallel: Optional[bool] = None
     enforce_eager: Optional[bool] = None
     enable_chunked_prefill: Optional[bool] = True
     served_model_name: Optional[str] = None
@@ -90,16 +92,6 @@ class VLLMModelConfig(BaseModel):
                 )
             return "runai_streamer"
         return load_format
-
-    @model_validator(mode="after")
-    def validate_config(self):
-        if self.max_seq_len_to_capture is not None and self.max_model_len is not None:
-            self.max_seq_len_to_capture = min(
-                self.max_seq_len_to_capture, self.max_model_len
-            )
-        else:
-            self.max_seq_len_to_capture = self.max_model_len
-        return self
 
 
 class VLLMModelConfigs(RootModel):
@@ -139,9 +131,14 @@ VLLM_MODEL_CONFIGS = VLLMModelConfigs(
         },
         "gpt-oss-120b": {
             "model": "openai/gpt-oss-120b",
-            "served_model_name": "gpt-oss-120b",
+            "served_model_name": "openai/gpt-oss-120b",
             "max_model_len": 8000,
             # "max_num_seq": 512,
+            "tensor_parallel_size": 4,
+            "max_num_seq": 16,
+            "async_scheduling": True,
+            "enforce_eager": True,
+            "enable_expert_parallel": True,
             "limit_mm_per_prompt": {"image": 0, "video": 0},
             "mm_preprocessor_cache_gb": 0,
         },

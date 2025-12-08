@@ -54,7 +54,7 @@ async def chat(
             model=model,
             provider={"order": ["deepinfra"]},
             api_key=settings.secrets.openrouter_api_key.get_secret_value(),
-            reasoning_effort="minimal",
+            reasoning_effort="low",
         )
     elif model.startswith("openai/"):
         # TODO:
@@ -87,11 +87,31 @@ async def chat(
             else model
         )
 
-        if guided_choice:
-            model_kwargs["extra_body"] = dict(guided_choice=guided_choice)
-
         if model in ("gpt-oss-120b"):
             model_kwargs["reasoning_effort"] = "low"
+            model_kwargs["top_k"] = 3
+
+            if guided_choice is None:
+                # TODO:
+                # - this should be model based and maybe also question based.
+                # - maybe they should be words, and tokens fetched and cached from the api.
+                # - how to implement in interface.
+                print("Applying logit bias")
+                model_kwargs["logit_bias"] = {
+                    # Negative
+                    4157: -3,  #  kun
+                    65512: -7,  # Kan
+                    98936: -5,  # Kunne
+                    11: -7,  # ,
+                    80750: -15,  # konkre
+                    102719: -15,  #  konkret
+                    12855: -15,  #  specif
+                    # Positive
+                    73760: 5,  # Tak
+                    30: 7,  # ?
+                }
+        elif guided_choice:
+            model_kwargs["extra_body"] = dict(guided_choice=guided_choice)
 
         chat_completion: ModelResponse = await chat(
             api_base=server_endpoint,
