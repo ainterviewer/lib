@@ -98,6 +98,7 @@ class InterviewHistory(BaseModel):
     def get_transcript(
         self,
         section_range: SectionsRange = None,
+        with_introduction: bool = True,
         with_descriptions: bool = False,
         with_images: bool = True,
         with_excludes: bool = False,
@@ -106,7 +107,7 @@ class InterviewHistory(BaseModel):
 
         transcript = ""
 
-        if introduction := self.introduction:
+        if with_introduction and (introduction := self.introduction):
             transcript += "Q: " + introduction.message + "\n\n"
 
         for section in sections:
