@@ -74,14 +74,6 @@ def fill_variables_in_message(
 class InterviewGuideContent(BaseModel):
     """A guide for the interviewer to follow during the interview."""
 
-    consent: SkipJsonSchema[Consent | None] = Field(
-        None,
-        description="Object containing text for the consent modal, that the user should accept before the interview can begin",
-    )
-    welcome: SkipJsonSchema[Welcome | None] = Field(
-        None,
-        description="Object containing text and relevant information, which will be displayed in a modal after the user has consented to their participation, and before the actual interview starts.",
-    )
     framing: Optional[str] = Field(
         None,
         description="A description of the interview and its purpose. Only used by the model.",
