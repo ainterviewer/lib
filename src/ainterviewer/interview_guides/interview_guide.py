@@ -6,7 +6,6 @@
 # interview easier.
 # - Consider refactoring:
 #   - Question into image, survey items and conditions as separate classes
-#   - Should all messages have a language specification?
 # - Add SkipJsonSchema to fields that shouldn't be considered in the
 # json schema --> This will help when giving the schema to the AI as a response
 # model
@@ -23,11 +22,9 @@ from pydantic.json_schema import SkipJsonSchema
 
 from ainterviewer.constants import FP_ASSETS_DIR
 from ainterviewer.interview_guides.conditions import Condition
-from ainterviewer.interview_guides.extra import Consent, Welcome
 from ainterviewer.interview_guides.references import Reference
 from ainterviewer.interview_guides.survey_item import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
-from ainterviewer.types import LanguageCode
 from ainterviewer.utils import encode_image
 
 
@@ -185,9 +182,6 @@ class Question(BaseModel):
     )
     max_probes_time: Optional[float] = Field(
         None, gt=0, description="Max time to spend on probing, in seconds"
-    )
-    language: LanguageCode = Field(
-        "EN", description="The language of the main question"
     )
     variables: SkipJsonSchema[Optional[list[str]]] = Field(
         None,
