@@ -1,0 +1,200 @@
+{
+    "framing": "This interview guide is designed for an AI-driven qualitative interview with participants of the International Conference on Computational Social Science (IC2S2). The goal is to collect in-depth, reflective data about attendees' experiences at the conference, their motivations for doing computational social science (CSS) research, and the key challenges they face in the field. Questions emphasize concrete examples, decision-making, collaboration, tooling, ethics, and future directions. The guide is structured to flow from rapport-building and experience-focused questions, to motivation and career-related topics, and then to challenges, barriers, and suggestions for community or conference improvements. Probes are provided to help the interviewer elicit richer, more detailed answers, including behavioral examples, comparisons, and follow-up clarifications. Use the section and question descriptions to adapt phrasing to the interview context (e.g., early-career vs senior researcher, academic vs industry participant).",
+    "introduction": "Hello \u2014 thank you for agreeing to speak with me. I\u2019m conducting short interviews with attendees of IC2S2 to learn about researchers\u2019 experiences, motivations, and challenges in computational social science. There are no right or wrong answers; I\u2019m interested in your perspectives and examples. This interview should take about 20\u201330 minutes. You can skip any question you prefer not to answer. Shall we begin?",
+    "question_sections": [
+        {
+            "description": "Section 1: Conference experience and research practices. This section aims to build rapport and gather concrete, recent examples of how the participant engages with computational social science in practice, especially within the context of IC2S2. Ask about what drew them to the conference, highlights from sessions or posters, and how conference interactions connect to their day-to-day research (methods, data, tools, collaborators). Use probes to surface specific vignettes, tools/tech stacks, and decisions that reflect their methodological approach.",
+            "questions": [
+                {
+                    "description": "Ask about the participant\u2019s recent experiences at IC2S2 and how those experiences relate to their ongoing computational social science work. The goal is to get concrete examples of sessions or interactions that influenced their thinking or practice, and to surface the methods and tools they use.",
+                    "main_question": "Tell me about your experience at this year's IC2S2. Which sessions, talks, posters, or conversations stood out to you, and why?",
+                    "alternative_main_questions": [
+                        "What parts of IC2S2 were most valuable or memorable for you this year?",
+                        "Can you describe one or two moments at the conference that influenced your research thinking or practice?"
+                    ],
+                    "probes": [
+                        "Can you give a concrete example (a talk, paper, or conversation) and explain what specifically resonated with you?",
+                        "Did you learn about any new methods, datasets, or software? Which ones and how might you use them?",
+                        "Were there networking interactions that may lead to collaboration? What was discussed?",
+                        "How did the conference content align with your current projects or interests?"
+                    ],
+                    "max_probes_n": 4,
+                    "max_probes_time": 180.0,
+                    "can_answer": true,
+                    "exclude_from_history": false,
+                    "check_if_answered": true,
+                    "check_if_exhausted": true,
+                    "can_skip": true,
+                    "shuffle": false,
+                    "create_segue": true,
+                    "n_question": 0,
+                    "index": [
+                        0,
+                        0
+                    ],
+                    "variables": null,
+                    "survey_item": null,
+                    "references": null,
+                    "image": null,
+                    "user_image": false,
+                    "condition": null,
+                    "probing_context": null
+                }
+            ],
+            "shuffle": false
+        },
+        {
+            "description": "Section 2: Motivations, goals, and career context. This section explores why the participant works in computational social science, what drives their choice of questions and methods, and how they see their professional identity (e.g., social scientist using computation; computer scientist studying social systems; interdisciplinary role). The interviewer should draw out career stage influences, intended societal impact, and how conference participation supports these goals.",
+            "questions": [
+                {
+                    "description": "Ask about the participant's motivations for engaging in computational social science, including what questions or impacts they care about and how their background shapes their approach. Elicit whether motivations are academic, practical, or policy-oriented, and whether the conference helps advance these goals.",
+                    "main_question": "What motivates your work in computational social science, and how does that motivation shape the kinds of questions you pursue and the methods you choose?",
+                    "alternative_main_questions": [
+                        "Why do you do computational social science, and what outcomes are most important to you?",
+                        "How do your personal or professional goals influence the research topics and methods you prioritize?"
+                    ],
+                    "probes": [
+                        "Are you motivated more by theory-building, practical problem solving, policy impact, or methodological innovation?",
+                        "How has your disciplinary background (e.g., sociology, computer science, data science, public policy) influenced your research priorities?",
+                        "Do you see your research as contributing to academic knowledge, public policy, industry practice, or public understanding? Examples?",
+                        "Has attending IC2S2 helped you advance any of these motivations or goals? How?"
+                    ],
+                    "max_probes_n": 4,
+                    "max_probes_time": 180.0,
+                    "can_answer": true,
+                    "exclude_from_history": false,
+                    "check_if_answered": true,
+                    "check_if_exhausted": true,
+                    "can_skip": true,
+                    "shuffle": false,
+                    "create_segue": true,
+                    "n_question": 1,
+                    "index": [
+                        1,
+                        0
+                    ],
+                    "variables": null,
+                    "survey_item": null,
+                    "references": null,
+                    "image": null,
+                    "user_image": false,
+                    "condition": null,
+                    "probing_context": null
+                },
+                {
+                    "description": "Ask about the participant\u2019s trajectory and future plans in CSS: career stage, skills they want to gain, and how they expect the field or their role to evolve. This helps contextualize motivations and identifies support needs (training, community, resources).",
+                    "main_question": "How do you see your career or role in computational social science evolving over the next few years, and what skills or resources would help you get there?",
+                    "alternative_main_questions": [
+                        "What are your short- and medium-term goals in CSS, and what would help you achieve them?",
+                        "Are there skills, collaborations, or resources you\u2019re hoping to develop after attending IC2S2?"
+                    ],
+                    "probes": [
+                        "Are you aiming to move into more interdisciplinary leadership, applied work, or methodological development?",
+                        "What training, tools, or mentorship do you currently lack?",
+                        "Would different conference formats or community offerings (workshops, mentoring programs) help? Which ones?"
+                    ],
+                    "max_probes_n": 3,
+                    "max_probes_time": 120.0,
+                    "can_answer": true,
+                    "exclude_from_history": false,
+                    "check_if_answered": true,
+                    "check_if_exhausted": true,
+                    "can_skip": true,
+                    "shuffle": false,
+                    "create_segue": true,
+                    "n_question": 2,
+                    "index": [
+                        1,
+                        1
+                    ],
+                    "variables": null,
+                    "survey_item": null,
+                    "references": null,
+                    "image": null,
+                    "user_image": false,
+                    "condition": null,
+                    "probing_context": null
+                }
+            ],
+            "shuffle": false
+        },
+        {
+            "description": "Section 3: Challenges, barriers, and recommendations. This section probes the practical, methodological, ethical, and institutional challenges participants encounter in CSS research and at conferences like IC2S2. It should surface pain points (data access, reproducibility, interdisciplinarity, peer review, funding, ethics), the participant\u2019s coping strategies, and suggestions for community or conference improvements. Encourage specific examples and actionable recommendations.",
+            "questions": [
+                {
+                    "description": "Ask the participant to identify the main challenges they face in computational social science research (technical, social, institutional, ethical), and to give concrete examples of how these challenges manifest in their work.",
+                    "main_question": "What are the biggest challenges or barriers you face when doing computational social science research?",
+                    "alternative_main_questions": [
+                        "When you encounter difficulties in your CSS work, what kinds of problems come up most often?",
+                        "Can you describe particular obstacles\u2014technical, ethical, institutional\u2014that have affected your projects?"
+                    ],
+                    "probes": [
+                        "Do you face issues with data availability, data quality, or access restrictions? Examples?",
+                        "How do you handle reproducibility and replicability concerns in your work?",
+                        "Have interdisciplinary collaborations posed communication or reward-structure challenges?",
+                        "Have you encountered ethical dilemmas (consent, privacy, harms) and how were they addressed?"
+                    ],
+                    "max_probes_n": 5,
+                    "max_probes_time": 240.0,
+                    "can_answer": true,
+                    "exclude_from_history": false,
+                    "check_if_answered": true,
+                    "check_if_exhausted": true,
+                    "can_skip": true,
+                    "shuffle": false,
+                    "create_segue": true,
+                    "n_question": 3,
+                    "index": [
+                        2,
+                        0
+                    ],
+                    "variables": null,
+                    "survey_item": null,
+                    "references": null,
+                    "image": null,
+                    "user_image": false,
+                    "condition": null,
+                    "probing_context": null
+                },
+                {
+                    "description": "Ask for the participant\u2019s concrete recommendations for how IC2S2, funders, journals, or the broader CSS community could better support researchers\u2014particularly in addressing the challenges identified. Encourage specific, actionable suggestions rather than only general praise or criticism.",
+                    "main_question": "What changes or supports would you recommend to IC2S2 organizers, funders, journals, or the broader community to better support computational social science researchers?",
+                    "alternative_main_questions": [
+                        "If you could ask the conference organizers or community to implement one or two changes to improve CSS research practice, what would they be?",
+                        "What practical steps could be taken to reduce the barriers you mentioned?"
+                    ],
+                    "probes": [
+                        "Would more data-sharing infrastructure, reproducibility checklists, ethics workshops, or mentorship programs help? Which and why?",
+                        "Are there incentives that could be adjusted (e.g., publication norms, hiring/promotion criteria) to better accommodate interdisciplinary work?",
+                        "Do you have suggestions for improving conference formats to foster collaboration and training?"
+                    ],
+                    "max_probes_n": 4,
+                    "max_probes_time": 180.0,
+                    "can_answer": true,
+                    "exclude_from_history": false,
+                    "check_if_answered": true,
+                    "check_if_exhausted": true,
+                    "can_skip": true,
+                    "shuffle": false,
+                    "create_segue": true,
+                    "n_question": 4,
+                    "index": [
+                        2,
+                        1
+                    ],
+                    "variables": null,
+                    "survey_item": null,
+                    "references": null,
+                    "image": null,
+                    "user_image": false,
+                    "condition": null,
+                    "probing_context": null
+                }
+            ],
+            "shuffle": false
+        }
+    ],
+    "outro": "Thank you for your time and thoughtful responses. Is there anything else about your experience in computational social science or IC2S2 that you\u2019d like to add? If you\u2019re open to follow-up contact, please let us know how we can reach you (this is optional). We appreciate your contribution to understanding and improving the CSS research community.",
+    "alt_outro": null,
+    "timed_message": null
+}
