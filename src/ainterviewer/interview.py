@@ -1,5 +1,6 @@
 import asyncio
 import json
+import random
 import re
 import time
 from datetime import datetime
@@ -34,8 +35,11 @@ from ainterviewer.interview_guides import (
     DecimalString,
     Image,
     InterviewGuide,
+    InterviewMessage,
     Question,
+    TimedMessage,
     evaluate_condition,
+    fill_variables_in_message,
 )
 from ainterviewer.interview_guides.history import (
     HistoryMessage,
@@ -43,12 +47,7 @@ from ainterviewer.interview_guides.history import (
     InterviewHistory,
     Turn,
 )
-from ainterviewer.interview_guides.interview_guide import (
-    InterviewMessage,
-    TimedMessage,
-    fill_variables_in_message,
-)
-from ainterviewer.interview_guides.survey_item import SurveyItem
+from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
 from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import CustomTokens
@@ -819,7 +818,7 @@ class AInterviewer:
             project_id=self.project_id,
             task="evaulate_condition",
             content=condition.model_dump_json(),
-            response=condition_triggered,
+            response=str(condition_triggered),
         )
 
         if condition_triggered:

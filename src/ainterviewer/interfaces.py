@@ -4,8 +4,8 @@ from typing import Literal, Optional, Protocol
 
 from pydantic import UUID4, BaseModel, Field, FilePath, field_validator
 
-from ainterviewer.interview_guides.interview_guide import Image
-from ainterviewer.interview_guides.survey_item import SurveyItem
+from ainterviewer.interview_guides import Image
+from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.types import Feedback, MessageRole, MessageType
 
 

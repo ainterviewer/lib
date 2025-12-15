@@ -13,8 +13,7 @@ from ainterviewer.agents import AnsweringAgent
 from ainterviewer.config import read_agent_configs, read_interview_config
 from ainterviewer.interfaces import IOProtocol, OutgoingData, OutgoingMessage
 from ainterviewer.interview import AInterviewer
-from ainterviewer.interview_guides.interview_guide import Image, InterviewGuide
-from ainterviewer.interview_guides.survey_item import SurveyItem
+from ainterviewer.interview_guides import Image, InterviewGuide, SurveyItem
 from ainterviewer.lpm.clients import chat
 from ainterviewer.prompts.models import DEFAULT_PROMPTS
 from ainterviewer.synthesize.interviewees import (
