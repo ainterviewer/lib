@@ -13,7 +13,7 @@ from ainterviewer.agents import AnsweringAgent
 from ainterviewer.config import read_agent_configs, read_interview_config
 from ainterviewer.interfaces import IOProtocol, OutgoingData, OutgoingMessage
 from ainterviewer.interview import AInterviewer
-from ainterviewer.interview_guides.interview_guide import Image, InterviewGuideContent
+from ainterviewer.interview_guides.interview_guide import Image, InterviewGuide
 from ainterviewer.interview_guides.survey_item import SurveyItem
 from ainterviewer.lpm.clients import chat
 from ainterviewer.prompts.models import DEFAULT_PROMPTS
@@ -182,7 +182,7 @@ async def run_synthetic_answering_agent(
     interview_config = read_interview_config(interview_config_path)
 
     with Path(interview_guide_path).open() as f:
-        interview_guide = InterviewGuideContent.model_validate(json.load(f))
+        interview_guide = InterviewGuide.model_validate(json.load(f))
 
     agent_configs = read_agent_configs(agent_configs_path)
 

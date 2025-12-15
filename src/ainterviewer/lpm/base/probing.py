@@ -1,10 +1,10 @@
-from ainterviewer.interview_guides.interview_guide import InterviewGuideContent
+from ainterviewer.interview_guides.interview_guide import InterviewGuide
 from ainterviewer.lpm.base.utils import ProbingAgent
 
 probing_agent = ProbingAgent()
 
 with open("data/interview_guides/green_transition.json") as f:
-    interview_guide = InterviewGuideContent.model_validate_json(f.read())
+    interview_guide = InterviewGuide.model_validate_json(f.read())
 
 
 interview = [

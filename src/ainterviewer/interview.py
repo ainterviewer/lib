@@ -33,7 +33,7 @@ from ainterviewer.interview_guides import (
     ConditionAction,
     DecimalString,
     Image,
-    InterviewGuideContent,
+    InterviewGuide,
     Question,
     evaluate_condition,
 )
@@ -60,7 +60,7 @@ class AInterviewer:
         self,
         io: IOProtocol,
         db: PersistenceProtocol,
-        interview_guide: InterviewGuideContent,
+        interview_guide: InterviewGuide,
         config: InterviewConfig,
         agent_configs: AgentConfigs,
         project_id: UUID4,

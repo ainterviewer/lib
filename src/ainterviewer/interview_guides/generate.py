@@ -1,9 +1,14 @@
 import json
+from functools import partial
 
+from asyncer import syncify
 from openai import AsyncOpenAI
 from typer import Typer
 
-from ainterviewer.interview_guides.interview_guide import InterviewGuideContent
+from ainterviewer.interview_guides.interview_guide import (
+    InterviewGuide,
+    InterviewGuideTemplate,
+)
 from ainterviewer.lpm.types import Message
 from ainterviewer.settings import settings
 
@@ -15,6 +20,7 @@ _DUMMY_PROMPT = "Create an interview guide targeted at participants of the IC2S2
 
 
 @cli.command()
+@partial(syncify, raise_sync_error=False)
 async def generate_interview_guide(prompt: str, *, output_path: str | None):
     """Generate an interview guide based on the InterviewGuideContent structure and a given prompt."""
     messages = [
@@ -35,18 +41,13 @@ async def generate_interview_guide(prompt: str, *, output_path: str | None):
     response = await client.responses.parse(
         model="gpt-5-mini",
         input=messages,
-        text_format=InterviewGuideContent,
+        text_format=InterviewGuideTemplate,
         reasoning={
             "effort": "minimal",
         },
     )
 
-    interview_guide = response.output_parsed
-
-    if interview_guide is None:
-        raise ValueError(
-            "Failed to parse the response into an InterviewGuideContent object."
-        )
+    interview_guide = InterviewGuide.model_validate_json(response.output_text)
 
     if output_path:
         with open(output_path, "w") as f:

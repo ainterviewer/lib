@@ -3,12 +3,12 @@ from ainterviewer.interview_guides.conditions import (
     ConditionAction,
     evaluate_condition,
 )
+from ainterviewer.interview_guides.images import Image
 from ainterviewer.interview_guides.interview_guide import (
     DecimalString,
-    Image,
-    InterviewGuideContent,
-    Question,
+    InterviewGuide,
 )
+from ainterviewer.interview_guides.questions import Question
 
 __all__ = [
     "Condition",
@@ -16,6 +16,6 @@ __all__ = [
     "DecimalString",
     "evaluate_condition",
     "Image",
-    "InterviewGuideContent",
+    "InterviewGuide",
     "Question",
 ]

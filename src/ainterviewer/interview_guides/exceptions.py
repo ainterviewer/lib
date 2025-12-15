@@ -1,0 +1,2 @@
+class OverwriteError(Exception):
+    pass
