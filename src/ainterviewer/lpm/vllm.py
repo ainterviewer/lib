@@ -3,14 +3,7 @@ from __future__ import annotations
 import warnings
 from typing import Literal, Optional
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    RootModel,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
 
 from ainterviewer.settings import settings
 

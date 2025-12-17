@@ -7,7 +7,6 @@ They are not supposed to be imported directly,
 
 import jinja2
 
-from ainterviewer.lpm.types import CustomTokens
 from ainterviewer.prompts.language_map import LANGUAGE_MAP
 from ainterviewer.prompts.models import BasePrompts
 from ainterviewer.synthesize.interviewees import InterviewSubject
