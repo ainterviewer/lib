@@ -1,9 +1,6 @@
 import json
-from functools import partial
 
-from asyncer import syncify
 from openai import AsyncOpenAI
-from typer import Typer
 
 from ainterviewer.interview_guides.interview_guide import (
     InterviewGuide,
@@ -12,15 +9,11 @@ from ainterviewer.interview_guides.interview_guide import (
 from ainterviewer.lpm.types import Message
 from ainterviewer.settings import settings
 
-cli = Typer()
-
 client = AsyncOpenAI(api_key=settings.secrets.openai_api_key.get_secret_value())
 
 _DUMMY_PROMPT = "Create an interview guide targeted at participants of the IC2S2 computational social science conference. The interview guide should be structured to gather insights on the participants' experiences, motivations, and challenges in computational social science research."
 
 
-@cli.command()
-@partial(syncify, raise_sync_error=False)
 async def generate_interview_guide(prompt: str, *, output_path: str | None):
     """Generate an interview guide based on the InterviewGuideContent structure and a given prompt."""
     messages = [
@@ -57,4 +50,4 @@ async def generate_interview_guide(prompt: str, *, output_path: str | None):
 
 
 if __name__ == "__main__":
-    cli()
+    raise NotImplementedError("CLI not implemented because of async")

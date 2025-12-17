@@ -91,7 +91,10 @@ class InterviewGuideBase(BaseModel, Generic[Q]):
         self.index_questions()
 
     def reduce(self):
-        """Reduce the interview guide to contain one probe per main question"""
+        """Reduce the interview guide to contain one probe per main question.
+        Used as a utility when synthesizing fixed answers.
+        """
+
         for section in self.question_sections:
             for question in section.questions:
                 if question.can_answer:
