@@ -1,11 +1,9 @@
 name: release
 on:
   push:
-    branches: [main]
     tags:
       - "v*.*.*"
       - "v*.*.*rc*"
-  pull_request:
 
 jobs:
   test:
