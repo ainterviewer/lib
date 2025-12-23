@@ -1,5 +1,5 @@
 from ainterviewer.agents.base import BaseAgent
-from ainterviewer.prompts.agent_prompts import HistoryAgentPrompts
+from ainterviewer.agents.prompts.agent_prompts import HistoryAgentPrompts
 from ainterviewer.types import MessageRole
 
 

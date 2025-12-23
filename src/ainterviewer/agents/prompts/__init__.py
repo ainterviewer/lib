@@ -1,4 +1,4 @@
-from ainterviewer.prompts.get_prompts import (
+from ainterviewer.agents.prompts.get_prompts import (
     get_agent_prompts,
     get_prompt_templates,
 )

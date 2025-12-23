@@ -2,13 +2,13 @@
 This module contains the prompt generators for the agents
     in the interview process.
 They are not supposed to be imported directly,
-    but through the `ainterviewer.prompts.get_prompts` module.
+    but through the `ainterviewer.agents.prompts.get_prompts` module.
 """
 
 import jinja2
 
-from ainterviewer.prompts.language_map import LANGUAGE_MAP
-from ainterviewer.prompts.models import BasePrompts
+from ainterviewer.agents.prompts.language_map import LANGUAGE_MAP
+from ainterviewer.agents.prompts.models import BasePrompts
 from ainterviewer.synthesize.interviewees import InterviewSubject
 from ainterviewer.types import LanguageCode
 

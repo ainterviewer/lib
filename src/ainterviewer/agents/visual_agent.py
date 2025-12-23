@@ -2,8 +2,8 @@ from functools import partial
 from typing import Callable
 
 from ainterviewer.agents.base import BaseAgent
+from ainterviewer.agents.prompts.agent_prompts import VisualAgentPrompts
 from ainterviewer.lpm.clients import visual_chat
-from ainterviewer.prompts.agent_prompts import VisualAgentPrompts
 from ainterviewer.types import MessageRole
 
 

@@ -1,24 +1,19 @@
 from pathlib import Path
 from typing import Optional, Type, TypeVar
 
-from jinja2 import (
-    BaseLoader,
-    Environment,
-    PackageLoader,
-    select_autoescape,
-)
+from jinja2 import BaseLoader, Environment, PackageLoader, select_autoescape
 
+from ainterviewer.agents.prompts import agent_prompts
+from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
+from ainterviewer.agents.prompts.models import BasePrompts
 from ainterviewer.exceptions import LanguageNotSupportedError
-from ainterviewer.prompts import agent_prompts
-from ainterviewer.prompts.agent_prompts import ProbingAgentPrompts
-from ainterviewer.prompts.models import BasePrompts
 from ainterviewer.types import LanguageCode
 
 PROMPT_LANGS = [path.name for path in Path(__file__).parent.glob("templates/*/")]
 
 
 def get_prompt_templates(lang: LanguageCode = "EN") -> dict[str, str]:
-    package_loader = PackageLoader("ainterviewer.prompts.templates", lang)
+    package_loader = PackageLoader("ainterviewer.agents.prompts.templates", lang)
 
     env_package = Environment(loader=package_loader, autoescape=select_autoescape())
 

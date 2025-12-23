@@ -10,12 +10,13 @@ from jinja2 import DictLoader
 from pydantic import UUID4
 
 from ainterviewer.agents import AnsweringAgent
-from ainterviewer.config import read_agent_configs, read_interview_config
+from ainterviewer.agents.config import read_agent_configs
+from ainterviewer.agents.prompts.models import DEFAULT_PROMPTS
+from ainterviewer.config import read_interview_config
 from ainterviewer.interfaces import IOProtocol, OutgoingData, OutgoingMessage
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import Image, InterviewGuide, SurveyItem
 from ainterviewer.lpm.clients import chat
-from ainterviewer.prompts.models import DEFAULT_PROMPTS
 from ainterviewer.synthesize.interviewees import (
     BackgroundInfoOptions,
     generate_synthetic_persons,

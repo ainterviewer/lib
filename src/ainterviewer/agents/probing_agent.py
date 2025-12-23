@@ -1,6 +1,6 @@
 from ainterviewer.agents.base import BaseAgent
-from ainterviewer.prompts.agent_prompts import ProbingAgentPrompts
-from ainterviewer.types import MessageRole
+from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
+from ainterviewer.types import LanguageCode, MessageRole
 from ainterviewer.utils import get_language_dict
 
 

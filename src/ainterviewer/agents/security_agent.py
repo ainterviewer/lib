@@ -1,6 +1,6 @@
 from ainterviewer.agents.base import BaseAgent
+from ainterviewer.agents.prompts.agent_prompts import SecurityAgentPrompts
 from ainterviewer.exceptions import SecurityException
-from ainterviewer.prompts.agent_prompts import SecurityAgentPrompts
 from ainterviewer.types import MessageRole
 
 

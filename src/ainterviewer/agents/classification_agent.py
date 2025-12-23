@@ -2,7 +2,7 @@ import re
 
 from ainterviewer.agents.base import BaseAgent
 from ainterviewer.exceptions import ClassificationError
-from ainterviewer.prompts.agent_prompts import ClassificationAgentPrompts
+from ainterviewer.agents.prompts.agent_prompts import ClassificationAgentPrompts
 from ainterviewer.types import MessageRole
 
 

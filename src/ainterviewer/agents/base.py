@@ -3,10 +3,10 @@ from typing import Awaitable, Callable, Generic, Optional, TypeVar
 
 from jinja2 import BaseLoader
 
+from ainterviewer.agents.prompts import get_agent_prompts
+from ainterviewer.agents.prompts.models import BasePrompts
 from ainterviewer.loggers import get_logger
 from ainterviewer.lpm.types import Message
-from ainterviewer.prompts import get_agent_prompts
-from ainterviewer.prompts.models import BasePrompts
 from ainterviewer.types import LanguageCode
 
 PromptT = TypeVar("PromptT", bound="BasePrompts")

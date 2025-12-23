@@ -5,13 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional, Union
 
-from jinja2 import (
-    BaseLoader,
-    Environment,
-    PackageLoader,
-    StrictUndefined,
-    Template,
-)
+from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 from pydantic import BaseModel
 
 from ainterviewer.types import LanguageCode
@@ -99,7 +93,9 @@ class BasePrompts(ABC):
         template_loader: Optional[BaseLoader] = None,
     ):
         if not template_loader:
-            template_loader = PackageLoader("ainterviewer.prompts.templates", lang)
+            template_loader = PackageLoader(
+                "ainterviewer.agents.prompts.templates", lang
+            )
 
         self.env = Environment(loader=template_loader, undefined=StrictUndefined)
 

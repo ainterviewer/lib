@@ -1,7 +1,7 @@
 from random import uniform
 
 from ainterviewer.agents.base import BaseAgent
-from ainterviewer.prompts.agent_prompts import AnsweringAgentPrompts
+from ainterviewer.agents.prompts.agent_prompts import AnsweringAgentPrompts
 from ainterviewer.synthesize.interviewees import InterviewSubject
 from ainterviewer.types import LanguageCode, MessageRole
 from ainterviewer.utils import create_transcript
