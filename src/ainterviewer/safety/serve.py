@@ -12,7 +12,7 @@ app = FastAPI()
 # https://stackoverflow.com/questions/71298179/fastapi-how-to-get-app-instance-inside-a-router#comment135358797_71298949
 
 
-def get_prompt_guard(model: str, device: Device):
+def get_prompt_guard(model: str, device: Device) -> PromptGuard:
     return PromptGuard(model_name=model, device=device)
 
 
