@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     llm: LLMSettings = LLMSettings()
-    secrets: Secrets = Secrets()  # ty: ignore[missing-argument]
+    secrets: Secrets = Secrets()
 
     model_config = BaseSettingsConfigDict(
         toml_file="config.toml",
@@ -75,7 +75,7 @@ class Settings(BaseSettings):
         )
 
 
-settings = Settings()  # ty: ignore[missing-argument]
+settings = Settings()
 
 if __name__ == "__main__":
     print(settings.model_dump_json(indent=4))
