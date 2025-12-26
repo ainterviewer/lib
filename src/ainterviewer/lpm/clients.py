@@ -160,7 +160,7 @@ def visual_chat(
         "stream": stream,
     }
 
-    response = session.post(f"http://{settings.llm.llm_host}/api/chat", json=data)
+    response = session.post(f"http://{settings.llm.llm_endpoint}/api/chat", json=data)
     response.raise_for_status()
 
     return response.json()["message"]["content"]
