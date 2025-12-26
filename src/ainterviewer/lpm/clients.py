@@ -17,7 +17,7 @@ from ainterviewer.settings import settings
 from ainterviewer.types import MessageRole
 from ainterviewer.utils import encode_image
 
-litellm.suppress_debug_info = True
+litellm.suppress_debug_info = True  # ty: ignore[invalid-assignment]
 
 _DUMMY_MESSAGES: list[Message] = [{"role": MessageRole.USER, "content": "Hello"}]
 
