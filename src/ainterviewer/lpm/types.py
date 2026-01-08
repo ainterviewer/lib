@@ -1,3 +1,4 @@
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Literal, NotRequired, TypedDict
 
@@ -10,7 +11,7 @@ class BinaryClassification(BaseModel):
     output: Literal["0", "1"]
 
 
-class CustomTokens:
+class CustomTokens(StrEnum):
     end_of_probe = "<|endofprobe|>"
     end_of_section = "<|endofsection|>"
     end_of_interview = "<|endofinterview|>"
@@ -18,14 +19,11 @@ class CustomTokens:
     skip_section = "<|skipsection|>"
     no_answer = "<|noanswer|>"
     restart_interview = "<|restartinterview|>"
-    all = [
-        end_of_probe,
-        end_of_section,
-        end_of_interview,
-        skip_question,
-        no_answer,
-        restart_interview,
-    ]
+
+    @classmethod
+    @property
+    def all(cls) -> tuple[str, ...]:
+        return tuple(token.value for token in cls)
 
 
 class Message(TypedDict):
