@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, SecretStr, computed_field
+from pydantic import BaseModel, SecretStr, computed_field, Field, field_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -29,6 +29,7 @@ class LLMSettings(BaseModel):
     llm_host: str = "0.0.0.0"
     llm_port: int = 8880
     model_storage: Literal["local", "s3_bucket"] = "local"
+    available_models: list[str] = Field(default_factory=lambda: ["gpt-5-mini"])
     default_model: str = "gpt-5-mini"
     seed: int = 4268
 
@@ -36,6 +37,13 @@ class LLMSettings(BaseModel):
     @property
     def llm_endpoint(self) -> str:
         return f"http://{self.llm_host}:{self.llm_port}"
+
+    @field_validator("default_model")
+    def default_must_be_available(cls, v, info):
+        available = info.data.get("available_models", [])
+        if v not in available:
+            raise ValueError("default_model must be one of available_models")
+        return v
 
 
 class Secrets(BaseSettings):
