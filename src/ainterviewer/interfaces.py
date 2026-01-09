@@ -12,12 +12,12 @@ from ainterviewer.types import Feedback, MessageRole, MessageType
 class ReceivedData(BaseModel):
     type: Literal["message", "image"]
     message_type: MessageType | None = None
-    content: str | None = None
+    content: str
     file: FilePath | None = None
 
     @field_validator("content", mode="before")
     @classmethod
-    def escape_html(cls, v: str | None) -> str | None:
+    def escape_html(cls, v: str) -> str:
         return html.escape(v) if v else v
 
 
@@ -77,7 +77,9 @@ class IOProtocol(Protocol):
     async def send_data(self, data: OutgoingData | OutgoingMessage) -> None: ...
 
     async def receive_message(
-        self, message_type: MessageType | None = None
+        self,
+        message_id: int,
+        message_type: MessageType | None = None,
     ) -> tuple[str, MessageType]: ...
 
 
