@@ -93,20 +93,6 @@ def get_function_signature_as_kwargs(
     return params
 
 
-def get_function_signature_as_query_params(
-    func: Callable, locals: dict[str, Any]
-) -> str:
-    """Extracts function signature parameters from locals and returns them as a
-    URL-encoded query string."""
-    return urlencode(
-        {
-            k: v
-            for k, v in get_function_signature_as_kwargs(func, locals).items()
-            if v is not None
-        }
-    )
-
-
 def retry(max_retries: int = 3):
     def decorator(func):
         @wraps(func)
