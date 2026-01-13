@@ -190,7 +190,8 @@ class AInterviewer:
         self.message_id += 1
 
         text, message_type_received = await self.io.receive_message(
-            message_type=message_type_to_receive
+            message_id=self.message_id,
+            message_type=message_type_to_receive,
         )
 
         processed_text = await self.preprocess_answer(text)
