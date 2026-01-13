@@ -147,6 +147,10 @@ class InterviewMessage(BaseModel):
     )
 
 
+class QuestionSectionTemplate(QuestionSection[QuestionBase]):
+    model_config = {"title": "QuestionSectionTemplate"}
+
+
 class InterviewGuideTemplate(InterviewGuideBase[QuestionBase]):
     model_config = {"title": "InterviewGuideTemplate"}
 
