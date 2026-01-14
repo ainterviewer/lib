@@ -1,13 +1,4 @@
-from pathlib import Path
-
 from ainterviewer.types import LanguageDict
-
-FP_PROJ = Path(__file__).resolve().parents[2]
-
-FP_COOKIES = FP_PROJ / "data" / "cookies"
-Path.mkdir(FP_COOKIES, exist_ok=True, parents=True)
-
-FP_ASSETS_DIR = FP_PROJ / "app" / "frontend" / "static" / "assets"
 
 LANGUAGES: list[LanguageDict] = [
     {"code": "AA", "name": "Afar"},

@@ -624,7 +624,7 @@ class AInterviewer:
 
         if image := question.image:
             if not image.data:
-                image.encode()
+                image.read()
 
             # FIXME: Having and image and segue at the same time does not
             # currently perform very well.

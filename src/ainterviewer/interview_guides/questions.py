@@ -3,9 +3,9 @@ from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
+from ainterviewer.interview_guides import Image
 from ainterviewer.interview_guides.conditions import Condition
 from ainterviewer.interview_guides.exceptions import OverwriteError
-from ainterviewer.interview_guides.images import Image
 from ainterviewer.interview_guides.references import Reference
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType

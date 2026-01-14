@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, SecretStr, computed_field, Field, field_validator
+from pydantic import BaseModel, Field, SecretStr, computed_field, field_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,

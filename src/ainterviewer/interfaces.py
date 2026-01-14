@@ -1,24 +1,32 @@
 import html
 from pathlib import Path
-from typing import Literal, Optional, Protocol
+from typing import Literal, Optional, Protocol, Self
 
-from pydantic import UUID4, BaseModel, Field, FilePath, field_validator
+from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
 
-from ainterviewer.interview_guides import Image
+from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.types import Feedback, MessageRole, MessageType
 
 
 class ReceivedData(BaseModel):
-    type: Literal["message", "image"]
+    type: Literal["message", "image", "audio"]
     message_type: MessageType | None = None
     content: str
-    file: FilePath | None = None
+    filename: str | None = Field(None, description="filename for media asset")
 
     @field_validator("content", mode="before")
     @classmethod
     def escape_html(cls, v: str) -> str:
         return html.escape(v) if v else v
+
+    @model_validator(mode="after")
+    def validate_model(self) -> Self:
+        if self.filename is not None and self.type == "message":
+            raise ValueError(
+                "Cannot specify filename for messages with `type == 'message'`"
+            )
+        return self
 
 
 class _OutgoingData(BaseModel):
@@ -128,4 +136,4 @@ class PersistenceProtocol(Protocol):
         time_spend: Optional[int] = None,
     ): ...
 
-    def save_image(self, image: Image): ...
+    async def save_media(self, image: Image | Audio | Video): ...
