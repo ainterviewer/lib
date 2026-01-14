@@ -17,14 +17,14 @@ class BaseAgent(ABC, Generic[PromptT]):
         self,
         model: str,
         chat_api: Callable[..., Awaitable[str]],
-        lang: LanguageCode = "EN",
+        language: LanguageCode,
         template_loader: Optional[BaseLoader] = None,
         *args,
         **kwargs,
     ):
         self.prompts: PromptT = get_agent_prompts(
             self.__class__.__name__,
-            lang=lang,
+            lang=language,
             template_loader=template_loader,
             *args,
             **kwargs,
@@ -32,6 +32,10 @@ class BaseAgent(ABC, Generic[PromptT]):
         self.messages: list[Message] = []
         self.chat_api = chat_api
         self.model = model
-        self._lang = lang
+        self._language = language
         self.logger = get_logger(agent=self.__class__.__name__)
         self.logger.info("Agent initialized")
+
+    @property
+    def language(self):
+        return self._language

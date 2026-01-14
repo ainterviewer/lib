@@ -13,13 +13,16 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
     def __init__(
         self,
         interview_subject: InterviewSubject,
-        language: LanguageCode | None = None,
+        language: LanguageCode,
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs | {"interview_subject": interview_subject})
+        super().__init__(
+            language=language,
+            *args,
+            **kwargs | {"interview_subject": interview_subject},
+        )
         self.interview_subject = interview_subject
-        self.language = language
 
         self.messages += [
             {"role": MessageRole.SYSTEM, "content": self.prompts.system_prompt},
@@ -44,7 +47,7 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
             transcript=transcript,
             question=question,
             additional_instructions=additional_instructions,
-            translation=self.language,
+            translation=self.language if self.language != "EN" else None,
         )
 
         messages = [

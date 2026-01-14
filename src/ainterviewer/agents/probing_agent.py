@@ -7,13 +7,14 @@ from ainterviewer.utils import get_language_dict
 class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
     def __init__(
         self,
+        language: LanguageCode,
         interview_framing: str | None,
         few_shot_examples: list[str] | None = None,
         *args,
         **kwargs,
     ):
         """An agent that probes an interviewee based on an interview an interview guide and the answers."""
-        super().__init__(*args, **kwargs)
+        super().__init__(language=language, *args, **kwargs)
 
         self.interview_framing = interview_framing
         self.few_shot_examples = few_shot_examples
@@ -28,11 +29,10 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         main_question: str,
         transcript: str,
         probes: str | None,
-        translation: str | None,
     ) -> str:
         translation_lang = (
-            get_language_dict(language_code=translation)["name"]
-            if translation
+            get_language_dict(language_code=self.language)["name"]
+            if self.language != "EN"
             else None
         )
 

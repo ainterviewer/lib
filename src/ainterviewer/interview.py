@@ -123,21 +123,21 @@ class AInterviewer:
             few_shot_examples=_agent_configs["probing"].pop("few_shot_examples"),
             template_loader=template_loader,
             model=agent_configs.probing.model,
-            lang=_agent_configs["probing"].pop("lang"),
+            language=_agent_configs["probing"].pop("lang"),
             chat_api=partial(chat, **_agent_configs["probing"]),
         )
 
         self.history_agent = HistoryAgent(
             template_loader=template_loader,
             model=agent_configs.history.model,
-            lang=_agent_configs["history"].pop("lang"),
+            language=_agent_configs["history"].pop("lang"),
             chat_api=partial(chat, **_agent_configs["history"]),
         )
 
         self.classification_agent = ClassificationAgent(
             template_loader=template_loader,
             model=agent_configs.classification.model,
-            lang=_agent_configs["classification"].pop("lang"),
+            language=_agent_configs["classification"].pop("lang"),
             chat_api=partial(chat, **_agent_configs["classification"]),
         )
 
@@ -145,7 +145,7 @@ class AInterviewer:
             self.security_agent = SecurityAgent(
                 template_loader=template_loader,
                 model=agent_configs.security.model,
-                lang=_agent_configs["security"].pop("lang"),
+                language=_agent_configs["security"].pop("lang"),
                 chat_api=partial(chat, **_agent_configs["security"]),
             )
         else:
@@ -155,7 +155,7 @@ class AInterviewer:
             self.visual_agent = VisualAgent(
                 template_loader=template_loader,
                 model=agent_configs.visual.model,
-                lang=_agent_configs["visual"].pop("lang"),
+                language=_agent_configs["visual"].pop("lang"),
                 chat_api=chat,
             )
 
@@ -879,7 +879,6 @@ class AInterviewer:
                 main_question=question.main_question,
                 transcript=transcript,
                 probes=probes,
-                translation=self.translation,
             )
 
             if probe.lower().startswith(CustomTokens.end_of_probe):
