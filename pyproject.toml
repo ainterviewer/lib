@@ -80,6 +80,9 @@ indent = 4
 [tool.ruff]
 target-version = "py312"
 
+[tool.ruff.lint]
+extend-select = ["RUF022"]
+
 [tool.ruff.lint.isort]
 known-third-party = ["alembic"]
 
