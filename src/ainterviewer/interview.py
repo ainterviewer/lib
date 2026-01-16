@@ -51,7 +51,7 @@ from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
 from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import CustomTokens
-from ainterviewer.types import LanguageCode, MessageRole, MessageType
+from ainterviewer.types import LanguageCode, MessageRole, MessageType, InterviewStatus
 
 
 class AInterviewer:
@@ -163,7 +163,7 @@ class AInterviewer:
         self.db.update_interview_status(
             self.project_id,
             self.interview_id,
-            is_active=True,
+            status=InterviewStatus.ACTIVE,
         )
 
         return self
@@ -175,7 +175,7 @@ class AInterviewer:
         self.db.update_interview_status(
             self.project_id,
             self.interview_id,
-            is_active=False,
+            status=InterviewStatus.INACTIVE,
             time_spent=self.time_spent,
         )
 
@@ -275,8 +275,6 @@ class AInterviewer:
                 image=image,
                 user_image=user_image,
                 message_id=message_id,
-                include_in_history=include_in_history,
-                interview_id=self.interview_id,
                 role=MessageRole.ASSISTANT,
                 can_answer=can_answer,
                 progress=progress,
@@ -412,7 +410,9 @@ class AInterviewer:
         )
 
         self.db.update_interview_status(
-            self.project_id, self.interview_id, is_complete=True
+            self.project_id,
+            self.interview_id,
+            status=InterviewStatus.COMPLETED,
         )
 
     async def preload_models(self):

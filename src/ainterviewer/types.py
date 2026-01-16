@@ -78,3 +78,9 @@ class TestType(StrEnum):
     SHUFFLED_AI = "shuffled_ai"
     FIXED_AI = "fixed_ai"
     FIXED_ANSWERS = "fixed_answers"
+
+
+class InterviewStatus(StrEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    COMPLETED = "completed"

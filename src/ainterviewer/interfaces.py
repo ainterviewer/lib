@@ -6,7 +6,7 @@ from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
 
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.types import Feedback, MessageRole, MessageType
+from ainterviewer.types import Feedback, InterviewStatus, MessageRole, MessageType
 
 
 class ReceivedData(BaseModel):
@@ -30,11 +30,10 @@ class ReceivedData(BaseModel):
 
 
 class _OutgoingData(BaseModel):
+    type: Literal["history", "message"]
     content: str
     role: MessageRole
-    interview_id: UUID4
     message_id: int
-    include_in_history: bool = True
     feedback: Feedback | None = None
     image: Image | list[Image] | None = None
     survey_item: SurveyItem | None = None
@@ -61,8 +60,6 @@ class OutgoingMessage(_OutgoingData):
 class OutgoingData(BaseModel):
     type: Literal["data"] = "data"
     content: str | None = None
-    interview_id: UUID4 | None = None
-    project_id: UUID4 | None = None
     progress: float | None = Field(default=None, ge=0, le=100)
     error: Literal["InstanceInitializing"] | None = None
 
@@ -96,8 +93,7 @@ class PersistenceProtocol(Protocol):
         self,
         project_id: UUID4,
         interview_id: UUID4,
-        is_active: bool | None = None,
-        is_complete: bool | None = None,
+        status: InterviewStatus,
         time_spent: int = 0,
     ): ...
 
