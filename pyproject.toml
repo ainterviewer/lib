@@ -97,7 +97,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-"ainterviewer" = ["prompts/templates/**/*.jinja"]
+"ainterviewer" = ["agents/prompts/templates/**/*.jinja"]
 
 [build-system]
 requires = ["setuptools>=75", "wheel"]
