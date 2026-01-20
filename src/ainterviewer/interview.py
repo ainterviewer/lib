@@ -610,10 +610,11 @@ class AInterviewer:
 
         # https://s.epinionglobal.com/mrIWeb/mrIWeb.srf?I.Project=P2100211_TEST&i.user2=n&i.user5=complete&id=ID1
 
-        if question.alternative_main_questions:
-            question.main_question = random.choice(
-                question.alternative_main_questions + [question.main_question]
-            )
+        # TODO: Reimplement
+        # if question.alternative_main_questions:
+        #     question.main_question = random.choice(
+        #         question.alternative_main_questions + [question.main_question]
+        #     )
 
         if question.variables:
             question.main_question = fill_variables_in_message(
