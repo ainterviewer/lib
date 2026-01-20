@@ -6,7 +6,6 @@ from datetime import datetime
 from functools import cache, wraps
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from requests.exceptions import RequestException
