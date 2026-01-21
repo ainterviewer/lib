@@ -349,7 +349,9 @@ class AInterviewer:
                 is_introduction=True,
             )
             self.interview_history.introduction = HistoryMessage(message=message)
-            await asyncio.sleep(2)
+            # TODO: Make this configurable by the user, or set it dynamically
+            # based on the length of the introduction
+            await asyncio.sleep(0.5)
 
         try:
             match probing:
@@ -518,7 +520,8 @@ class AInterviewer:
                 current_question_index = 0
 
             for question in section.questions[current_question_index:]:
-                await asyncio.sleep(3)
+                # TODO:
+                # await asyncio.sleep(3)
                 question_reformulated = False
                 check_condition_after = False
 
