@@ -171,12 +171,15 @@ class AInterviewer:
         # TODO:
         # - Log exceptions
         # - Store reason
-        self.db.update_interview_status(
-            self.project_id,
-            self.interview_id,
-            status=InterviewStatus.INACTIVE,
-            time_spent=self.time_spent,
-        )
+        if exc_type is not None:
+            self.db.update_interview_status(
+                self.project_id,
+                self.interview_id,
+                status=InterviewStatus.INACTIVE,
+                time_spent=self.time_spent,
+            )
+
+        return False
 
     @property
     def time_spent(self) -> int:
