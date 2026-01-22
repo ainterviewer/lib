@@ -406,14 +406,14 @@ class AInterviewer:
 
         await self.send_progress(None, finished=True)
 
-        await self.send_data(
-            CustomTokens.end_of_interview, with_interview_structure=False
-        )
-
         self.db.update_interview_status(
             self.project_id,
             self.interview_id,
             status=InterviewStatus.COMPLETED,
+        )
+
+        await self.send_data(
+            CustomTokens.end_of_interview, with_interview_structure=False
         )
 
     async def preload_models(self):

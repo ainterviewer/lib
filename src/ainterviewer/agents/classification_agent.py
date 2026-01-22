@@ -40,6 +40,10 @@ class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
         self.logger.info("classifying text", context=message)
 
         messages = self.messages + [{"role": "user", "content": message}]
+
+        # TODO:
+        # Should the be a respones_model instead of guided choice?
+
         response = await self.chat_api(messages, guided_choice=guided_choice)
 
         self.logger.info("classification response", context=response)
