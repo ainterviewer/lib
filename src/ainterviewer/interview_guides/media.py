@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import Literal, Optional, Self
 
-from pydantic import BaseModel, Field
+from pydantic import UUID4, BaseModel, Field
 
+from ainterviewer.settings import settings
 from ainterviewer.utils import encode_image
 
 MediaType = Literal["audio", "image", "video"]
@@ -10,13 +11,18 @@ MediaType = Literal["audio", "image", "video"]
 
 class MediaModel(BaseModel):
     type: MediaType
-    filename: str = Field(description="The filename")
-    data: str | bytes = Field(repr=False)
+    name: str = Field(description="The filename")
+    data: str | bytes | None = Field(repr=False)
+
+    def encode(self, project_id: UUID4):
+        self.data = encode_image(
+            settings.storage.project_storage.image_path(project_id) / self.name
+        )
 
     @classmethod
-    def read(cls, filepath: Path) -> Self:
+    def read(cls, filepath: Path, **kwargs) -> Self:
         """Reads the data file from the full path and encodes it to Base64, saving it to the data attribute"""
-        media = cls.model_construct(filename=filepath.name)
+        media = cls.model_construct(filename=filepath.name, **kwargs)
         media.data = encode_image(filepath)
 
         return media

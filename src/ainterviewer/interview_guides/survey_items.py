@@ -1,7 +1,7 @@
 from enum import StrEnum
-from typing import Optional
+from typing import Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class SurveyItemType(StrEnum):
@@ -15,14 +15,26 @@ class SurveyItemType(StrEnum):
 class SurveyOption(BaseModel):
     """
     An option for a survey item.
-    label [str]: The label for the option, will be displayed in the ui.
-    value [Optional[str]]: The value for the option, can be used as a point of reference later in the interview.
-    tip: [Optional[str]]: A tip to show the interviewee when they hover over the option.
     """
 
-    label: str
-    value: Optional[str] = None
-    tip: Optional[str] = None
+    label: str = Field(
+        description="The label for the option, will be displayed in the ui."
+    )
+    value: str | None = Field(
+        None,
+        description="The value for the option, can be used as a point of reference later in the interview.",
+    )
+    tip: str | None = Field(
+        None,
+        description="A tip to show the interviewee when they hover over the option.",
+    )
+
+    @model_validator(mode="after")
+    def validate_value(self) -> Self:
+        if self.value is None:
+            self.value = self.label.lower().replace(" ", "_")
+
+        return self
 
 
 # TODO:

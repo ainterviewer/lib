@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, SecretStr, computed_field, field_validator
@@ -10,6 +11,37 @@ from pydantic_settings import (
     SettingsConfigDict,
     TomlConfigSettingsSource,
 )
+
+from .storage import ExperimentStorage, InterviewStorage, ProjectStorage
+
+
+class MediaStorageSettings(BaseModel):
+    """Central configuration for all media storage."""
+
+    base_path: Path = Field(default=Path("storage/"))
+
+    @field_validator("base_path")
+    @classmethod
+    def validate_base_path(cls, v: Path) -> Path:
+        """Ensure base storage path exists."""
+        path = v.resolve()
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
+    def project_storage(self) -> ProjectStorage:
+        """Get project storage instance."""
+        return ProjectStorage(base_path=self.base_path / "projects")
+
+    @property
+    def interview_storage(self) -> InterviewStorage:
+        """Get interview storage instance."""
+        return InterviewStorage(base_path=self.base_path / "interviews")
+
+    @property
+    def experiment_storage(self) -> ExperimentStorage:
+        """Get interview storage instance."""
+        return ExperimentStorage(base_path=self.base_path / "experiments")
 
 
 def BaseSettingsConfigDict(**kwargs) -> SettingsConfigDict:
@@ -60,6 +92,7 @@ class Settings(BaseSettings):
 
     llm: LLMSettings = LLMSettings()
     secrets: Secrets = Secrets()
+    storage: MediaStorageSettings = MediaStorageSettings()
 
     model_config = BaseSettingsConfigDict(
         toml_file="config.toml",
