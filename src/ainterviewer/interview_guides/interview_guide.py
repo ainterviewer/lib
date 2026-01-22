@@ -41,7 +41,7 @@ class InterviewGuideBase(BaseModel, Generic[Q]):
     )
     outro: Optional[str | SkipJsonSchema[InterviewMessage]] = Field(
         None,
-        description="An outro to the interview. Displayed to the interviewee as the last message. They will not be able to answer this message.",
+        description="An outro message for the interview. Displayed to the interviewee as the last message they will see. They will not be able to answer this message.",
     )
     alt_outro: SkipJsonSchema[Optional[str]] = Field(
         None,
