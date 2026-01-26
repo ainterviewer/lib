@@ -1,9 +1,41 @@
-import re
+from typing import Literal
+
+from pydantic import BaseModel, create_model
 
 from ainterviewer.agents.base import BaseAgent
-from ainterviewer.exceptions import ClassificationError
 from ainterviewer.agents.prompts.agent_prompts import ClassificationAgentPrompts
+from ainterviewer.lpm.types import Message
 from ainterviewer.types import MessageRole
+
+
+class BinaryClassificationModel(BaseModel):
+    value: Literal[0, 1]
+
+
+def generate_classification_model(
+    name: str,
+    options: list[str],
+    multilable: bool = False,
+) -> type[BaseModel]:
+    """
+    Usage:
+        CarColor = generate_classification_model("CarColor", ["red", "blue", "green"])
+        CarColor(response="red")
+    """
+    if multilable:
+        response = list[Literal[*options]]
+    else:
+        response = Literal[*options]
+
+    return create_model(name, response=response)
+
+
+def generate_scoring_model(
+    name: str,
+    options: list[int],
+):
+    values = Literal[*options]
+    return create_model(name, value=values)
 
 
 class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
@@ -24,7 +56,6 @@ class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
         interview_history: str | None = None,
         classification_examples=None,
         unsafe: bool = True,
-        guided_choice: list[str] = ["0", "1"],
     ) -> bool:
         """
         The model will try to parse the response as an int and return it as a boolean.
@@ -39,30 +70,14 @@ class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
 
         self.logger.info("classifying text", context=message)
 
-        messages = self.messages + [{"role": "user", "content": message}]
+        messages: list[Message] = self.messages + [
+            {"role": MessageRole.USER, "content": message}
+        ]
 
-        # TODO:
-        # Should the be a respones_model instead of guided choice?
-
-        response = await self.chat_api(messages, guided_choice=guided_choice)
+        response = await self.chat_api(
+            messages, response_format=BinaryClassificationModel
+        )
 
         self.logger.info("classification response", context=response)
 
-        try:
-            return bool(int(response))
-        except ValueError:
-            if unsafe:
-                numbers = set(re.findall(r"\d+", response))
-                if len(numbers) > 1:
-                    raise ClassificationError(
-                        "Expected a single number in the response, but got multiple"
-                    )
-                elif len(numbers) == 0:
-                    raise ClassificationError(
-                        "Expected a single number in the response, but got none"
-                    )
-                return bool(int(numbers.pop()))
-            else:
-                raise ClassificationError(
-                    "Response consisted of more than a single digit which is needed to classify the text"
-                )
+        return bool(response.value)

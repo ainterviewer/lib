@@ -1,14 +1,10 @@
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Literal, NotRequired, TypedDict
+from typing import Annotated, NotRequired, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from ainterviewer.types import MessageRole
-
-
-class BinaryClassification(BaseModel):
-    output: Literal["0", "1"]
 
 
 class CustomTokens(StrEnum):

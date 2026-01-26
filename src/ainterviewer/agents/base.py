@@ -1,24 +1,28 @@
 from abc import ABC
-from typing import Awaitable, Callable, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar, overload
 
 from jinja2 import BaseLoader
+from pydantic import BaseModel
 
 from ainterviewer.agents.prompts import get_agent_prompts
 from ainterviewer.agents.prompts.models import BasePrompts
 from ainterviewer.loggers import get_logger
+from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode
 
 PromptT = TypeVar("PromptT", bound="BasePrompts")
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class BaseAgent(ABC, Generic[PromptT]):
     def __init__(
         self,
         model: str,
-        chat_api: Callable[..., Awaitable[str]],
         language: LanguageCode,
-        template_loader: Optional[BaseLoader] = None,
+        chat_kwargs: dict[str, Any] | None = None,
+        template_loader: BaseLoader | None = None,
         *args,
         **kwargs,
     ):
@@ -30,7 +34,7 @@ class BaseAgent(ABC, Generic[PromptT]):
             **kwargs,
         )
         self.messages: list[Message] = []
-        self.chat_api = chat_api
+        self.chat_kwargs = chat_kwargs if chat_kwargs else {}
         self.model = model
         self._language = language
         self.logger = get_logger(agent=self.__class__.__name__)
@@ -39,3 +43,33 @@ class BaseAgent(ABC, Generic[PromptT]):
     @property
     def language(self):
         return self._language
+
+    @overload
+    async def chat_api(
+        self,
+        messages: list[Message],
+        response_format: type[T],
+        **kwargs,
+    ) -> T: ...
+
+    @overload
+    async def chat_api(
+        self,
+        messages: list[Message],
+        response_format: None = None,
+        **kwargs,
+    ) -> str: ...
+
+    async def chat_api(
+        self,
+        messages: list[Message],
+        response_format: type[T] | None = None,
+        **kwargs,
+    ) -> str | T:
+        return await chat(
+            messages,
+            model=self.model,
+            response_format=response_format,
+            **self.chat_kwargs,
+            **kwargs,
+        )

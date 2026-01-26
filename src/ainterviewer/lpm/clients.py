@@ -3,12 +3,13 @@ from __future__ import annotations
 import re
 from functools import partial
 from types import CoroutineType
-from typing import Any, Callable, Optional
+from typing import Any, Callable, TypeVar, overload
 
 import litellm
 import requests
 from litellm import acompletion
 from litellm.types.utils import ModelResponse
+from pydantic import BaseModel
 
 from ainterviewer.lpm.types import CustomTokens, Message, Temperature
 from ainterviewer.lpm.utils import map_system_to_user
@@ -21,18 +22,51 @@ litellm.suppress_debug_info = True  # ty: ignore[invalid-assignment]
 
 _DUMMY_MESSAGES: list[Message] = [{"role": MessageRole.USER, "content": "Hello"}]
 
+T = TypeVar("T", bound=BaseModel)
+
+
+@overload
+async def chat(
+    messages: list[Message],
+    model: str,
+    response_format: type[T],
+    temperature: Temperature = 0.7,
+    stop_tokens: list[str] | str | None = None,
+    include_stop_token: bool = False,
+    sanitize: bool = True,
+    guided_choice: list[str] | None = None,
+    top_logprogs: int | None = None,
+    **model_kwargs,
+) -> T: ...
+
+
+@overload
+async def chat(
+    messages: list[Message],
+    model: str,
+    temperature: Temperature = 0.7,
+    stop_tokens: list[str] | str | None = None,
+    include_stop_token: bool = False,
+    sanitize: bool = True,
+    guided_choice: list[str] | None = None,
+    top_logprogs: int | None = None,
+    response_format: None = None,
+    **model_kwargs,
+) -> str: ...
+
 
 async def chat(
     messages: list[Message],
     model: str,
     temperature: Temperature = 0.7,
-    stop_tokens: Optional[list[str] | str] = None,
+    stop_tokens: list[str] | str | None = None,
     include_stop_token: bool = False,
     sanitize: bool = True,
-    guided_choice: Optional[list[str]] = None,
-    top_logprogs: Optional[int] = None,
+    guided_choice: list[str] | None = None,
+    top_logprogs: int | None = None,
+    response_format: type[T] | None = None,
     **model_kwargs,
-) -> str:
+) -> str | T:
     if stop_tokens:
         if isinstance(stop_tokens, str):
             stop_tokens = [stop_tokens]
@@ -46,8 +80,9 @@ async def chat(
         seed=settings.llm.seed,
         drop_params=True,
         stream=False,
+        response_format=response_format,
         **model_kwargs,
-    )  # type: ignore
+    )
 
     if model.startswith("openrouter/"):
         chat_completion: ModelResponse = await chat(
@@ -57,9 +92,6 @@ async def chat(
             reasoning_effort="low",
         )
     elif model.startswith("openai/"):
-        # TODO:
-        # Implement logit_bias instead of guided_choice for openai...
-        # see ainterviewer.lpm.utils.get_classification_response_tokens
         chat_completion: ModelResponse = await chat(
             model=model,
             api_key=settings.secrets.openai_api_key.get_secret_value(),
@@ -117,6 +149,11 @@ async def chat(
             api_base=server_endpoint,
             api_key=settings.secrets.vllm_api_key.get_secret_value(),
             **model_kwargs,
+        )
+
+    if response_format:
+        return response_format.model_validate_json(
+            chat_completion.choices[0].message.content
         )
 
     # TODO:

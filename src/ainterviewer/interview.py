@@ -121,31 +121,31 @@ class AInterviewer:
             interview_framing=interview_guide.framing,
             few_shot_examples=_agent_configs["probing"].pop("few_shot_examples"),
             template_loader=template_loader,
-            model=agent_configs.probing.model,
+            model=_agent_configs["probing"].pop("model"),
             language=_agent_configs["probing"].pop("lang"),
-            chat_api=partial(chat, **_agent_configs["probing"]),
+            chat_kwargs=_agent_configs["probing"],
         )
 
         self.history_agent = HistoryAgent(
             template_loader=template_loader,
-            model=agent_configs.history.model,
+            model=_agent_configs["history"].pop("model"),
             language=_agent_configs["history"].pop("lang"),
-            chat_api=partial(chat, **_agent_configs["history"]),
+            chat_kwargs=_agent_configs["history"],
         )
 
         self.classification_agent = ClassificationAgent(
             template_loader=template_loader,
-            model=agent_configs.classification.model,
+            model=_agent_configs["classification"].pop("model"),
             language=_agent_configs["classification"].pop("lang"),
-            chat_api=partial(chat, **_agent_configs["classification"]),
+            chat_kwargs=_agent_configs["classification"],
         )
 
         if include_agent["security"]:
             self.security_agent = SecurityAgent(
                 template_loader=template_loader,
-                model=agent_configs.security.model,
+                model=_agent_configs["security"].pop("model"),
                 language=_agent_configs["security"].pop("lang"),
-                chat_api=partial(chat, **_agent_configs["security"]),
+                chat_kwargs=_agent_configs["security"],
             )
         else:
             self.security_agent = None
@@ -153,9 +153,8 @@ class AInterviewer:
         if include_agent["visual"]:
             self.visual_agent = VisualAgent(
                 template_loader=template_loader,
-                model=agent_configs.visual.model,
+                model=_agent_configs["visual"].pop("model"),
                 language=_agent_configs["visual"].pop("lang"),
-                chat_api=chat,
             )
 
     async def __aenter__(self):
