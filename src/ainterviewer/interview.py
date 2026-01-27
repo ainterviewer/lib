@@ -330,7 +330,10 @@ class AInterviewer:
         self.one_question = one_question
 
         if interview_history:
-            await self.process_history(interview_history)
+            try:
+                await self.process_history(interview_history)
+            except SkipQuestionException:
+                pass
         elif intro := self.interview_guide.introduction:
             if isinstance(intro, InterviewMessage):
                 if intro.variables:
@@ -568,12 +571,16 @@ class AInterviewer:
                     answer = await self.ask_question(question)
 
                     if answer == CustomTokens.skip_question:
-                        question.main_question = await self.reformulate_question(
+                        # TODO:
+                        # Should skipping main question reformulate it or send
+                        # it to next main question?
+
+                        reformulated_question = await self.reformulate_question(
                             question=question,
                             section_description=section.description,
                             reason="skipped",
                         )
-                        answer = await self.ask_question(question)
+                        answer = await self.ask_probe(question, reformulated_question)
 
                         if answer == CustomTokens.skip_question:
                             continue
