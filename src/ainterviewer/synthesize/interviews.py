@@ -51,7 +51,9 @@ class SynytheticIOProtocol(IOProtocol):
                     await self._message_queue.put((response_text, MessageType.TEXT))
 
     async def receive_message(
-        self, message_type: MessageType | None = None
+        self,
+        message_id: int,
+        message_type: MessageType | None = None,
     ) -> tuple[str, MessageType]:
         while True:
             if self.delay_before_answer:
