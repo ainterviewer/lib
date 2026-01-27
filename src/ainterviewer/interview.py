@@ -3,7 +3,6 @@ import json
 import re
 import time
 from datetime import datetime
-from functools import partial
 from typing import Any, Literal, Optional
 
 from jinja2 import BaseLoader
@@ -48,7 +47,6 @@ from ainterviewer.interview_guides.history import (
 )
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
-from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import CustomTokens
 from ainterviewer.types import LanguageCode, MessageRole, MessageType, InterviewStatus
 
