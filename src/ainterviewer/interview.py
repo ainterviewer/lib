@@ -48,7 +48,7 @@ from ainterviewer.interview_guides.history import (
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
 from ainterviewer.lpm.types import CustomTokens
-from ainterviewer.types import LanguageCode, MessageRole, MessageType, InterviewStatus
+from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType
 
 
 class AInterviewer:
