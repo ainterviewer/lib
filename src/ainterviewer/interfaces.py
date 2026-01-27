@@ -1,3 +1,4 @@
+from ainterviewer.lpm.types import CustomTokens
 import html
 from pathlib import Path
 from typing import Literal, Optional, Protocol, Self
@@ -18,7 +19,10 @@ class ReceivedData(BaseModel):
     @field_validator("content", mode="before")
     @classmethod
     def escape_html(cls, v: str) -> str:
-        return html.escape(v) if v else v
+        if v and v not in CustomTokens.all:
+            return html.escape(v)
+        else:
+            return v
 
     @model_validator(mode="after")
     def validate_model(self) -> Self:
