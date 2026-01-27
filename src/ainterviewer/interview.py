@@ -87,9 +87,9 @@ class AInterviewer:
 
         self.config = config
 
-        self.interview_guide = interview_guide
+        self.interview_guide: InterviewGuide = interview_guide
 
-        self.interview_history = InterviewHistory()
+        self.interview_history: InterviewHistory = InterviewHistory()
 
         self.translation = frontend_language if frontend_language != "EN" else None
 
