@@ -1,5 +1,3 @@
-from ainterviewer.agents.reformulation_agent import ReformulationAgent
-from ainterviewer.agents.prompts.agent_prompts import ReformulationAgentPrompts
 import asyncio
 import json
 import re
@@ -14,6 +12,7 @@ from ainterviewer.agents import (
     ClassificationAgent,
     HistoryAgent,
     ProbingAgent,
+    ReformulationAgent,
     SecurityAgent,
     VisualAgent,
 )
