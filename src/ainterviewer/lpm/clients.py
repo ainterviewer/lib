@@ -34,7 +34,6 @@ async def chat(
     stop_tokens: list[str] | str | None = None,
     include_stop_token: bool = False,
     sanitize: bool = True,
-    guided_choice: list[str] | None = None,
     top_logprogs: int | None = None,
     **model_kwargs,
 ) -> T: ...
@@ -48,7 +47,6 @@ async def chat(
     stop_tokens: list[str] | str | None = None,
     include_stop_token: bool = False,
     sanitize: bool = True,
-    guided_choice: list[str] | None = None,
     top_logprogs: int | None = None,
     response_format: None = None,
     **model_kwargs,
@@ -62,7 +60,6 @@ async def chat(
     stop_tokens: list[str] | str | None = None,
     include_stop_token: bool = False,
     sanitize: bool = True,
-    guided_choice: list[str] | None = None,
     top_logprogs: int | None = None,
     response_format: type[T] | None = None,
     **model_kwargs,
@@ -123,7 +120,7 @@ async def chat(
             model_kwargs["reasoning_effort"] = "low"
             model_kwargs["top_k"] = 3
 
-            if guided_choice is None:
+            if response_format is None:
                 # TODO:
                 # - this should be model based and maybe also question based.
                 # - maybe they should be words, and tokens fetched and cached from the api.
@@ -142,8 +139,6 @@ async def chat(
                     73760: 5,  # Tak
                     30: 7,  # ?
                 }
-        elif guided_choice:
-            model_kwargs["extra_body"] = dict(guided_choice=guided_choice)
 
         chat_completion: ModelResponse = await chat(
             api_base=server_endpoint,
@@ -160,7 +155,7 @@ async def chat(
     # - Use the returned log probs
     # classification_tokens = get_classification_response_tokens(model)
 
-    message = chat_completion.choices[0].message.content.strip()  # type: ignore
+    message = chat_completion.choices[0].message.content.strip()
 
     message = message.encode().decode()
 
