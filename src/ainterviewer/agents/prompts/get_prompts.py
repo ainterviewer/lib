@@ -56,8 +56,6 @@ def get_agent_prompts(
 
 
 if __name__ == "__main__":
-    probing_agent_prompts: ProbingAgentPrompts = get_agent_prompts(
-        "ProbingAgent", lang="DA"
-    )
+    my_agent_prompts = get_agent_prompts("ReformulationAgent", lang="EN")
 
-    print(probing_agent_prompts.system_prompt)
+    print(my_agent_prompts.system_prompt)
