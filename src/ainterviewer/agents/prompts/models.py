@@ -17,7 +17,6 @@ class Prompts(BaseModel):
     answering_agent: PromptTemplates
     history_agent: PromptTemplates
     security_agent: PromptTemplates
-    translation_agent: PromptTemplates
     visual_agent: PromptTemplates
     extra_prompts: dict[str, str]
 
