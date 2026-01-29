@@ -843,7 +843,7 @@ class AInterviewer:
                 case _:
                     raise ValueError("Invalid condition action")
 
-    def can_probe(self, question: Question) -> bool:
+    async def can_probe(self, question: Question) -> bool:
         if question.max_probes_n is not None:
             if self.interview_history.current_probe_index >= question.max_probes_n:
                 return False
@@ -851,6 +851,15 @@ class AInterviewer:
         if question.max_probes_time is not None:
             if question.max_probes_time <= time.time() - self.probing_time:
                 return False
+
+        if self.interview_history.current_probe_index > 0:
+            contains_multiple_refusals = await self.contains_multiple_refusals()
+            if contains_multiple_refusals:
+                return False
+
+            if question.check_if_exhausted:
+                if await self.has_main_question_been_exhausted(question):
+                    return False
 
         return True
 
@@ -860,16 +869,7 @@ class AInterviewer:
 
         self.probing_time = time.time()
 
-        while self.can_probe(question):
-            if self.interview_history.current_probe_index > 0:
-                contains_multiple_refusals = await self.contains_multiple_refusals()
-                if contains_multiple_refusals:
-                    break
-
-                if question.check_if_exhausted:
-                    if await self.has_main_question_been_exhausted(question):
-                        break
-
+        while await self.can_probe(question):
             if probing_context := question.probing_context:
                 # TODO: Implement with new interview_history
                 match probing_context:
