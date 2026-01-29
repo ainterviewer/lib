@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ainterviewer.agents.reformulation_agent import ReformulationAgent
 
 from pathlib import Path
 from typing import Generator
@@ -24,6 +25,7 @@ class AgentConfigs(BaseModel):
     security: SecurityConfig = Field(default_factory=lambda: SecurityConfig())
     visual: VisualConfig = Field(default_factory=lambda: VisualConfig())
     answering: AgentConfig = Field(default_factory=lambda: AgentConfig())
+    reformulation: AgentConfig = Field(default_factory=lambda: AgentConfig())
 
     def __iter__(self) -> Generator[tuple[str, AgentConfig], None, None]:
         yield from self.__dict__.items()
