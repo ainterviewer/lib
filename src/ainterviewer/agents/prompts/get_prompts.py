@@ -4,8 +4,7 @@ from typing import Optional, Type, TypeVar
 from jinja2 import BaseLoader, Environment, PackageLoader, select_autoescape
 
 from ainterviewer.agents.prompts import agent_prompts
-from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
-from ainterviewer.agents.prompts.models import BasePrompts
+from ainterviewer.agents.prompts.agent_prompts import BasePrompts
 from ainterviewer.exceptions import LanguageNotSupportedError
 from ainterviewer.types import LanguageCode
 
@@ -40,7 +39,7 @@ def get_agent_prompts(
     lang: LanguageCode = "EN",
     template_loader: Optional[BaseLoader] = None,
     **kwargs,
-) -> T:  # type: ignore
+) -> T:
     if lang not in PROMPT_LANGS:
         raise LanguageNotSupportedError(f"Language {lang} not supported.")
 
