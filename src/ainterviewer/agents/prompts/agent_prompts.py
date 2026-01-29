@@ -124,24 +124,6 @@ class ClassificationAgentPrompts(BasePrompts):
         )
 
 
-class TranslationAgentPrompts(BasePrompts):
-    def __init__(self, target_language, source_language, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.target_language = LANGUAGE_MAP[target_language]
-        self.source_language = LANGUAGE_MAP[source_language]
-        self.system_prompt = self.generate_system_prompt()
-        self.probing_prompt = self.generate_probing_prompt()
-
-    def generate_system_prompt(self) -> jinja2.Template:
-        return self.get_template("translation_agent_system_prompt.jinja")
-
-    def generate_probing_prompt(self) -> str:
-        return self.get_template("translation_agent_instruction_prompt.jinja").render(
-            target_language=self.target_language,
-            source_language=self.source_language,
-        )
-
-
 class VisualAgentPrompts(BasePrompts):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
