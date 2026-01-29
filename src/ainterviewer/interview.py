@@ -325,17 +325,6 @@ class AInterviewer:
         Main entry point for the interview process
         """
 
-        # TODO:
-        # - This should be based on a project setting
-        # - Should this happen in init instead?
-        # if self.config.preload:
-        #     self.preloading_task = asyncio.create_task(self.preload_models())
-        #     print("Preloading models")
-        # else:
-        #     # Create a dummy task that is already done, so we can await it
-        #     # without blocking later
-        #     self.preloading_task = asyncio.create_task(asyncio.sleep(0))
-
         self.one_question = one_question
 
         if interview_history:
@@ -353,14 +342,18 @@ class AInterviewer:
                     )
 
                 intro = intro.message
+
             message = await self.preprocess_message(intro)
+
             await self.send_data(
                 message,
                 can_answer=False,
                 with_interview_structure=False,
                 is_introduction=True,
             )
+
             self.interview_history.introduction = HistoryMessage(message=message)
+
             # TODO: Make this configurable by the user, or set it dynamically
             # based on the length of the introduction
             await asyncio.sleep(0.5)
@@ -427,9 +420,6 @@ class AInterviewer:
         await self.send_data(
             CustomTokens.end_of_interview, with_interview_structure=False
         )
-
-    async def preload_models(self):
-        raise NotImplementedError("Preloading should be done with server_manager")
 
     async def process_history(self, interview_history: list):
         # FIXME:
@@ -852,26 +842,6 @@ class AInterviewer:
                 case _:
                     raise ValueError("Invalid condition action")
 
-    async def can_probe(self, question: Question) -> bool:
-        if question.max_probes_n is not None:
-            if self.interview_history.current_probe_index >= question.max_probes_n:
-                return False
-
-        if question.max_probes_time is not None:
-            if question.max_probes_time <= time.time() - self.probing_time:
-                return False
-
-        if self.interview_history.current_probe_index > 0:
-            contains_multiple_refusals = await self.contains_multiple_refusals()
-            if contains_multiple_refusals:
-                return False
-
-            if question.check_if_exhausted:
-                if await self.has_main_question_been_exhausted(question):
-                    return False
-
-        return True
-
     async def probe(self, question: Question, section_description: str):
         # TODO:
         # - Should we also check if probes have been answered?
@@ -908,6 +878,26 @@ class AInterviewer:
             if answer == CustomTokens.skip_question:
                 # NOTE: skipping a probe skips the main question
                 raise SkipQuestionException
+
+    async def can_probe(self, question: Question) -> bool:
+        if question.max_probes_n is not None:
+            if self.interview_history.current_probe_index >= question.max_probes_n:
+                return False
+
+        if question.max_probes_time is not None:
+            if question.max_probes_time <= time.time() - self.probing_time:
+                return False
+
+        if self.interview_history.current_probe_index > 0:
+            contains_multiple_refusals = await self.contains_multiple_refusals()
+            if contains_multiple_refusals:
+                return False
+
+            if question.check_if_exhausted:
+                if await self.has_main_question_been_exhausted(question):
+                    return False
+
+        return True
 
     async def free_probing(self):
         raise NotImplementedError("This interview-loop is currently not optimized")
@@ -964,10 +954,33 @@ class AInterviewer:
             task="has_question_been_exhausted",
             content=context,
             response=response,
-            time_spend=time_spend,
+            time_spend=int(time_spend),
         )
 
         return response
+
+    async def contains_multiple_refusals(self) -> bool:
+        now = time.time()
+        current_question_transcript = (
+            self.interview_history.current_question.transcribe()
+        )
+        contains_multiple_refusals: bool = await self.classification_agent.classify(
+            current_question_transcript,
+            "contains multiple answers (A:) from the respondent in a row that are explicit refusals to answer",
+        )
+        time_spend = time.time() - now
+
+        self.db.insert_task(
+            message_id=self.message_id + 1,
+            interview_id=self.interview_id,
+            project_id=self.project_id,
+            task="contains_multiple_refusals",
+            content=current_question_transcript,
+            response=contains_multiple_refusals,
+            time_spend=int(time_spend),
+        )
+
+        return contains_multiple_refusals
 
     async def reformulate_question(
         self,
@@ -1015,26 +1028,3 @@ class AInterviewer:
         )
 
         return message
-
-    async def contains_multiple_refusals(self) -> bool:
-        now = time.time()
-        current_question_transcript = (
-            self.interview_history.current_question.transcribe()
-        )
-        contains_multiple_refusals = await self.classification_agent.classify(
-            current_question_transcript,
-            "contains multiple answers (A:) from the respondent in a row that are explicit refusals to answer",
-        )
-        time_spend = time.time() - now
-
-        self.db.insert_task(
-            message_id=self.message_id + 1,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-            task="contains_multiple_refusals",
-            content=current_question_transcript,
-            response=contains_multiple_refusals,
-            time_spend=time_spend,
-        )
-
-        return contains_multiple_refusals
