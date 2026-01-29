@@ -1,3 +1,5 @@
+from ainterviewer.agents.reformulation_agent import ReformulationAgent
+from ainterviewer.agents.prompts.agent_prompts import ReformulationAgentPrompts
 import asyncio
 import json
 import re
@@ -115,7 +117,7 @@ class AInterviewer:
             agent: config.pop("include") for agent, config in _agent_configs.items()
         }
 
-        self.probing_agent = ProbingAgent(
+        self.probing_agent: ProbingAgent = ProbingAgent(
             interview_framing=interview_guide.framing,
             few_shot_examples=_agent_configs["probing"].pop("few_shot_examples"),
             template_loader=template_loader,
@@ -124,22 +126,29 @@ class AInterviewer:
             chat_kwargs=_agent_configs["probing"],
         )
 
-        self.history_agent = HistoryAgent(
+        self.history_agent: HistoryAgent = HistoryAgent(
             template_loader=template_loader,
             model=_agent_configs["history"].pop("model"),
             language=_agent_configs["history"].pop("lang"),
             chat_kwargs=_agent_configs["history"],
         )
 
-        self.classification_agent = ClassificationAgent(
+        self.classification_agent: ClassificationAgent = ClassificationAgent(
             template_loader=template_loader,
             model=_agent_configs["classification"].pop("model"),
             language=_agent_configs["classification"].pop("lang"),
             chat_kwargs=_agent_configs["classification"],
         )
 
+        self.reformulation_agent: ReformulationAgent = ReformulationAgent(
+            template_loader=template_loader,
+            model=_agent_configs["reformulation"].pop("model"),
+            language=_agent_configs["reformulation"].pop("lang"),
+            chat_kwargs=_agent_configs["reformulation"],
+        )
+
         if include_agent["security"]:
-            self.security_agent = SecurityAgent(
+            self.security_agent: SecurityAgent | None = SecurityAgent(
                 template_loader=template_loader,
                 model=_agent_configs["security"].pop("model"),
                 language=_agent_configs["security"].pop("lang"),
@@ -149,7 +158,7 @@ class AInterviewer:
             self.security_agent = None
 
         if include_agent["visual"]:
-            self.visual_agent = VisualAgent(
+            self.visual_agent: VisualAgent = VisualAgent(
                 template_loader=template_loader,
                 model=_agent_configs["visual"].pop("model"),
                 language=_agent_configs["visual"].pop("lang"),
@@ -967,16 +976,6 @@ class AInterviewer:
         reason: Literal["already_answered", "segue", "skipped"],
     ) -> str:
         start_time = time.time()
-        match reason:
-            case "already_answered":
-                reason_prompt = "That question has already been answered. Please respond with a reformulated version of the question and nothing else, while taking the previous answer into account"
-                additional_guidelines = []
-            case "segue":
-                reason_prompt = "Question should be reforumlated if it improves the conversational flow. Draw on previous answers in a natural and general way if they are relevant"
-                additional_guidelines = []
-            case "skipped":
-                reason_prompt = "The user tried to skip that question. Please respond with a reformulated version of the question and nothing else"
-                additional_guidelines = []
 
         transcript = self.interview_history.get_transcript(with_excludes=True)
 
@@ -991,22 +990,14 @@ class AInterviewer:
         if question.probes:
             probing_context["probes"] = question.probes
 
-        prompt = self.probing_agent.prompts.get_template(
-            "reformulation_prompt.jinja"
-        ).render(
+        message = await self.reformulation_agent.reformulate_question(
             interview_transcript=transcript,
             probing_context=json.dumps(probing_context),
             question=question.main_question,
-            reason=reason_prompt,
+            reason=reason,
             translation=self.translation,
             additional_guidelines=additional_guidelines,
         )
-
-        self.probing_agent.logger.info(f"Reformulating question: {prompt}")
-        message = await self.probing_agent.chat_api(
-            [{"role": "user", "content": prompt}]
-        )
-        self.probing_agent.logger.info(f"Reformulating question: {message}")
 
         time_spend = time.time() - start_time
 
@@ -1018,7 +1009,7 @@ class AInterviewer:
             reason=reason,
             content=question.main_question,
             response=message,
-            time_spend=time_spend,
+            time_spend=int(time_spend),
             context=prompt,
             model=self.probing_agent.model,
         )

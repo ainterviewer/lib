@@ -4,8 +4,7 @@ from typing import Any, Generic, TypeVar, overload
 from jinja2 import BaseLoader
 from pydantic import BaseModel
 
-from ainterviewer.agents.prompts import get_agent_prompts
-from ainterviewer.agents.prompts.models import BasePrompts
+from ainterviewer.agents.prompts import get_agent_prompts, BasePrompts
 from ainterviewer.loggers import get_logger
 from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message
@@ -17,6 +16,8 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class BaseAgent(ABC, Generic[PromptT]):
+    messages: list[Message]
+
     def __init__(
         self,
         model: str,
@@ -33,7 +34,7 @@ class BaseAgent(ABC, Generic[PromptT]):
             *args,
             **kwargs,
         )
-        self.messages: list[Message] = []
+        self.messages = []
         self.chat_kwargs = chat_kwargs if chat_kwargs else {}
         self.model = model
         self._language = language

@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Union
 
-from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 from pydantic import BaseModel
-
-from ainterviewer.types import LanguageCode
 
 # TODO:
 # The individual prompt templates should probably be validated in this models.
@@ -82,46 +77,3 @@ def get_default_prompts() -> tuple[dict[str, dict[str, str]], dict[str, str]]:
 
 _agent_prompts, _extra_prompts = get_default_prompts()
 DEFAULT_PROMPTS = Prompts(**_agent_prompts, extra_prompts=_extra_prompts)  # ty: ignore[invalid-argument-type]
-
-
-class BasePrompts(ABC):
-    system_prompt = ""
-
-    def __init__(
-        self,
-        lang: LanguageCode = "EN",
-        template_loader: Optional[BaseLoader] = None,
-    ):
-        if not template_loader:
-            template_loader = PackageLoader(
-                "ainterviewer.agents.prompts.templates", lang
-            )
-
-        self.env = Environment(loader=template_loader, undefined=StrictUndefined)
-
-    def get_template(self, template_name: str) -> Template:
-        return self.env.get_template(template_name)
-
-    def get_source(self, template: Union[str, Template]) -> str:
-        if isinstance(template, str):
-            return self.env.loader.get_source(self.env, template)[0]
-        elif isinstance(template, Template):
-            if not template.filename:
-                raise FileNotFoundError("The template has no filename")
-
-            return self.env.loader.get_source(
-                self.env, template.filename.split("/")[-1]
-            )[0]
-
-        raise TypeError(
-            f"Expected `template` to be of type `str` or `Template`, but got {type(template)}"
-        )
-
-    @abstractmethod
-    def generate_system_prompt(self) -> Union[str, Template]: ...
-
-    def print_prompt(self):
-        if self.system_prompt:
-            print("============== SYSTEM PROMPT ==============")
-            print(self.system_prompt)
-            print("===========================================\n\n")

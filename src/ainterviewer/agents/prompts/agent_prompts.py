@@ -5,18 +5,62 @@ They are not supposed to be imported directly,
     but through the `ainterviewer.agents.prompts.get_prompts` module.
 """
 
-import jinja2
+from abc import ABC, abstractmethod
+from typing import Optional, Union
 
-from ainterviewer.agents.prompts.language_map import LANGUAGE_MAP
-from ainterviewer.agents.prompts.models import BasePrompts
+from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
+
 from ainterviewer.synthesize.interviewees import InterviewSubject
 from ainterviewer.types import LanguageCode
+
+
+class BasePrompts(ABC):
+    system_prompt: str = ""
+
+    def __init__(
+        self,
+        lang: LanguageCode = "EN",
+        template_loader: Optional[BaseLoader] = None,
+    ):
+        if not template_loader:
+            template_loader = PackageLoader(
+                "ainterviewer.agents.prompts.templates", lang
+            )
+
+        self.env = Environment(loader=template_loader, undefined=StrictUndefined)
+        self.system_prompt = self.generate_system_prompt()
+
+    def get_template(self, template_name: str) -> Template:
+        return self.env.get_template(template_name)
+
+    def get_source(self, template: Union[str, Template]) -> str:
+        if isinstance(template, str):
+            return self.env.loader.get_source(self.env, template)[0]
+        elif isinstance(template, Template):
+            if not template.filename:
+                raise FileNotFoundError("The template has no filename")
+
+            return self.env.loader.get_source(
+                self.env, template.filename.split("/")[-1]
+            )[0]
+
+        raise TypeError(
+            f"Expected `template` to be of type `str` or `Template`, but got {type(template)}"
+        )
+
+    @abstractmethod
+    def generate_system_prompt(self) -> str: ...
+
+    def print_prompt(self):
+        if self.system_prompt:
+            print("============== SYSTEM PROMPT ==============")
+            print(self.system_prompt)
+            print("===========================================\n\n")
 
 
 class AnsweringAgentPrompts(BasePrompts):
     def __init__(self, interview_subject: InterviewSubject, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.system_prompt = self.generate_system_prompt()
         self.interview_subject = interview_subject
 
     def generate_system_prompt(self) -> str:
@@ -48,7 +92,6 @@ class AnsweringAgentPrompts(BasePrompts):
 class ProbingAgentPrompts(BasePrompts):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.system_prompt = self.generate_system_prompt()
 
     def generate_system_prompt(self) -> str:
         return self.get_template("probing_agent_system_prompt.jinja").render()
@@ -79,7 +122,6 @@ class ProbingAgentPrompts(BasePrompts):
 class HistoryAgentPrompts(BasePrompts):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.system_prompt = self.generate_system_prompt()
 
     def generate_system_prompt(self) -> str:
         return self.get_template("history_agent_system_prompt.jinja").render()
@@ -88,7 +130,6 @@ class HistoryAgentPrompts(BasePrompts):
 class SecurityAgentPrompts(BasePrompts):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.system_prompt = self.generate_system_prompt()
 
     def generate_system_prompt(self) -> str:
         return self.get_template("security_agent_system_prompt.jinja").render()
@@ -102,12 +143,11 @@ class SecurityAgentPrompts(BasePrompts):
 class ClassificationAgentPrompts(BasePrompts):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.system_prompt = self.generate_system_prompt()
 
     def generate_system_prompt(self) -> str:
         return self.get_template("classification_agent_system_prompt.jinja").render()
 
-    def genererate_classification_prompt(
+    def generate_classification_prompt(
         self,
         text: str,
         next_question_instruction: str,
@@ -127,7 +167,6 @@ class ClassificationAgentPrompts(BasePrompts):
 class VisualAgentPrompts(BasePrompts):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.system_prompt = self.generate_system_prompt()
         self.description_prompt = self.generate_description_prompt()
 
     def generate_system_prompt(self) -> str:
@@ -135,3 +174,26 @@ class VisualAgentPrompts(BasePrompts):
 
     def generate_description_prompt(self) -> str:
         return self.get_template("visual_agent_instruction_prompt.jinja").render()
+
+
+class ReformulationAgentPrompts(BasePrompts):
+    def generate_system_prompt(self) -> str:
+        return self.get_template("reformulation_agent_system_prompt.jinja").render()
+
+    def generate_reformulation_prompt(
+        self,
+        interview_transcript: str,
+        probing_context: str,
+        question: str,
+        reason: str,
+        additional_guidelines: list[str] | None = None,
+        translation: LanguageCode | None = None,
+    ) -> str:
+        return self.get_template("reformulation_agent_instruction_prompt.jinja").render(
+            interview_transcript=interview_transcript,
+            probing_context=probing_context,
+            question=question,
+            reason=reason,
+            additional_guidelines=additional_guidelines,
+            translation=translation,
+        )

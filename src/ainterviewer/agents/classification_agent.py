@@ -61,7 +61,7 @@ class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
         The model will try to parse the response as an int and return it as a boolean.
             If this fails and unsafe is True [default], it will look for the first digit and parse that instead.
         """
-        message = self.prompts.genererate_classification_prompt(
+        message = self.prompts.generate_classification_prompt(
             text,
             next_question_instruction,
             interview_history,
