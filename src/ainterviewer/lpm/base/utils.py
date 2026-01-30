@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 
-from ollama import Client
+# TODO:
+# Replace with lpm.clients.chat
+# from ollama import Client
 
 QA_MAPPER = {
     "question": "Q: ",

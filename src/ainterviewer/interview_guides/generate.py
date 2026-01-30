@@ -13,6 +13,8 @@ from ainterviewer.interview_guides.questions import QuestionBase
 from ainterviewer.lpm.types import Message
 from ainterviewer.settings import settings
 
+# TODO:
+# Should use the lpm.clients chat function instead
 client = AsyncOpenAI(api_key=settings.secrets.openai_api_key.get_secret_value())
 
 _DUMMY_PROMPT = "Create an interview guide targeted at participants of the IC2S2 computational social science conference. The interview guide should be structured to gather insights on the participants' experiences, motivations, and challenges in computational social science research."
