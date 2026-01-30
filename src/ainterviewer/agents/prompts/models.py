@@ -18,6 +18,7 @@ class Prompts(BaseModel):
     history_agent: PromptTemplates
     security_agent: PromptTemplates
     visual_agent: PromptTemplates
+    reformulation_agent: PromptTemplates
     extra_prompts: dict[str, str]
 
     def dump_templates(self) -> dict[str, str]:
