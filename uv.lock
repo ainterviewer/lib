@@ -81,7 +81,6 @@ dependencies = [
     { name = "jinja2" },
     { name = "jinjax" },
     { name = "litellm" },
-    { name = "ollama" },
     { name = "openai" },
     { name = "polars" },
     { name = "pyarrow" },
@@ -152,7 +151,6 @@ requires-dist = [
     { name = "litellm", specifier = ">=1.68.1" },
     { name = "marimo", extras = ["recommended"], marker = "extra == 'analysis'", specifier = ">=0.13.2" },
     { name = "matplotlib", marker = "extra == 'analysis'", specifier = ">=3.10.3" },
-    { name = "ollama", specifier = "==0.3.2" },
     { name = "openai", specifier = ">=1.72.0" },
     { name = "pandas", marker = "extra == 'analysis'", specifier = ">=2.2.3" },
     { name = "plotly", marker = "extra == 'analysis'", specifier = ">=6.3.0" },
@@ -2959,18 +2957,6 @@ version = "12.8.90"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/eb/86626c1bbc2edb86323022371c39aa48df6fd8b0a1647bc274577f72e90b/nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:5b17e2001cc0d751a5bc2c6ec6d26ad95913324a4adb86788c944f8ce9ba441f", size = 89954, upload-time = "2025-03-07T01:42:44.131Z" },
-]
-
-[[package]]
-name = "ollama"
-version = "0.3.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "httpx" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/58/25/02f994497d39a9e5c89b4ae1111f109bd88c6139c13c16cb3c74ca529fd1/ollama-0.3.2.tar.gz", hash = "sha256:7deb3287cdefa1c39cc046163096f8597b83f59ca31a1f8ae78e71eccb7af95f", size = 10394, upload-time = "2024-08-27T23:58:14.828Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/2f/1c24d325622e05ea0d1ef0d44c362b0303e5b74ad8415f4ba15074c5ea2b/ollama-0.3.2-py3-none-any.whl", hash = "sha256:ed2a6f752bd91c49b477d84a259c5657785d7777689d4a27ffe0a4d5b5dd3cae", size = 10263, upload-time = "2024-08-27T23:58:13.895Z" },
 ]
 
 [[package]]
