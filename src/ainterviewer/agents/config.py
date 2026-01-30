@@ -1,5 +1,4 @@
 from __future__ import annotations
-from ainterviewer.agents.reformulation_agent import ReformulationAgent
 
 from pathlib import Path
 from typing import Generator
