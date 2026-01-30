@@ -79,7 +79,6 @@ dependencies = [
     { name = "aiobotocore" },
     { name = "fastapi", extra = ["standard"] },
     { name = "jinja2" },
-    { name = "jinjax" },
     { name = "litellm" },
     { name = "openai" },
     { name = "polars" },
@@ -147,7 +146,6 @@ requires-dist = [
     { name = "gguf", marker = "extra == 'local'", specifier = ">=0.17.0" },
     { name = "ipykernel", marker = "extra == 'analysis'", specifier = ">=6.29.5" },
     { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "jinjax", specifier = ">=0.50" },
     { name = "litellm", specifier = ">=1.68.1" },
     { name = "marimo", extras = ["recommended"], marker = "extra == 'analysis'", specifier = ">=0.13.2" },
     { name = "matplotlib", marker = "extra == 'analysis'", specifier = ">=3.10.3" },
@@ -1860,19 +1858,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115, upload-time = "2025-03-05T20:05:02.478Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899, upload-time = "2025-03-05T20:05:00.369Z" },
-]
-
-[[package]]
-name = "jinjax"
-version = "0.63"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jinja2" },
-    { name = "markupsafe" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/11/d86874087e96cd56fd59050b9a87beede2fa8ea6e1b16632324ae9d2f828/jinjax-0.63.tar.gz", hash = "sha256:2cab0bb8e336a0a12a46541e407ad002bc70f3408a36d2a560215ac791fee006", size = 31431, upload-time = "2025-12-03T20:07:03.788Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/8d/6c52f82511e523e4ef219bcdb2b601991f71995662b5a2e55f85a6ef8adb/jinjax-0.63-py3-none-any.whl", hash = "sha256:74b0c9a6dc360ed4b9d3ef26dd46e280d61f89ce847d0f29dd876f2f062fdd94", size = 20224, upload-time = "2025-12-03T20:07:04.815Z" },
 ]
 
 [[package]]
