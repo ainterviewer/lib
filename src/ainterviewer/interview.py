@@ -1007,8 +1007,6 @@ class AInterviewer:
             probing_context=json.dumps(probing_context),
             question=question.main_question,
             reason=reason,
-            translation=self.translation,
-            additional_guidelines=additional_guidelines,
         )
 
         time_spend = time.time() - start_time
@@ -1022,7 +1020,6 @@ class AInterviewer:
             content=question.main_question,
             response=message,
             time_spend=int(time_spend),
-            context=prompt,
             model=self.probing_agent.model,
         )
 

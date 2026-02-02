@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 # TODO:
 # Replace with lpm.clients.chat
-# from ollama import Client
+from openai import Client
 
 QA_MAPPER = {
     "question": "Q: ",
@@ -14,7 +14,7 @@ QA_MAPPER = {
 
 class BaseAgent(ABC):
     def __init__(self):
-        self.client = Client(host="http://localhost:8667")
+        self.client = Client(base_url="http://localhost:8667")
 
     def generate_response(self, interview):
         transcript = self.generate_transcript(interview)
