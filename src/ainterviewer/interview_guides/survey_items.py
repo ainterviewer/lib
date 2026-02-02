@@ -1,7 +1,22 @@
+from __future__ import annotations
+
 from enum import StrEnum
 from typing import Self
 
 from pydantic import BaseModel, Field, model_validator
+
+
+# TODO:
+# Let options be a keyword of {label: value} pairs
+# Make labels and values referable in the next question
+class SurveyItem(BaseModel):
+    type: SurveyItemType
+    options: list[str | SurveyOption]
+    required: bool = True
+    min: int | float | None = None
+    max: int | float | None = None
+    step: int | float | None = 1
+    with_other: bool = False
 
 
 class SurveyItemType(StrEnum):
@@ -35,12 +50,3 @@ class SurveyOption(BaseModel):
             self.value = self.label.lower().replace(" ", "_")
 
         return self
-
-
-# TODO:
-# Let options be a keyword of {label: value} pairs
-# Make labels and values referable in the next question
-class SurveyItem(BaseModel):
-    type: SurveyItemType
-    options: list[str | SurveyOption]
-    required: bool = True
