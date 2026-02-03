@@ -511,16 +511,16 @@ class AInterviewer:
             self.interview_history.current_section_index :
         ]:
             if self.resume_from_history:
-                current_question_index = (
+                initial_question_index = (
                     self.interview_history.current_question_index + 1
                 )
                 self.resume_from_history = False
             else:
                 self.interview_history.add_section(section.description)
 
-                current_question_index = 0
+                initial_question_index = 0
 
-            for question in section.questions[current_question_index:]:
+            for question in section.questions[initial_question_index:]:
                 # TODO:
                 # await asyncio.sleep(3)
                 question_reformulated = False
@@ -528,15 +528,15 @@ class AInterviewer:
 
                 try:
                     if condition := question.condition:
-                        # NOTE:
-                        # We have to add one to the question index, because it
-                        # is only added when the question is asked, and we want
-                        # to check for the current question
                         if (
                             condition.question_context.section
                             == self.interview_history.current_section_index
                             and condition.question_context.question
                             == self.interview_history.current_question_index + 1
+                            # NOTE:
+                            # We have to add one to the question index, because it
+                            # is only added when the question is asked, and we want
+                            # to check for the current question
                         ):
                             check_condition_after = True
                         else:
@@ -741,6 +741,7 @@ class AInterviewer:
         # TODO: if the answer is a special token, should it then be added to
         # the interview history?
 
+        # FIXME:
         # if self.security_agent and not self.security_agent.is_safe(
         #     answer
         # ):
@@ -750,9 +751,8 @@ class AInterviewer:
 
         return answer
 
-        # FIXME:
-
     async def send_timed_message(self, timed_message: TimedMessage):
+        # TODO:
         # - This should also be stored in the database, so they wont be
         # send again if somebody reconnects.
         #   Currently this is being handled by looking at the time spent in
@@ -792,34 +792,41 @@ class AInterviewer:
                 "This feature is not implemented yet. Please specify a main question index for your condition."
             )
 
+        condition_question_context: str
+
         match question_context.part:
             case "main":
                 if (main_answer := conditional_context.main_question.answer) is None:
                     raise ValueError("Answer not found")
                 condition_question_context = main_answer.message
+
             case "probes":
-                condition_question_context = [
-                    probe.answer.message
-                    for probe in conditional_context.probes
-                    if probe.answer
-                ]
-            case "all":
-                if (main_answer := conditional_context.main_question.answer) is None:
-                    raise ValueError("Answer not found")
-                condition_question_context = [main_answer.message]
-                condition_question_context.extend(
+                condition_question_context = "\n".join(
                     [
                         probe.answer.message
                         for probe in conditional_context.probes
                         if probe.answer
                     ]
                 )
+
+            case "both":
+                if (main_answer := conditional_context.main_question.answer) is None:
+                    raise ValueError("Answer not found")
+
+                condition_question_context = "\n".join(
+                    [
+                        main_answer.message,
+                        *[
+                            probe.answer.message
+                            for probe in conditional_context.probes
+                            if probe.answer
+                        ],
+                    ]
+                )
             case _:
                 raise ValueError("Invalid part")
 
-        condition_triggered = await evaluate_condition(
-            condition_question_context, condition.trigger_value, condition.trigger_type
-        )
+        condition_triggered = evaluate_condition(condition_question_context, condition)
 
         self.db.insert_task(
             message_id=self.message_id,
@@ -838,8 +845,13 @@ class AInterviewer:
                     raise SkipQuestionException
                 case ConditionAction.END_INTERVIEW:
                     raise EndInterviewException
+                case ConditionAction.ASK_QUESTION:
+                    pass
                 case _:
                     raise ValueError("Invalid condition action")
+        else:
+            if ConditionAction.ASK_QUESTION:
+                raise SkipQuestionException
 
     async def probe(self, question: Question, section_description: str):
         # TODO:
