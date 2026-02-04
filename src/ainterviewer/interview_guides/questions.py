@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from ainterviewer.interview_guides import Image
-from ainterviewer.interview_guides.conditions import Condition
+from ainterviewer.interview_guides.conditions import Conditions
 from ainterviewer.interview_guides.exceptions import OverwriteError
 from ainterviewer.interview_guides.references import Reference
 from ainterviewer.interview_guides.survey_items import SurveyItem
@@ -86,7 +86,7 @@ class Question(QuestionBase):
         False,
         description="Whether the user should be able to upload an image as a response",
     )
-    conditions: Optional[list[Condition]] = None
+    conditions: Optional[Conditions] = None
     probing_context: Optional[ContextType] = None
 
     def __init__(self, **data):

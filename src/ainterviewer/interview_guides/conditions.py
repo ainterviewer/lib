@@ -79,6 +79,45 @@ class ConditionEvaluation(BaseModel):
     )
 
 
+def evaluate_conditions(contexts: list[str], conditions: Conditions) -> bool:
+    """Evaluate multiple conditions against their corresponding contexts.
+
+    Args:
+        contexts: List of response/values to evaluate, one per condition.
+        conditions: The Conditions object containing the list of conditions.
+
+    Returns:
+        True if the combined conditions are met, False otherwise.
+    """
+    condition_list = conditions.conditions
+
+    if not condition_list:
+        return True
+
+    if len(contexts) != len(condition_list):
+        raise ValueError(
+            f"Number of contexts ({len(contexts)}) must match number of conditions ({len(condition_list)})"
+        )
+
+    result = evaluate_condition(contexts[0], condition_list[0])
+
+    for i in range(len(condition_list) - 1):
+        current_condition = condition_list[i]
+        next_result = evaluate_condition(contexts[i + 1], condition_list[i + 1])
+
+        match current_condition.combine_next:
+            case "AND":
+                result = result and next_result
+            case "OR":
+                result = result or next_result
+            case None:
+                raise ValueError(
+                    "Must specify a combine_next value when there are more conditions"
+                )
+
+    return result
+
+
 def evaluate_condition(context: str, condition: Condition) -> bool:
     """Evaluate a condition against the given context.
 

@@ -1,3 +1,4 @@
+from ainterviewer.interview_guides.conditions import evaluate_conditions, Conditions
 import asyncio
 import json
 import re
@@ -528,7 +529,7 @@ class AInterviewer:
 
                 try:
                     if conditions := question.conditions:
-                        for condition in conditions:
+                        for condition in conditions.conditions:
                             if (
                                 condition.question_context.section
                                 == self.interview_history.current_section_index
@@ -781,22 +782,24 @@ class AInterviewer:
         # TODO: Move sleep to frontend
         await asyncio.sleep(2.5)
 
-    async def check_conditions(self, conditions: list[Condition]):
-        condition_context = self.get_condition_context(condition)
+    async def check_conditions(self, conditions: Conditions):
+        condition_contexts = [
+            self.get_condition_context(condition) for condition in conditions.conditions
+        ]
 
-        condition_triggered = evaluate_condition(condition_context, condition)
+        condition_triggered = evaluate_conditions(condition_contexts, conditions)
 
         self.db.insert_task(
             message_id=self.message_id,
             interview_id=self.interview_id,
             project_id=self.project_id,
             task="evaulate_condition",
-            content=condition.model_dump_json(),
+            content=conditions.model_dump_json(),
             response=str(condition_triggered),
         )
 
         if condition_triggered:
-            match condition.action:
+            match conditions.action:
                 case ConditionAction.SKIP_SECTION:
                     raise SkipSectionException
                 case ConditionAction.SKIP_QUESTION:
@@ -811,7 +814,7 @@ class AInterviewer:
             if ConditionAction.ASK_QUESTION:
                 raise SkipQuestionException
 
-    def get_condition_context(self, condition: Condition):
+    def get_condition_context(self, condition: Condition) -> str:
         section_context = self.interview_history[condition.question_context.section]
 
         if (main_question_index := condition.question_context.question) is not None:
