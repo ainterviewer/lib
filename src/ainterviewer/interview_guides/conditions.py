@@ -4,17 +4,11 @@
 from __future__ import annotations
 
 import operator
-import re
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from ainterviewer.interview_guides.types import ConditionAction, ConditionTrigger
-
-logic_operators = {
-    "AND": operator.and_,
-    "OR": operator.or_,
-}
 
 comparison_operators = {
     "==": operator.eq,
@@ -25,14 +19,22 @@ comparison_operators = {
 }
 
 
+class Conditions(BaseModel):
+    conditions: list[Condition]
+    action: ConditionAction
+
+
 class Condition(BaseModel):
     """Create a condition that must be met to ask a question"""
 
     question_context: QuestionContext
     evaluation: list[ConditionEvaluation]
-    action: ConditionAction
     negated: bool = False
-    trigger_type: ConditionTrigger = ConditionTrigger.RE
+    trigger_type: ConditionTrigger = ConditionTrigger.MATCH
+    combine_next: Literal["AND", "OR"] | None = Field(
+        default=None,
+        description="Operator to combine this condition's result with the next. None for the last condition.",
+    )
 
 
 class QuestionContext(BaseModel):
@@ -51,109 +53,113 @@ class QuestionContext(BaseModel):
 
 
 class ConditionEvaluation(BaseModel):
-    trigger_value: str
-    logic_operator: Literal["AND", "OR"]
-    comparison_operator: Literal["==", "!=", "<", "<=", ">", ">="]
+    """A single evaluation check with an optional operator to combine with the next evaluation.
+
+    For "A AND B OR C", create:
+        [
+            ConditionEvaluation(trigger_value="A", combine_next="AND"),
+            ConditionEvaluation(trigger_value="B", combine_next="OR"),
+            ConditionEvaluation(trigger_value="C"),
+        ]
+
+    For numeric comparisons (e.g., age >= 18):
+        ConditionEvaluation(trigger_value="18", comparison_operator=">=")
+    """
+
+    trigger_value: str = Field(
+        description="The pattern to match or value to compare against"
+    )
+    comparison_operator: Literal["==", "<", "<=", ">", ">="] = Field(
+        default="==",
+        description="Comparison operator. '==' for pattern matching, others for numeric/date comparison.",
+    )
+    combine_next: Literal["AND", "OR"] | None = Field(
+        default=None,
+        description="Operator to combine this evaluation's result with the next. None for the last evaluation.",
+    )
 
 
 def evaluate_condition(context: str, condition: Condition) -> bool:
+    """Evaluate a condition against the given context.
+
+    Args:
+        context: The response/value to evaluate against.
+        condition: The condition with its evaluations to check.
+
+    Returns:
+        True if the condition is met, False otherwise.
+        Result is negated if condition.negated is True.
+    """
     match condition.trigger_type:
-        case ConditionTrigger.RE:
+        case ConditionTrigger.MATCH:
             result = evaluate_re_condition(context, condition.evaluation)
         case ConditionTrigger.CLASSIFICATION:
             result = evaluate_classification_condition(context, condition.evaluation)
 
-    if result:
-        ...
-
-    return not bool() if condition.negated else bool()
+    return not result if condition.negated else result
 
 
-def evaluate_re_condition(context, evaluation: ConditionEvaluation) -> bool:
-    match evaluation.comparison_operator:
-        case "==":
-            result = evaluation.trigger_value == context
-        case "in":
-            result = bool(re.search(evaluation.trigger_value, context))
-        case _:
-            raise ValueError("invalid condition rule")
+def evaluate_re_condition(context: str, evaluations: list[ConditionEvaluation]) -> bool:
+    """Evaluate a list of conditions using pattern matching and combine with specified operators.
+
+    For pattern matching (==): checks if trigger_value pattern is found in context.
+    For numeric comparison (<, <=, >, >=): compares numeric values.
+
+    Evaluations are combined left-to-right using each evaluation's combine_next operator.
+    """
+    if not evaluations:
+        return True
+
+    result = _evaluate_single(context, evaluations[0])
+
+    for i in range(len(evaluations) - 1):
+        current_eval = evaluations[i]
+        next_result = _evaluate_single(context, evaluations[i + 1])
+
+        match current_eval.combine_next:
+            case "AND":
+                result = result and next_result
+            case "OR":
+                result = result or next_result
+            case None:
+                raise ValueError(
+                    "Must specify a combine_next value when there are more conditions"
+                )
 
     return result
 
 
-def evaluate_classification_condition(context, evaluation: ConditionEvaluation) -> bool:
-    return bool()
+def _evaluate_single(context: str, evaluation: ConditionEvaluation) -> bool:
+    """Evaluate a single condition against the context.
+
+    For pattern matching (==): context is split by '|' (for multi-select values)
+    and checks if trigger_value matches any of the values (case-insensitive).
+
+    For numeric comparison: compares float values.
+    """
+    if evaluation.comparison_operator == "==":
+        # Split by '|' for multi-select values, normalize case
+        context_values = [v.strip().lower() for v in context.split("|")]
+        trigger = evaluation.trigger_value.strip().lower()
+        return trigger in context_values
+
+    # Numeric comparison
+    try:
+        context_value = float(context)
+        trigger_value = float(evaluation.trigger_value)
+    except ValueError:
+        # If conversion fails, try date comparison or return False
+        return False
+
+    op = comparison_operators[evaluation.comparison_operator]
+    return op(context_value, trigger_value)
 
 
-# class ConditionTrigger(ABC):
-#     def __init__(self, trigger_value: str):
-#         self.trigger_value = trigger_value
-#
-#     async def check_condition(
-#         self,
-#         context: str,
-#         clean_context: bool,
-#         *args,
-#         **kwargs,
-#     ) -> bool:
-#         raise NotImplementedError
-#
-#     def clean_value(self, value: str) -> str:
-#         return value.strip().lower()
-#
-#
-# class ConditionTriggerRE(ConditionTrigger):
-#     def __init__(self, trigger_value: str):
-#         super().__init__(trigger_value=trigger_value)
-#
-#     async def check_condition(
-#         self,
-#         context: str,
-#         clean_context: bool,
-#         *args,
-#         **kwargs,
-#     ) -> bool:
-#         if clean_context:
-#             context = self.clean_value(context)
-#
-#         return bool(re.match(f"^{self.trigger_value}$", context))
-#
-#
-# class ConditionTriggerClassification(ConditionTrigger):
-#     def __init__(
-#         self,
-#         trigger_value: str,
-#         classification_agent: agents.ClassificationAgent,
-#     ):
-#         super().__init__(trigger_value=trigger_value)
-#         self.classification_agent = classification_agent
-#
-#     async def check_condition(self, context: str, *args, **kwargs) -> bool:
-#         raise NotImplementedError
-#         return await self.classification_agent.classify(
-#             self.trigger_value, self.value, *args, **kwargs
-#         )
-#
-#
-# async def evaluate_condition(
-#     context: str,
-#     trigger_value: str,
-#     trigger_type: ConditionTriggerEvaluator,
-#     *args,
-#     **kwargs,
-# ) -> bool:
-#     match trigger_type:
-#         case ConditionTriggerEvaluator.RE:
-#             clean_value = kwargs.pop("clean_value", True)
-#             trigger = ConditionTriggerRE(trigger_value=trigger_value, *args, **kwargs)
-#             return await trigger.check_condition(context, clean_value)
-#
-#         case ConditionTriggerEvaluator.CLASSIFICATION:
-#             raise NotImplementedError
-#             trigger = ConditionTriggerClassification(
-#                 trigger_value=trigger_value, *args, **kwargs
-#             )
-#             return await trigger.check_condition(context)
-#
-#         case _:
-#             raise ValueError(f"Invalid trigger type {trigger_type}")
+def evaluate_classification_condition(
+    context: str, evaluations: list[ConditionEvaluation]
+) -> bool:
+    """Evaluate conditions using classification (non-deterministic).
+
+    TODO: Implement classification-based evaluation.
+    """
+    raise NotImplementedError("Classification-based evaluation not yet implemented")

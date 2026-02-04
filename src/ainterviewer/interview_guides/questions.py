@@ -86,7 +86,7 @@ class Question(QuestionBase):
         False,
         description="Whether the user should be able to upload an image as a response",
     )
-    condition: Optional[Condition] = None
+    conditions: Optional[list[Condition]] = None
     probing_context: Optional[ContextType] = None
 
     def __init__(self, **data):

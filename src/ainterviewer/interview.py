@@ -527,20 +527,21 @@ class AInterviewer:
                 check_condition_after = False
 
                 try:
-                    if condition := question.condition:
-                        if (
-                            condition.question_context.section
-                            == self.interview_history.current_section_index
-                            and condition.question_context.question
-                            == self.interview_history.current_question_index + 1
-                            # NOTE:
-                            # We have to add one to the question index, because it
-                            # is only added when the question is asked, and we want
-                            # to check for the current question
-                        ):
-                            check_condition_after = True
+                    if conditions := question.conditions:
+                        for condition in conditions:
+                            if (
+                                condition.question_context.section
+                                == self.interview_history.current_section_index
+                                and condition.question_context.question
+                                == self.interview_history.current_question_index + 1
+                                # NOTE:
+                                # We have to add one to the question index, because it
+                                # is only added when the question is asked, and we want
+                                # to check for the current question
+                            ):
+                                check_condition_after = True
                         else:
-                            await self.check_condition(condition)
+                            await self.check_conditions(conditions)
 
                     if self.interview_history.current_question_index > 0:
                         if question.check_if_answered:
@@ -586,8 +587,8 @@ class AInterviewer:
                         await asyncio.sleep(2.5)
                         continue
 
-                    if condition is not None and check_condition_after:
-                        await self.check_condition(condition)
+                    if conditions is not None and check_condition_after:
+                        await self.check_conditions(conditions)
 
                     if question.max_probes_n or question.max_probes_time:
                         await self.probe(question, section.description)
@@ -780,53 +781,10 @@ class AInterviewer:
         # TODO: Move sleep to frontend
         await asyncio.sleep(2.5)
 
-    async def check_condition(self, condition: Condition):
-        question_context = condition.question_context
+    async def check_conditions(self, conditions: list[Condition]):
+        condition_context = self.get_condition_context(condition)
 
-        conditional_context = self.interview_history[question_context.section]
-
-        if (main_question_index := question_context.question) is not None:
-            conditional_context = conditional_context[main_question_index]
-        else:
-            raise NotImplementedError(
-                "This feature is not implemented yet. Please specify a main question index for your condition."
-            )
-
-        condition_question_context: str
-
-        match question_context.part:
-            case "main":
-                if (main_answer := conditional_context.main_question.answer) is None:
-                    raise ValueError("Answer not found")
-                condition_question_context = main_answer.message
-
-            case "probes":
-                condition_question_context = "\n".join(
-                    [
-                        probe.answer.message
-                        for probe in conditional_context.probes
-                        if probe.answer
-                    ]
-                )
-
-            case "both":
-                if (main_answer := conditional_context.main_question.answer) is None:
-                    raise ValueError("Answer not found")
-
-                condition_question_context = "\n".join(
-                    [
-                        main_answer.message,
-                        *[
-                            probe.answer.message
-                            for probe in conditional_context.probes
-                            if probe.answer
-                        ],
-                    ]
-                )
-            case _:
-                raise ValueError("Invalid part")
-
-        condition_triggered = evaluate_condition(condition_question_context, condition)
+        condition_triggered = evaluate_condition(condition_context, condition)
 
         self.db.insert_task(
             message_id=self.message_id,
@@ -852,6 +810,50 @@ class AInterviewer:
         else:
             if ConditionAction.ASK_QUESTION:
                 raise SkipQuestionException
+
+    def get_condition_context(self, condition: Condition):
+        section_context = self.interview_history[condition.question_context.section]
+
+        if (main_question_index := condition.question_context.question) is not None:
+            question_context = section_context[main_question_index]
+        else:
+            raise NotImplementedError(
+                "This feature is not implemented yet. Please specify a main question index for your condition."
+            )
+
+        match condition.question_context.part:
+            case "main":
+                if (main_answer := question_context.main_question.answer) is None:
+                    raise ValueError("Answer not found")
+                condition_context = main_answer.message
+
+            case "probes":
+                condition_context = "\n".join(
+                    [
+                        probe.answer.message
+                        for probe in question_context.probes
+                        if probe.answer
+                    ]
+                )
+
+            case "both":
+                if (main_answer := question_context.main_question.answer) is None:
+                    raise ValueError("Answer not found")
+
+                condition_context = "\n".join(
+                    [
+                        main_answer.message,
+                        *[
+                            probe.answer.message
+                            for probe in question_context.probes
+                            if probe.answer
+                        ],
+                    ]
+                )
+            case _:
+                raise ValueError("Invalid part")
+
+        return condition_context
 
     async def probe(self, question: Question, section_description: str):
         # TODO:

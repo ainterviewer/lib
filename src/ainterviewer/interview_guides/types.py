@@ -2,7 +2,7 @@ from enum import StrEnum
 
 
 class ConditionTrigger(StrEnum):
-    RE = "re"
+    MATCH = "match"
     CLASSIFICATION = "classification"
 
 
