@@ -415,6 +415,7 @@ class AInterviewer:
             self.project_id,
             self.interview_id,
             status=InterviewStatus.COMPLETED,
+            time_spent=self.time_spent,
         )
 
         await self.send_data(
