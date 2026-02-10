@@ -812,7 +812,7 @@ class AInterviewer:
                 case _:
                     raise ValueError("Invalid condition action")
         else:
-            if ConditionAction.ASK_QUESTION:
+            if conditions.action == ConditionAction.ASK_QUESTION:
                 raise SkipQuestionException
 
     def get_condition_context(self, condition: Condition) -> str:
