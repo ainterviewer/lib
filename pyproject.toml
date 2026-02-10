@@ -7,21 +7,21 @@ authors = [{ name = "Tobias Gårdhus", email = "tobias_gaardhus@hotmail.com" }]
 requires-python = ">=3.12.0"
 
 dependencies = [
-  "aiobotocore>=2.25.0",
-  "fastapi[standard]>=0.124",
+  "aiobotocore>=2.25.1",
+  "fastapi[standard]>=0.128.7",
   "jinja2>=3.1.6",
-  "litellm>=1.68.1",
-  "openai>=1.72.0",
-  "polars>=1.30.0",
-  "pyarrow>=20.0.0",
+  "litellm>=1.81.9",
+  "openai>=2.9.0",
+  "polars>=1.35.2",
+  "pyarrow>=22.0.0",
   "pydantic-extra-types>=2.10.4",
   "pydantic-settings>=2.7.1",
   "pydantic>=2.9,<3",
   "pyyaml>=6.0.2",
-  "requests>=2.32.3",
+  "requests>=2.32.5",
   "structlog>=25.3.0",
   "types-aioboto3[ec2]>=13.4.0",
-  "uvicorn[standard]>=0.34.3",
+  "uvicorn[standard]>=0.38.0",
   "websockets>=15.0.1",
 ]
 
