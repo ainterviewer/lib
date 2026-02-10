@@ -1,9 +1,4 @@
 # TODO:
-# - Should there be a different model for the interview and interview, so
-# that the interview version can have another initialization step, i.e.
-# shuffle? This could also mean that the interviews should have a fixed
-# version of the interview_guide attached, which could make re-creating the
-# interview easier.
 # - Consider refactoring:
 #   - Question into image, survey items and conditions as separate classes
 # - Add SkipJsonSchema to fields that shouldn't be considered in the
@@ -27,11 +22,11 @@ Q = TypeVar("Q", bound=QuestionBase)
 class InterviewGuideBase(BaseModel, Generic[Q]):
     """A guide for the interviewer to follow during the interview."""
 
-    framing: Optional[str] = Field(
+    framing: str | None = Field(
         None,
         description="A description of the interview and its purpose. Only used by the model.",
     )
-    introduction: Optional[str | SkipJsonSchema[InterviewMessage]] = Field(
+    introduction: str | SkipJsonSchema[InterviewMessage] | None = Field(
         None,
         description="An introduction to the interview. Displayed to the interviewee as the first message. They whon't be able to respond to this message.",
     )
@@ -39,19 +34,14 @@ class InterviewGuideBase(BaseModel, Generic[Q]):
         default_factory=list,
         description="A list of sections containing questions to ask the interviewee",
     )
-    outro: Optional[str | SkipJsonSchema[InterviewMessage]] = Field(
+    outro: str | SkipJsonSchema[InterviewMessage] | None = Field(
         None,
         description="An outro message for the interview. Displayed to the interviewee as the last message they will see. They will not be able to answer this message.",
     )
-    alt_outro: SkipJsonSchema[Optional[str]] = Field(
+    # TODO: Should this kind of message instead be specified in the condition?
+    alt_outro: SkipJsonSchema[str | None] = Field(
         None,
         description="Used as if the a condition results in an EndInterview, eg. from missing consent.",
-    )
-    timed_message: SkipJsonSchema[Optional[TimedMessage]] = (
-        Field(  # TODO: This should be a list
-            None,
-            description="A message that is displayed to the interviewee after a certain amount of time",
-        )
     )
 
     def __init__(self, **data):
@@ -120,9 +110,9 @@ class TimedMessage(BaseModel):
 
     message: str = Field(description="The message to display")
 
-    variables: SkipJsonSchema[Optional[list[str]]] = Field(
+    variables: SkipJsonSchema[list[str] | None] = Field(
         None,
-        description="Variables that can be used in the message, ie. uuid. In case they are supplied, they will be filled in before the question is asked. The question should be formatted with Jinja2 style templating.",
+        description="Variables that can be used in the message, ie. uuid. In case they are supplied, they will be filled in before the message is displayed. The message should be formatted with Jinja2 style templating.",
     )
     time: int = Field(
         description="The time in seconds to wait before displaying the message"
@@ -139,7 +129,7 @@ class TimedMessage(BaseModel):
 
 class InterviewMessage(BaseModel):
     message: str
-    variables: SkipJsonSchema[Optional[list[str]]] = Field(
+    variables: SkipJsonSchema[list[str] | None] = Field(
         None,
         description="Variables that can be used in the question, ie. uuid",
         # FIXME: Define a list of viable variables from the AInterviewer
@@ -157,6 +147,11 @@ class InterviewGuideTemplate(InterviewGuideBase[QuestionBase]):
 
 class InterviewGuide(InterviewGuideBase[Question]):
     model_config = {"title": "InterviewGuide"}
+
+    timed_messages: list[TimedMessage] | None = Field(
+        None,
+        description="Messages that are displayed to the interviewee after a certain amount of time",
+    )
 
 
 DecimalString: TypeAlias = str

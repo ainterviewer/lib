@@ -115,6 +115,8 @@ def evaluate_conditions(contexts: list[str], conditions: Conditions) -> bool:
                     "Must specify a combine_next value when there are more conditions"
                 )
 
+    print(f"{result=}")
+
     return result
 
 
@@ -131,14 +133,16 @@ def evaluate_condition(context: str, condition: Condition) -> bool:
     """
     match condition.trigger_type:
         case ConditionTrigger.MATCH:
-            result = evaluate_re_condition(context, condition.evaluation)
+            result = evaluate_match_condition(context, condition.evaluation)
         case ConditionTrigger.CLASSIFICATION:
             result = evaluate_classification_condition(context, condition.evaluation)
 
     return not result if condition.negated else result
 
 
-def evaluate_re_condition(context: str, evaluations: list[ConditionEvaluation]) -> bool:
+def evaluate_match_condition(
+    context: str, evaluations: list[ConditionEvaluation]
+) -> bool:
     """Evaluate a list of conditions using pattern matching and combine with specified operators.
 
     For pattern matching (==): checks if trigger_value pattern is found in context.
@@ -146,9 +150,6 @@ def evaluate_re_condition(context: str, evaluations: list[ConditionEvaluation]) 
 
     Evaluations are combined left-to-right using each evaluation's combine_next operator.
     """
-    if not evaluations:
-        return True
-
     result = _evaluate_single(context, evaluations[0])
 
     for i in range(len(evaluations) - 1):
@@ -180,6 +181,8 @@ def _evaluate_single(context: str, evaluation: ConditionEvaluation) -> bool:
         # Split by '|' for multi-select values, normalize case
         context_values = [v.strip().lower() for v in context.split("|")]
         trigger = evaluation.trigger_value.strip().lower()
+        print(f"{trigger=}, { context_values=}")
+
         return trigger in context_values
 
     # Numeric comparison

@@ -1,4 +1,3 @@
-from ainterviewer.interview_guides.conditions import evaluate_conditions, Conditions
 import asyncio
 import json
 import re
@@ -38,9 +37,9 @@ from ainterviewer.interview_guides import (
     InterviewMessage,
     Question,
     TimedMessage,
-    evaluate_condition,
     fill_variables_in_message,
 )
+from ainterviewer.interview_guides.conditions import Conditions, evaluate_conditions
 from ainterviewer.interview_guides.history import (
     HistoryMessage,
     ImageHistory,
@@ -80,9 +79,12 @@ class AInterviewer:
         # Should be improved by storing the timed message in the database
         # instead.
 
-        if timed_message := interview_guide.timed_message:
-            if previous_time_spent > timed_message.time:
-                interview_guide.timed_message = None
+        if interview_guide.timed_messages:
+            interview_guide.timed_messages = [
+                timed_message
+                for timed_message in interview_guide.timed_messages
+                if previous_time_spent <= timed_message.time
+            ]
 
         self.io = io
         self.db = db
@@ -542,7 +544,10 @@ class AInterviewer:
                                 # to check for the current question
                             ):
                                 check_condition_after = True
-                        else:
+
+                        print(f"{check_condition_after=}")
+
+                        if not check_condition_after:
                             await self.check_conditions(conditions)
 
                     if self.interview_history.current_question_index > 0:
@@ -662,9 +667,16 @@ class AInterviewer:
             one_question=self.one_question,
         )
 
-        if timed_message := self.interview_guide.timed_message:
-            if self.time_spent > timed_message.time:
-                await self.send_timed_message(timed_message)
+        if self.interview_guide.timed_messages:
+            remaining = []
+
+            for tm in self.interview_guide.timed_messages:
+                if self.time_spent > tm.time:
+                    await self.send_timed_message(tm)
+                else:
+                    remaining.append(tm)
+
+            self.interview_guide.timed_messages = remaining
 
         history_message = HistoryMessage(message=message)
 
@@ -720,9 +732,16 @@ class AInterviewer:
             one_question=self.one_question,
         )
 
-        if timed_message := self.interview_guide.timed_message:
-            if self.time_spent > timed_message.time:
-                await self.send_timed_message(timed_message)
+        if self.interview_guide.timed_messages:
+            remaining = []
+
+            for tm in self.interview_guide.timed_messages:
+                if self.time_spent > tm.time:
+                    await self.send_timed_message(tm)
+                else:
+                    remaining.append(tm)
+
+            self.interview_guide.timed_messages = remaining
 
         history_message = HistoryMessage(message=message)
 
@@ -761,8 +780,6 @@ class AInterviewer:
         #   Currently this is being handled by looking at the time spent in
         #   last session but this is not bullet proof, so should update to look
         #   for the timed_message in the db.
-
-        self.interview_guide.timed_message = None
 
         if timed_message.variables:
             timed_message.message = fill_variables_in_message(

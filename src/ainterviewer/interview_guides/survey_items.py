@@ -25,6 +25,8 @@ class SurveyItemType(StrEnum):
     SLIDER = "slider"
     NUMBER = "number"
     DATE = "date"
+    # TODO: Implement datetime
+    DATETIME = "datetime"
 
 
 class SurveyOption(BaseModel):
