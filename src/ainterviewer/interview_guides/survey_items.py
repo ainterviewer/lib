@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, create_model
 
 
 # TODO:
@@ -25,8 +25,9 @@ class SurveyItemType(StrEnum):
     SLIDER = "slider"
     NUMBER = "number"
     DATE = "date"
-    # TODO: Implement datetime
+    # TODO: Implement
     DATETIME = "datetime"
+    TIME = "time"
 
 
 class SurveyOption(BaseModel):
@@ -36,10 +37,6 @@ class SurveyOption(BaseModel):
 
     label: str = Field(
         description="The label for the option, will be displayed in the ui."
-    )
-    value: str | None = Field(
-        None,
-        description="The value for the option, can be used as a point of reference later in the interview.",
     )
     tip: str | None = Field(
         None,
@@ -52,3 +49,9 @@ class SurveyOption(BaseModel):
             self.value = self.label.lower().replace(" ", "_")
 
         return self
+
+
+def create_survey_answer_model(survey_item: SurveyItem) -> type[BaseModel]:
+    """Create a pydantic model which can be used to validate/generate answers to the survey item based on its configuration"""
+
+    ...

@@ -1,3 +1,4 @@
+from ainterviewer.interview_guides import SurveyItem
 from random import uniform
 
 from ainterviewer.agents.base import BaseAgent
@@ -29,7 +30,10 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
         ]
 
     async def answer(
-        self, question: str, additional_instructions: str | None = None
+        self,
+        question: str,
+        survey_item: SurveyItem | None = None,
+        additional_instructions: str | None = None,
     ) -> str:
         transcript = create_transcript(self.messages, interviewee=True)
 
@@ -54,6 +58,7 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
             {"role": "system", "content": self.prompts.system_prompt},
             {"role": "user", "content": answering_prompt},
         ]
+
         message = await self.chat_api(messages)
 
         self.messages.append({"role": MessageRole.ASSISTANT, "content": message})
