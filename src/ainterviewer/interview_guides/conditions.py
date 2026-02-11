@@ -115,8 +115,6 @@ def evaluate_conditions(contexts: list[str], conditions: Conditions) -> bool:
                     "Must specify a combine_next value when there are more conditions"
                 )
 
-    print(f"{result=}")
-
     return result
 
 
@@ -181,7 +179,6 @@ def _evaluate_single(context: str, evaluation: ConditionEvaluation) -> bool:
         # Split by '|' for multi-select values, normalize case
         context_values = [v.strip().lower() for v in context.split("|")]
         trigger = evaluation.trigger_value.strip().lower()
-        print(f"{trigger=}, { context_values=}")
 
         return trigger in context_values
 

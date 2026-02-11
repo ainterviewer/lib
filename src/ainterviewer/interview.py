@@ -545,8 +545,6 @@ class AInterviewer:
                             ):
                                 check_condition_after = True
 
-                        print(f"{check_condition_after=}")
-
                         if not check_condition_after:
                             await self.check_conditions(conditions)
 
