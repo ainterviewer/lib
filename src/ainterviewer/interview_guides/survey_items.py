@@ -1,22 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime, date, time
 from enum import StrEnum
-from typing import Self
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator, create_model
-
-
-# TODO:
-# Let options be a keyword of {label: value} pairs
-# Make labels and values referable in the next question
-class SurveyItem(BaseModel):
-    type: SurveyItemType
-    options: list[str | SurveyOption]
-    required: bool = True
-    min: int | float | None = None
-    max: int | float | None = None
-    step: int | float | None = 1
-    with_other: bool = False
+from pydantic import BaseModel, Field, create_model
 
 
 class SurveyItemType(StrEnum):
@@ -30,25 +18,177 @@ class SurveyItemType(StrEnum):
     TIME = "time"
 
 
-class SurveyOption(BaseModel):
-    """
-    An option for a survey item.
-    """
+class SurveyItemBase(BaseModel):
+    required: bool = True
 
-    label: str = Field(
-        description="The label for the option, will be displayed in the ui."
-    )
-    tip: str | None = Field(
-        None,
-        description="A tip to show the interviewee when they hover over the option.",
-    )
 
-    @model_validator(mode="after")
-    def validate_value(self) -> Self:
-        if self.value is None:
-            self.value = self.label.lower().replace(" ", "_")
+# TODO:
+# Let options be a keyword of {label: value} pairs
+# Make labels and values referable in the next question
+class RadioItem(SurveyItemBase):
+    type: Literal["radio"] = "radio"
+    options: list[str]
 
-        return self
+    with_other: bool = False
+
+    def validate_answer(self, answer: str):
+        return answer in self.options
+
+
+class CheckboxItem(SurveyItemBase):
+    type: Literal["checkbox"] = "checkbox"
+    options: list[str]
+
+    with_other: bool = False
+    ui: Literal["slider", "radio"] = "radio"
+
+    def validate_answer(self, answer: list[str]):
+        return all(x in self.options for x in answer)
+
+
+class LikertItem(SurveyItemBase):
+    type: Literal["likert"] = "likert"
+    options: list[str]
+
+    def validate_answer(self, answer: str):
+        return answer in self.options
+
+
+class SliderItem(SurveyItemBase):
+    type: Literal["slider"] = "slider"
+    options: list[str]
+
+    min: int | float | None = None
+    max: int | float | None = None
+    step: int | float | None = 1
+
+    def validate_answer(self, answer: int | float):
+        valid = True
+
+        if self.min is not None and answer <= self.min:
+            valid = False
+
+        if self.max is not None and answer >= self.max:
+            valid = False
+
+        if self.step is not None:
+            base = self.min if self.min is not None else 0
+            diff = answer - base
+
+            # handle float precision safely
+            eps = 1e-9
+            steps = diff / self.step
+            if abs(round(steps) - steps) > eps:
+                valid = False
+
+        return valid
+
+
+class NumberItem(SurveyItemBase):
+    type: Literal["number"] = "number"
+
+    min: int | float | None = None
+    max: int | float | None = None
+    step: int | float | None = 1
+
+    def validate_answer(self, answer: int | float):
+        valid = True
+
+        if self.min is not None and answer <= self.min:
+            valid = False
+
+        if self.max is not None and answer >= self.max:
+            valid = False
+
+        if self.step is not None:
+            base = self.min if self.min is not None else 0
+            diff = answer - base
+
+            # handle float precision safely
+            eps = 1e-9
+            steps = diff / self.step
+            if abs(round(steps) - steps) > eps:
+                valid = False
+
+        return valid
+
+
+class DateItem(SurveyItemBase):
+    type: Literal["date"] = "date"
+
+    min: str | None = None
+    max: str | None = None
+
+    def validate_answer(self, answer: str):
+        valid = True
+
+        if self.min is not None and date.fromisoformat(answer) <= date.fromisoformat(
+            self.min
+        ):
+            valid = False
+
+        if self.max is not None and date.fromisoformat(answer) >= date.fromisoformat(
+            self.max
+        ):
+            valid = False
+
+        return valid
+
+
+class DatetimeItem(SurveyItemBase):
+    type: Literal["datetime"] = "datetime"
+
+    min: str | None = None
+    max: str | None = None
+
+    def validate_answer(self, answer: str):
+        valid = True
+
+        if self.min is not None and datetime.fromisoformat(
+            answer
+        ) <= datetime.fromisoformat(self.min):
+            valid = False
+
+        if self.max is not None and datetime.fromisoformat(
+            answer
+        ) >= datetime.fromisoformat(self.max):
+            valid = False
+
+        return valid
+
+
+class TimeItem(SurveyItemBase):
+    type: Literal["time"] = "time"
+
+    min: str | None = None
+    max: str | None = None
+
+    def validate_answer(self, answer: str):
+        valid = True
+
+        if self.min is not None and time.fromisoformat(answer) <= time.fromisoformat(
+            self.min
+        ):
+            valid = False
+
+        if self.max is not None and time.fromisoformat(answer) >= time.fromisoformat(
+            self.max
+        ):
+            valid = False
+
+        return valid
+
+
+SurveyItem = Annotated[
+    RadioItem
+    | CheckboxItem
+    | SliderItem
+    | NumberItem
+    | DateItem
+    | DatetimeItem
+    | TimeItem,
+    Field(discriminator="type"),
+]
 
 
 def create_survey_answer_model(survey_item: SurveyItem) -> type[BaseModel]:
