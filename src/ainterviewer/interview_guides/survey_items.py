@@ -182,6 +182,7 @@ class TimeItem(SurveyItemBase):
 SurveyItem = Annotated[
     RadioItem
     | CheckboxItem
+    | LikertItem
     | SliderItem
     | NumberItem
     | DateItem
