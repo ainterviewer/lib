@@ -161,16 +161,6 @@ where initial condition is added, ie. 1.3 for the 3rd question in the 1st sectio
 
 
 if __name__ == "__main__":
-    # print(InterviewGuideContent.model_json_schema())
-    #
-    # exit()
-    #
-    # from dainty.documentation import generate_model_docs
-
-    # docs = generate_model_docs(InterviewGuideContent, with_style=True)
-    #
-    # exit()
-
     from pathlib import Path
 
     interview_guides = Path("data/interview_guides").glob("*.json")
