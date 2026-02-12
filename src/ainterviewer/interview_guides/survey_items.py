@@ -4,7 +4,7 @@ from datetime import date, datetime, time
 from enum import StrEnum
 from typing import Annotated, Literal, Any
 
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, Field, create_model, validate_call, ConfigDict
 
 
 class SurveyItemType(StrEnum):
@@ -21,6 +21,9 @@ class SurveyItemBase(BaseModel):
     required: bool = True
 
 
+validate_strict = validate_call(config=ConfigDict(strict=True))
+
+
 # TODO:
 # Let options be a keyword of {label: value} pairs
 # Make labels and values referable in the next question
@@ -30,7 +33,11 @@ class RadioItem(SurveyItemBase):
 
     with_other: bool = False
 
+    @validate_strict
     def validate_answer(self, answer: str):
+        if self.with_other:
+            return True
+
         return answer in self.options
 
 
@@ -41,7 +48,11 @@ class CheckboxItem(SurveyItemBase):
     with_other: bool = False
     ui: Literal["slider", "radio"] = "radio"
 
+    @validate_strict
     def validate_answer(self, answer: list[str]):
+        if self.with_other:
+            return True
+
         return all(x in self.options for x in answer)
 
 
@@ -49,6 +60,7 @@ class LikertItem(SurveyItemBase):
     type: Literal["likert"] = "likert"
     options: list[str]
 
+    @validate_strict
     def validate_answer(self, answer: str):
         return answer in self.options
 
@@ -61,6 +73,7 @@ class SliderItem(SurveyItemBase):
     max: int | float | None = None
     step: int | float | None = 1
 
+    @validate_strict
     def validate_answer(self, answer: int | float):
         valid = True
 
@@ -90,6 +103,7 @@ class NumberItem(SurveyItemBase):
     max: int | float | None = None
     step: int | float | None = 1
 
+    @validate_strict
     def validate_answer(self, answer: int | float):
         valid = True
 
@@ -118,6 +132,7 @@ class DateItem(SurveyItemBase):
     min: str | None = None
     max: str | None = None
 
+    @validate_strict
     def validate_answer(self, answer: str):
         valid = True
 
@@ -140,6 +155,7 @@ class DatetimeItem(SurveyItemBase):
     min: str | None = None
     max: str | None = None
 
+    @validate_strict
     def validate_answer(self, answer: str):
         valid = True
 
@@ -162,6 +178,7 @@ class TimeItem(SurveyItemBase):
     min: str | None = None
     max: str | None = None
 
+    @validate_strict
     def validate_answer(self, answer: str):
         valid = True
 
