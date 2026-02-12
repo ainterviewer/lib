@@ -15,6 +15,7 @@ from ainterviewer.interview_guides.survey_items import (
     create_survey_answer_model,
 )
 
+
 # ── RadioItem ────────────────────────────────────────────────────────────────
 
 
@@ -56,6 +57,10 @@ class TestCheckboxItem:
         item = CheckboxItem(options=["x"])
         assert item.type == "checkbox"
 
+    def test_ui_field_not_accepted(self):
+        with pytest.raises(ValidationError):
+            CheckboxItem(options=["a"], ui="radio")
+
 
 # ── LikertItem ───────────────────────────────────────────────────────────────
 
@@ -85,37 +90,65 @@ class TestLikertItem:
         )
         assert item.validate_answer("Somewhat agree") is False
 
+    def test_ui_default_radio(self):
+        item = LikertItem(options=["low", "high"])
+        assert item.ui == "radio"
+
+    def test_ui_slider(self):
+        item = LikertItem(options=["low", "high"], ui="slider")
+        assert item.ui == "slider"
+
+    def test_ui_invalid_value(self):
+        with pytest.raises(ValidationError):
+            LikertItem(options=["low", "high"], ui="dropdown")
+
 
 # ── SliderItem ───────────────────────────────────────────────────────────────
 
 
 class TestSliderItem:
+    def test_min_label_default_none(self):
+        item = SliderItem()
+        assert item.min_label is None
+
+    def test_max_label_default_none(self):
+        item = SliderItem()
+        assert item.max_label is None
+
+    def test_min_label_set(self):
+        item = SliderItem(min_label="Low")
+        assert item.min_label == "Low"
+
+    def test_max_label_set(self):
+        item = SliderItem(max_label="High")
+        assert item.max_label == "High"
+
     def test_validate_within_range(self):
-        item = SliderItem(options=[], min=0, max=10, step=1)
+        item = SliderItem(min=0, max=10, step=1)
         assert item.validate_answer(5) is True
 
     def test_validate_below_min(self):
-        item = SliderItem(options=[], min=0, max=10, step=1)
+        item = SliderItem(min=0, max=10, step=1)
         assert item.validate_answer(0) is False  # <= min
 
     def test_validate_above_max(self):
-        item = SliderItem(options=[], min=0, max=10, step=1)
+        item = SliderItem(min=0, max=10, step=1)
         assert item.validate_answer(10) is False  # >= max
 
     def test_validate_wrong_step(self):
-        item = SliderItem(options=[], min=0, max=10, step=2)
+        item = SliderItem(min=0, max=10, step=2)
         assert item.validate_answer(3) is False
 
     def test_validate_correct_step(self):
-        item = SliderItem(options=[], min=0, max=10, step=2)
+        item = SliderItem(min=0, max=10, step=2)
         assert item.validate_answer(4) is True
 
     def test_validate_float_step(self):
-        item = SliderItem(options=[], min=0, max=1, step=0.1)
+        item = SliderItem(min=0, max=1, step=0.1)
         assert item.validate_answer(0.3) is True
 
     def test_validate_no_constraints(self):
-        item = SliderItem(options=[], min=None, max=None, step=None)
+        item = SliderItem(min=None, max=None, step=None)
         assert item.validate_answer(999) is True
 
 
@@ -278,7 +311,7 @@ class TestCreateSurveyAnswerModel:
             Model(answer=101)
 
     def test_slider_within_range(self):
-        item = SliderItem(options=[], min=1, max=10)
+        item = SliderItem(min=1, max=10)
         Model = create_survey_answer_model(item)
         obj = Model(answer=5)
         assert obj.answer == 5
