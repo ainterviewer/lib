@@ -73,10 +73,10 @@ class LikertItem(SurveyItemBase):
 class SliderItem(SurveyItemBase):
     type: Literal["slider"] = "slider"
 
+    min: int | float
+    max: int | float
     min_label: str | None = None
     max_label: str | None = None
-    min: int | float | None = None
-    max: int | float | None = None
     step: int | float | None = 1
 
     @validate_strict
