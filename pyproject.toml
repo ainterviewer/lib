@@ -7,7 +7,6 @@ authors = [{ name = "Tobias Gårdhus", email = "tobias_gaardhus@hotmail.com" }]
 requires-python = ">=3.12.0"
 
 dependencies = [
-  "aiobotocore>=2.25.1",
   "fastapi[standard]>=0.128.7",
   "jinja2>=3.1.6",
   "litellm>=1.81.9",
@@ -20,7 +19,6 @@ dependencies = [
   "pyyaml>=6.0.2",
   "requests>=2.32.5",
   "structlog>=25.3.0",
-  "types-aioboto3[ec2]>=13.4.0",
   "uvicorn[standard]>=0.38.0",
   "websockets>=15.0.1",
 ]
