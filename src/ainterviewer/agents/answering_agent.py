@@ -63,7 +63,14 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
 
         if survey_item:
             SurveyAnswerModel = create_survey_answer_model(survey_item)
+
+            # NOTE: Greatly improves compliance/performance
+            messages[-1]["content"] += (
+                f"\nIMPORTANT: Follow the following json schema:\n\n```\n{SurveyAnswerModel.model_json_schema()}\n```"
+            )
+
             response = await self.chat_api(messages, response_format=SurveyAnswerModel)
+
             if isinstance(response.answer, str):
                 message = response.answer
             elif isinstance(response.answer, list):
