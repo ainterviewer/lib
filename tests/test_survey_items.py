@@ -107,20 +107,24 @@ class TestLikertItem:
 
 
 class TestSliderItem:
+    def test_requires_min_and_max(self):
+        with pytest.raises(ValidationError):
+            SliderItem()
+
     def test_min_label_default_none(self):
-        item = SliderItem()
+        item = SliderItem(min=0, max=10)
         assert item.min_label is None
 
     def test_max_label_default_none(self):
-        item = SliderItem()
+        item = SliderItem(min=0, max=10)
         assert item.max_label is None
 
     def test_min_label_set(self):
-        item = SliderItem(min_label="Low")
+        item = SliderItem(min=0, max=10, min_label="Low")
         assert item.min_label == "Low"
 
     def test_max_label_set(self):
-        item = SliderItem(max_label="High")
+        item = SliderItem(min=0, max=10, max_label="High")
         assert item.max_label == "High"
 
     def test_validate_within_range(self):
@@ -147,8 +151,8 @@ class TestSliderItem:
         item = SliderItem(min=0, max=1, step=0.1)
         assert item.validate_answer(0.3) is True
 
-    def test_validate_no_constraints(self):
-        item = SliderItem(min=None, max=None, step=None)
+    def test_validate_no_step_constraint(self):
+        item = SliderItem(min=0, max=1000, step=None)
         assert item.validate_answer(999) is True
 
 
