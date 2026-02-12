@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from enum import StrEnum
-from typing import Annotated, Literal, Any
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, create_model, validate_call, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, create_model, validate_call
 
 
 class SurveyItemType(StrEnum):
     RADIO = "radio"
     CHECKBOX = "checkbox"
+    LIKERT = "likert"
     SLIDER = "slider"
     NUMBER = "number"
     DATE = "date"
@@ -18,6 +19,9 @@ class SurveyItemType(StrEnum):
 
 
 class SurveyItemBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: SurveyItemType
     required: bool = True
 
 
@@ -46,7 +50,6 @@ class CheckboxItem(SurveyItemBase):
     options: list[str]
 
     with_other: bool = False
-    ui: Literal["slider", "radio"] = "radio"
 
     @validate_strict
     def validate_answer(self, answer: list[str]):
@@ -60,6 +63,8 @@ class LikertItem(SurveyItemBase):
     type: Literal["likert"] = "likert"
     options: list[str]
 
+    ui: Literal["radio", "slider"] = "radio"
+
     @validate_strict
     def validate_answer(self, answer: str):
         return answer in self.options
@@ -67,8 +72,9 @@ class LikertItem(SurveyItemBase):
 
 class SliderItem(SurveyItemBase):
     type: Literal["slider"] = "slider"
-    options: list[str]
 
+    min_label: str | None = None
+    max_label: str | None = None
     min: int | float | None = None
     max: int | float | None = None
     step: int | float | None = 1
