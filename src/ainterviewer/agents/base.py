@@ -4,7 +4,7 @@ from typing import Any, Generic, TypeVar, overload
 from jinja2 import BaseLoader
 from pydantic import BaseModel
 
-from ainterviewer.agents.prompts import get_agent_prompts, BasePrompts
+from ainterviewer.agents.prompts import BasePrompts, get_agent_prompts
 from ainterviewer.loggers import get_logger
 from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message

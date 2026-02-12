@@ -1,8 +1,10 @@
-from ainterviewer.interview_guides import SurveyItem
 from random import uniform
 
 from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.prompts.agent_prompts import AnsweringAgentPrompts
+from ainterviewer.interview_guides import SurveyItem
+from ainterviewer.interview_guides.survey_items import create_survey_answer_model
+from ainterviewer.lpm.types import Message
 from ainterviewer.synthesize.interviewees import InterviewSubject
 from ainterviewer.types import LanguageCode, MessageRole
 from ainterviewer.utils import create_transcript
@@ -54,12 +56,22 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
             translation=self.language if self.language != "EN" else None,
         )
 
-        messages = [
-            {"role": "system", "content": self.prompts.system_prompt},
-            {"role": "user", "content": answering_prompt},
+        messages: list[Message] = [
+            {"role": MessageRole.SYSTEM, "content": self.prompts.system_prompt},
+            {"role": MessageRole.USER, "content": answering_prompt},
         ]
 
-        message = await self.chat_api(messages)
+        if survey_item:
+            SurveyAnswerModel = create_survey_answer_model(survey_item)
+            response = await self.chat_api(messages, response_format=SurveyAnswerModel)
+            if isinstance(response.answer, str):
+                message = response.answer
+            elif isinstance(response.answer, list):
+                message = ", ".join(response.answer)
+            else:
+                message = str(response.answer)
+        else:
+            message = await self.chat_api(messages)
 
         self.messages.append({"role": MessageRole.ASSISTANT, "content": message})
 

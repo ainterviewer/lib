@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, date, time
+from datetime import date, datetime, time
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Any
 
 from pydantic import BaseModel, Field, create_model
 
@@ -13,7 +13,6 @@ class SurveyItemType(StrEnum):
     SLIDER = "slider"
     NUMBER = "number"
     DATE = "date"
-    # TODO: Implement
     DATETIME = "datetime"
     TIME = "time"
 
@@ -192,68 +191,63 @@ SurveyItem = Annotated[
 ]
 
 
-def create_survey_answer_model(survey_item: SurveyItem) -> type[BaseModel]:
+class SurveyAnswer(BaseModel):
+    answer: Any
+
+
+def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
     """Create a pydantic model which can be used to validate/generate answers to the survey item based on its configuration"""
+
+    kwargs: dict = {}
 
     match survey_item:
         case RadioItem():
             field_type = Literal[tuple(survey_item.options)]
             if survey_item.with_other:
                 field_type = field_type | str
-            field_info = Field()
 
         case CheckboxItem():
             inner_type = Literal[tuple(survey_item.options)]
             if survey_item.with_other:
                 inner_type = inner_type | str
             field_type = list[inner_type]
-            field_info = Field()
 
         case LikertItem():
             field_type = Literal[tuple(survey_item.options)]
-            field_info = Field()
 
         case SliderItem() | NumberItem():
             field_type = int | float
-            kwargs = {}
             if survey_item.min is not None:
                 kwargs["gt"] = survey_item.min
             if survey_item.max is not None:
                 kwargs["lt"] = survey_item.max
-            field_info = Field(**kwargs)
 
         case DateItem():
             field_type = date
-            kwargs = {}
             if survey_item.min is not None:
                 kwargs["gt"] = date.fromisoformat(survey_item.min)
             if survey_item.max is not None:
                 kwargs["lt"] = date.fromisoformat(survey_item.max)
-            field_info = Field(**kwargs)
 
         case DatetimeItem():
             field_type = datetime
-            kwargs = {}
             if survey_item.min is not None:
                 kwargs["gt"] = datetime.fromisoformat(survey_item.min)
             if survey_item.max is not None:
                 kwargs["lt"] = datetime.fromisoformat(survey_item.max)
-            field_info = Field(**kwargs)
 
         case TimeItem():
             field_type = time
-            kwargs = {}
             if survey_item.min is not None:
                 kwargs["gt"] = time.fromisoformat(survey_item.min)
             if survey_item.max is not None:
                 kwargs["lt"] = time.fromisoformat(survey_item.max)
-            field_info = Field(**kwargs)
 
     if not survey_item.required:
         field_type = field_type | None
-        field_info.default = None
+        kwargs["default"] = None
 
     return create_model(
         "SurveyAnswer",
-        answer=(field_type, field_info),
+        answer=(field_type, Field(**kwargs)),
     )
