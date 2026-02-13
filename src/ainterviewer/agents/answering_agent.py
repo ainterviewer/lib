@@ -15,7 +15,7 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
 
     def __init__(
         self,
-        interview_subject: InterviewSubject,
+        interview_subject: InterviewSubject | str,
         language: LanguageCode,
         *args,
         **kwargs,
@@ -25,7 +25,7 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
             *args,
             **kwargs | {"interview_subject": interview_subject},
         )
-        self.interview_subject = interview_subject
+        self.interview_subject: InterviewSubject | str = interview_subject
 
         self.messages += [
             {"role": MessageRole.SYSTEM, "content": self.prompts.system_prompt},
@@ -41,13 +41,16 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
 
         self.messages.append({"role": MessageRole.USER, "content": question})
 
-        if uniform(0, 1) < self.interview_subject.refusal_rate:
-            refusal_instruction = "\nIMPORTANT: You must refuse to answer the question."
+        if isinstance(self.interview_subject, InterviewSubject):
+            if uniform(0, 1) < self.interview_subject.refusal_rate:
+                refusal_instruction = (
+                    "\nIMPORTANT: You must refuse to answer the question."
+                )
 
-            if additional_instructions:
-                additional_instructions += refusal_instruction
-            else:
-                additional_instructions = refusal_instruction
+                if additional_instructions:
+                    additional_instructions += refusal_instruction
+                else:
+                    additional_instructions = refusal_instruction
 
         answering_prompt = self.prompts.generate_answering_prompt(
             transcript=transcript,
@@ -64,7 +67,8 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
         if survey_item:
             SurveyAnswerModel = create_survey_answer_model(survey_item)
 
-            # NOTE: Greatly improves compliance/performance
+            # Providing the json schema as a part of the message
+            # greatly improves compliance/performance
             messages[-1]["content"] += (
                 f"\nIMPORTANT: Follow the following json schema:\n\n```\n{SurveyAnswerModel.model_json_schema()}\n```"
             )

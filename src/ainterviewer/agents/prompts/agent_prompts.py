@@ -10,7 +10,10 @@ from typing import Optional, Union
 
 from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 
-from ainterviewer.synthesize.interviewees import InterviewSubject
+from ainterviewer.synthesize.interviewees import (
+    INTERVIEWEE_INFORMATION_TEMPLATE,
+    InterviewSubject,
+)
 from ainterviewer.types import LanguageCode
 
 
@@ -59,9 +62,18 @@ class BasePrompts(ABC):
 
 
 class AnsweringAgentPrompts(BasePrompts):
-    def __init__(self, interview_subject: InterviewSubject, *args, **kwargs):
+    def __init__(self, interview_subject: InterviewSubject | str, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.interview_subject = interview_subject
+        self.interview_subject: InterviewSubject | str = interview_subject
+
+        self.interviewee_information: str
+
+        if isinstance(interview_subject, InterviewSubject):
+            self.interviewee_information = INTERVIEWEE_INFORMATION_TEMPLATE.render(
+                interview_subject
+            )
+        else:
+            self.interviewee_information = interview_subject
 
     def generate_system_prompt(self) -> str:
         system_prompt_template = self.get_template(
@@ -81,7 +93,7 @@ class AnsweringAgentPrompts(BasePrompts):
         )
 
         return answering_prompt_template.render(
-            interviewee_information=str(self.interview_subject),
+            interviewee_information=self.interviewee_information,
             transcript=transcript,
             question=question,
             additional_instructions=additional_instructions,

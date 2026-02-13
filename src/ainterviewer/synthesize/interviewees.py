@@ -10,7 +10,8 @@ from pathlib import Path
 from random import choice, randint, uniform
 from typing import Any, List
 
-from pydantic import BaseModel, Field
+from jinja2 import Template
+from pydantic import BaseModel, Field, computed_field
 
 
 class AnswerLength(StrEnum):
@@ -19,27 +20,25 @@ class AnswerLength(StrEnum):
     LONG = "long"
 
 
-ANSWER_LENGTH_MAP = {
+ANSWER_LENGTH_MAP: dict[AnswerLength, str] = {
     AnswerLength.SHORT: "short (i.e. 1-2 sentences)",
     AnswerLength.MEDIUM: "medium (i.e. 2-4 sentences)",
     AnswerLength.LONG: "long (i.e. 3-5 sentences)",
 }
 
-interviewee_information_template = """
+INTERVIEWEE_INFORMATION_TEMPLATE = Template("""
 You are a{{ 'n' if (age == 18) or (age | string | first | lower == '8') else '' }} {{ age }} old {{ gender }} named {{ name }}.
 You are a{{ 'n' if occupation | first | lower in 'aeiou' else '' }} {{ occupation }} living in {{ location }}.
 Your highest educational level is {{ education }}.
 
-The length of your answers should be {{ communication_traits.length_description }}, the style should be {{ communication_traits.style }} and in a {{ communication_traits.tone }} tone.
+The length of your answers should be {{ communication_trait.length_description }}, the style should be {{ communication_trait.style }} and in a {{ communication_trait.tone }} tone.
 {% if extra_traits %}
-
 {{ extra_traits }}
 {% endif %}
 {% if additional_instructions %}
-
 {{ additional_instructions }}
 {% endif %}
-"""
+""")
 
 
 class InterviewSubject(BaseModel):
@@ -93,8 +92,9 @@ class CommunicationTrait(BaseModel):
     style: str
     tone: str
 
+    @computed_field
     @property
-    def length_description(self):
+    def length_description(self) -> str:
         return ANSWER_LENGTH_MAP[self.length]
 
 
@@ -107,7 +107,9 @@ class CommunicationTraits(BaseModel):
         yield from self.__dict__.items()
 
 
-def generate_synthetic_person(background_info: BackgroundInfoOptions):
+def generate_synthetic_person(
+    background_info: BackgroundInfoOptions,
+) -> InterviewSubject:
     name, gender = choice(background_info.names_gender)
     education = choice(background_info.educations)
     occupation = choice(background_info.occupations)
@@ -140,7 +142,9 @@ def generate_synthetic_person(background_info: BackgroundInfoOptions):
     )
 
 
-def generate_synthetic_persons(background_info: BackgroundInfoOptions, num_agents: int):
+def generate_synthetic_persons(
+    background_info: BackgroundInfoOptions, num_agents: int
+) -> list[InterviewSubject]:
     return [
         generate_synthetic_person(background_info=background_info)
         for _ in range(num_agents)
@@ -192,3 +196,6 @@ if __name__ == "__main__":
     synthetic_persons = generate_synthetic_persons(background_info, args.num_agents)
     for person in synthetic_persons:
         print(person)
+        person_dump = person.model_dump()
+        print(person_dump)
+        print(INTERVIEWEE_INFORMATION_TEMPLATE.render(**person_dump))
