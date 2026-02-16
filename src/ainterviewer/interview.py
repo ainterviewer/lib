@@ -3,7 +3,7 @@ import json
 import re
 import time
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Self
 
 from jinja2 import BaseLoader
 from pydantic import UUID4
@@ -64,6 +64,7 @@ class AInterviewer:
         interview_id: UUID4,
         previous_time_spent: int = 0,
         message_id: int = 0,
+        one_question: bool = False,
         template_loader: BaseLoader | None = None,
         frontend_language: LanguageCode = "EN",
         referable_values: dict[str, Any] | None = None,
@@ -90,6 +91,8 @@ class AInterviewer:
         self.db = db
 
         self.config = config
+
+        self.one_question = one_question
 
         self.interview_guide: InterviewGuide = interview_guide
 
@@ -166,7 +169,7 @@ class AInterviewer:
                 language=_agent_configs["visual"].pop("lang"),
             )
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         self.db.update_interview_status(
             self.project_id,
             self.interview_id,
@@ -319,15 +322,12 @@ class AInterviewer:
 
     async def interview(
         self,
-        one_question: bool = False,  # TODO: Move this somewhere else?
         probing="restricted",
         interview_history: Optional[list] = None,
     ):
         """
         Main entry point for the interview process
         """
-
-        self.one_question = one_question
 
         if interview_history:
             try:
@@ -337,30 +337,7 @@ class AInterviewer:
                 # self.handle_skip_question_exception(question)
                 pass
         elif intro := self.interview_guide.introduction:
-            if isinstance(intro, InterviewMessage):
-                if intro.variables:
-                    intro.message = fill_variables_in_message(
-                        text=intro.message,
-                        variables=intro.variables,
-                        referable_values=self.referable_values,
-                    )
-
-                intro = intro.message
-
-            message = await self.preprocess_message(intro)
-
-            await self.send_data(
-                message,
-                can_answer=False,
-                with_interview_structure=False,
-                is_introduction=True,
-            )
-
-            self.interview_history.introduction = HistoryMessage(message=message)
-
-            # TODO: Make this configurable by the user, or set it dynamically
-            # based on the length of the introduction
-            await asyncio.sleep(0.5)
+            await self.handle_intro(intro)
 
         try:
             match probing:
@@ -406,6 +383,9 @@ class AInterviewer:
                     can_answer=False,
                     outro=True,
                 )
+
+            await self.send_progress(None, finished=True)
+
             await self.send_data(
                 CustomTokens.end_of_interview,
                 with_interview_structure=False,
@@ -429,8 +409,13 @@ class AInterviewer:
     async def process_history(self, interview_history: list):
         # FIXME:
         # - Fix image replay
-        # If an image has failed being send, the primer might be the last message and the interview stuck.
-        message = None
+        # If an image has failed being send, the primer might be the last
+        # message and the interview stuck.
+        #
+        # TODO:
+        # - The data class for the stored interviews have to be a part of this
+        # library, so we can use it in this function
+        # - Should this method be moved to InterviewHistory class?
 
         # Backfill messages to the history
         for message in interview_history:
@@ -513,6 +498,32 @@ class AInterviewer:
         await self.probe(last_question, last_section.description)
 
         self.resume_from_history = True
+
+    async def handle_intro(self, intro: str | InterviewMessage):
+        if isinstance(intro, InterviewMessage):
+            if intro.variables:
+                intro.message = fill_variables_in_message(
+                    text=intro.message,
+                    variables=intro.variables,
+                    referable_values=self.referable_values,
+                )
+
+            intro = intro.message
+
+        message = await self.preprocess_message(intro)
+
+        await self.send_data(
+            message,
+            can_answer=False,
+            with_interview_structure=False,
+            is_introduction=True,
+        )
+
+        self.interview_history.introduction = HistoryMessage(message=message)
+
+        # TODO: Make this configurable by the user, or set it dynamically
+        # based on the length of the introduction
+        await asyncio.sleep(0.5)
 
     async def handle_skip_question_exception(self, question: Question):
         self.message_id += 1
@@ -664,10 +675,10 @@ class AInterviewer:
 
         return message
 
-    async def preprocess_message(self, message: str, one_question: bool = False) -> str:
+    async def preprocess_message(self, message: str) -> str:
         message = message.strip()
 
-        if one_question:
+        if self.one_question:
             message = re.split(r"(?<=\?)", message)[0]
 
         return message
@@ -715,10 +726,7 @@ class AInterviewer:
 
             question_text = question_text.format(*[question_references])
 
-        message = await self.preprocess_message(
-            question_text,
-            one_question=self.one_question,
-        )
+        message = await self.preprocess_message(question_text)
 
         if self.interview_guide.timed_messages:
             remaining = []
@@ -780,10 +788,7 @@ class AInterviewer:
         return answer
 
     async def ask_probe(self, question: Question, probe: str):
-        message = await self.preprocess_message(
-            probe,
-            one_question=self.one_question,
-        )
+        message = await self.preprocess_message(probe)
 
         if self.interview_guide.timed_messages:
             remaining = []
