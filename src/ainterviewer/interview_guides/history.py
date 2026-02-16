@@ -17,6 +17,7 @@ class DictLikeModel:
 
 class HistoryMessage(BaseModel):
     message: str
+    skipped_by_condition: bool = False
 
 
 class Turn(BaseModel):
@@ -128,6 +129,7 @@ class InterviewHistory(BaseModel):
     def _get_sections(
         self, section_range: SectionsRange = None
     ) -> list[SectionHistory]:
+
         if section_range is None:
             sections = self.sections
         elif isinstance(section_range, int):
@@ -178,6 +180,10 @@ class SectionHistory(BaseModel):
             transcript += self.description + "\n\n"
 
         for i, question in enumerate(self.questions):
+            # Exclude questions skipped by condition
+            if question.main_question.question.skipped_by_condition:
+                continue
+
             if (
                 with_excludes
                 # Always add the transcript of the last question:

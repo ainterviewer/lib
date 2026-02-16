@@ -120,6 +120,7 @@ class PersistenceProtocol(Protocol):
         is_introduction: bool = False,
         outro: bool = False,
         timed: bool = False,
+        skipped_by_condition: bool = False,
     ) -> int: ...
 
     def insert_task(

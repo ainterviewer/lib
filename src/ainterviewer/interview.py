@@ -333,6 +333,8 @@ class AInterviewer:
             try:
                 await self.process_history(interview_history)
             except SkipQuestionException:
+                # TODO: This has to be moved to process_history
+                # self.handle_skip_question_exception(question)
                 pass
         elif intro := self.interview_guide.introduction:
             if isinstance(intro, InterviewMessage):
@@ -432,7 +434,10 @@ class AInterviewer:
 
         # Backfill messages to the history
         for message in interview_history:
-            history_message = HistoryMessage(message=message.content)
+            history_message = HistoryMessage(
+                message=message.content,
+                skipped_by_condition=message.skipped_by_condition,
+            )
 
             # TODO: Fix for surveys
             if message.role.value == "assistant":
@@ -493,7 +498,9 @@ class AInterviewer:
         if message.is_introduction:
             return
 
-        history_message = HistoryMessage(message=message.content)
+        history_message = HistoryMessage(
+            message=message.content, skipped_by_condition=message.skipped_by_condition
+        )
 
         await self.send_progress(questions_asked=self.interview_history.n_questions - 1)
 
@@ -506,6 +513,51 @@ class AInterviewer:
         await self.probe(last_question, last_section.description)
 
         self.resume_from_history = True
+
+    async def handle_skip_question_exception(self, question: Question):
+        self.message_id += 1
+
+        content = question.main_question
+        survey_item = question.survey_item
+        can_answer = question.can_answer
+        include_in_history = not question.exclude_from_history
+        image = question.image
+
+        self.db.insert_message(
+            message_id=self.message_id,
+            content=content,
+            message_type=MessageType.TEXT
+            if not survey_item
+            else MessageType.SURVEY_ITEM,
+            can_answer=can_answer,
+            include_in_history=include_in_history,
+            role=MessageRole.ASSISTANT,
+            survey_item=survey_item,
+            image=image,
+            section=(self.interview_history.current_section_index),
+            main_question=(self.interview_history.current_question_index),
+            sub_question=(self.interview_history.current_probe_index),
+            is_introduction=False,
+            interview_id=self.interview_id,
+            project_id=self.project_id,
+            skipped_by_condition=True,
+        )
+
+        history_message = HistoryMessage(message=content, skipped_by_condition=True)
+
+        self.interview_history.add_question(
+            question_description=question.description,
+            main_question=Turn(question=history_message),
+            exclude_from_history=question.exclude_from_history,
+            image=ImageHistory(
+                primer=HistoryMessage(message=primer)
+                if (primer := image.primer)
+                else None,
+                description=HistoryMessage(message=image.description),
+            )
+            if image
+            else None,
+        )
 
     async def restricted_probing(self):
         # NOTE:
@@ -598,9 +650,12 @@ class AInterviewer:
                     if question.max_probes_n or question.max_probes_time:
                         await self.probe(question, section.description)
 
+                # TODO: We need to handle this somehow in the interview history / database ...
+
                 except SkipSectionException:
                     break  # Exit the section
                 except SkipQuestionException:
+                    await self.handle_skip_question_exception(question)
                     continue  # Skip the question
 
     async def preprocess_answer(self, message: str) -> str:
