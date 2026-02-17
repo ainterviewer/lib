@@ -10,7 +10,7 @@ from ainterviewer.interview_guides.interview_guide import (
     QuestionSectionTemplate,
 )
 from ainterviewer.interview_guides.questions import QuestionBase
-from ainterviewer.lpm.types import Message
+from ainterviewer.lpm.types import Message, MessageRole
 from ainterviewer.settings import settings
 
 # TODO:
@@ -26,7 +26,7 @@ async def generate_interview_guide(
     """Generate an interview guide based on the InterviewGuideTemplate structure and a given prompt."""
     messages = [
         Message(
-            role="system",
+            role=MessageRole.SYSTEM,
             content=(
                 "Create an interview guide in a json format to be used by an AI interviewer for a social science qualitative interview, based on the information provided by the user. "
                 "Make the section and question descriptions and framing elaborate so that the interviewer can understand the context and purpose of the interview and each section and question. "
@@ -34,7 +34,7 @@ async def generate_interview_guide(
             ),
         ),
         Message(
-            role="user",
+            role=MessageRole.USER,
             content=prompt,
         ),
     ]
@@ -58,12 +58,13 @@ async def generate_interview_guide(
 
 
 async def generate_section(
-    prompt: str, guide: InterviewGuide
+    prompt: str,
+    guide: InterviewGuide,
 ) -> QuestionSection[Question]:
     """Generate a question section based on the QuestionSectionTemplate structure and a given prompt."""
     messages = [
         Message(
-            role="system",
+            role=MessageRole.SYSTEM,
             content=(
                 "Create a new question section in a json format to be used by an AI interviewer for a social science qualitative interview, based on the information provided by the user. "
                 "Make the section and question descriptions elaborate so that the interviewer can understand the context and purpose of each section and question. "
@@ -71,9 +72,11 @@ async def generate_section(
             ),
         ),
         Message(
-            role="user",
+            role=MessageRole.USER,
             content=(
-                f"# Instructions:\n{prompt}\n\n# Interview Guide Context\n\n{guide}"
+                f"# Instructions:\n{prompt}\n\n"
+                f"# Interview Guide Context\n\n{guide}\n\n"
+                f"# Response Schema\n\nResponse in the following format:\n```\n{QuestionSection.model_json_schema()}\n```\n"
             ),
         ),
     ]
@@ -111,7 +114,8 @@ async def generate_question(
             content=(
                 f"# Instructions:\n{prompt}\n\n"
                 f"# Interview Guide Context\n\n{guide}\n\n"
-                f"# Relevant Section\n\nThe new question will be added to the end of this specific section\n```\n{guide.question_sections[section_idx]}\n```\n"
+                f"# Relevant Section\n\nThe new question will be added to the end of this specific section\n```\n{guide.question_sections[section_idx]}\n```\n\n"
+                f"# Response Schema\n\nResponse in the following format:\n```\n{QuestionBase.model_json_schema()}\n```\n"
             ),
         ),
     ]
