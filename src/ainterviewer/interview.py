@@ -63,7 +63,6 @@ class AInterviewer:
         project_id: UUID4,
         interview_id: UUID4,
         previous_time_spent: int = 0,
-        message_id: int = 0,
         one_question: bool = False,
         template_loader: BaseLoader | None = None,
         frontend_language: LanguageCode = "EN",
@@ -75,7 +74,6 @@ class AInterviewer:
         # If previous time spent is larger than timed_message.time, the timed
         # message will be removed. This is to avoid showing the timed message
         # twice.
-
         # TODO:
         # Should be improved by storing the timed message in the database
         # instead.
@@ -102,12 +100,10 @@ class AInterviewer:
 
         self.project_id = project_id
         self.interview_id = interview_id
-        self.message_id = message_id
 
         self.referable_values = (referable_values or {}) | {
             "project_id": project_id,
             "interview_id": interview_id,
-            "message_id": message_id,
         }
 
         self.resume_from_history = False
@@ -200,17 +196,15 @@ class AInterviewer:
     async def receive_data(
         self, message_type_to_receive: MessageType | None = None
     ) -> str:
-        self.message_id += 1
-
         text, message_type_received = await self.io.receive_message(
-            message_id=self.message_id,
+            message_id=self.interview_history.current_message_id + 1,
             message_type=message_type_to_receive,
         )
 
         processed_text = await self.preprocess_answer(text)
 
         self.db.insert_message(
-            message_id=self.message_id,
+            message_id=self.interview_history.current_message_id + 1,
             content=processed_text,
             message_type=message_type_received,
             role=MessageRole.USER,
@@ -239,10 +233,8 @@ class AInterviewer:
         outro: bool = False,
         timed: bool = False,
     ) -> None:
-        self.message_id += 1
-
         message_id = self.db.insert_message(
-            message_id=self.message_id,
+            message_id=self.interview_history.current_message_id,
             content=text,
             message_type=MessageType.TEXT
             if not survey_item
@@ -512,6 +504,8 @@ class AInterviewer:
 
         message = await self.preprocess_message(intro)
 
+        self.interview_history.introduction = HistoryMessage(message=message)
+
         await self.send_data(
             message,
             can_answer=False,
@@ -519,23 +513,35 @@ class AInterviewer:
             is_introduction=True,
         )
 
-        self.interview_history.introduction = HistoryMessage(message=message)
-
         # TODO: Make this configurable by the user, or set it dynamically
         # based on the length of the introduction
         await asyncio.sleep(0.5)
 
     async def handle_skip_question_exception(self, question: Question):
-        self.message_id += 1
-
         content = question.main_question
         survey_item = question.survey_item
         can_answer = question.can_answer
         include_in_history = not question.exclude_from_history
         image = question.image
 
+        history_message = HistoryMessage(message=content, skipped_by_condition=True)
+
+        self.interview_history.add_question(
+            question_description=question.description,
+            main_question=Turn(question=history_message),
+            exclude_from_history=question.exclude_from_history,
+            image=ImageHistory(
+                primer=HistoryMessage(message=primer)
+                if (primer := image.primer)
+                else None,
+                description=HistoryMessage(message=image.description),
+            )
+            if image
+            else None,
+        )
+
         self.db.insert_message(
-            message_id=self.message_id,
+            message_id=self.interview_history.current_message_id,
             content=content,
             message_type=MessageType.TEXT
             if not survey_item
@@ -552,22 +558,6 @@ class AInterviewer:
             interview_id=self.interview_id,
             project_id=self.project_id,
             skipped_by_condition=True,
-        )
-
-        history_message = HistoryMessage(message=content, skipped_by_condition=True)
-
-        self.interview_history.add_question(
-            question_description=question.description,
-            main_question=Turn(question=history_message),
-            exclude_from_history=question.exclude_from_history,
-            image=ImageHistory(
-                primer=HistoryMessage(message=primer)
-                if (primer := image.primer)
-                else None,
-                description=HistoryMessage(message=image.description),
-            )
-            if image
-            else None,
         )
 
     async def restricted_probing(self):
@@ -848,6 +838,10 @@ class AInterviewer:
 
         timed_message_txt = await self.preprocess_message(timed_message.message)
 
+        self.interview_history.timed_messages.append(
+            HistoryMessage(message=timed_message_txt)
+        )
+
         await self.send_data(
             timed_message_txt,
             can_answer=False,
@@ -866,7 +860,7 @@ class AInterviewer:
         condition_triggered = evaluate_conditions(condition_contexts, conditions)
 
         self.db.insert_task(
-            message_id=self.message_id,
+            message_id=self.interview_history.current_message_id,
             interview_id=self.interview_id,
             project_id=self.project_id,
             task="evaulate_condition",
@@ -1006,7 +1000,7 @@ class AInterviewer:
         time_spend = time.time() - start_time
 
         self.db.insert_task(
-            message_id=self.message_id + 1,
+            message_id=self.interview_history.current_message_id + 1,
             interview_id=self.interview_id,
             project_id=self.project_id,
             task="has_question_been_answered",
@@ -1040,7 +1034,7 @@ class AInterviewer:
         time_spend = time.time() - start_time
 
         self.db.insert_task(
-            message_id=self.message_id,
+            message_id=self.interview_history.current_message_id,
             interview_id=self.interview_id,
             project_id=self.project_id,
             task="has_question_been_exhausted",
@@ -1063,7 +1057,7 @@ class AInterviewer:
         time_spend = time.time() - now
 
         self.db.insert_task(
-            message_id=self.message_id + 1,
+            message_id=self.interview_history.current_message_id + 1,
             interview_id=self.interview_id,
             project_id=self.project_id,
             task="contains_multiple_refusals",
@@ -1105,7 +1099,7 @@ class AInterviewer:
         time_spend = time.time() - start_time
 
         self.db.insert_task(
-            message_id=self.message_id,
+            message_id=self.interview_history.current_message_id,
             interview_id=self.interview_id,
             project_id=self.project_id,
             task="reformulate_question",

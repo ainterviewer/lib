@@ -61,6 +61,31 @@ class InterviewHistory(BaseModel):
     def n_questions(self) -> int:
         return sum([len(section.questions) for section in self.sections])
 
+    @property
+    def current_message_id(self) -> int:
+        count = 0
+
+        if self.introduction:
+            count += 1
+
+        count += len(self.timed_messages)
+
+        for section in self.sections:
+            for question in section.questions:
+                count += 1
+                if question.main_question.answer:
+                    count += 1
+
+                for probe in question.probes:
+                    count += 1
+                    if probe.answer:
+                        count += 1
+
+        if self.outro:
+            count += 1
+
+        return count
+
     def __getitem__(self, key: int) -> SectionHistory:
         return self.sections[key]
 
