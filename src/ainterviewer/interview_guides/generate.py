@@ -98,7 +98,7 @@ async def generate_section(
 async def generate_question(
     prompt: str,
     guide: InterviewGuide,
-    section_idx: int,
+    section: QuestionSection[Question] | None = None,
 ) -> Question:
     """Generate a question based on the QuestionBase structure and a given prompt."""
     messages = [
@@ -114,8 +114,12 @@ async def generate_question(
             content=(
                 f"# Instructions:\n{prompt}\n\n"
                 f"# Interview Guide Context\n\n{guide}\n\n"
-                f"# Relevant Section\n\nThe new question will be added to the end of this specific section\n```\n{guide.question_sections[section_idx]}\n```\n\n"
-                f"# Response Schema\n\nResponse in the following format:\n```\n{QuestionBase.model_json_schema()}\n```\n"
+                + (
+                    f"# Relevant Section\n\nThe new question will be added to the end of this specific section\n```\n{section}\n```\n\n"
+                    if section
+                    else ""
+                )
+                + f"# Response Schema\n\nResponse in the following format:\n```\n{QuestionBase.model_json_schema()}\n```\n"
             ),
         ),
     ]
