@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, validate_call
 
@@ -201,7 +201,7 @@ class TimeItem(SurveyItemBase):
         return valid
 
 
-SurveyItem = Annotated[
+SurveyItem = (
     RadioItem
     | CheckboxItem
     | LikertItem
@@ -209,9 +209,8 @@ SurveyItem = Annotated[
     | NumberItem
     | DateItem
     | DatetimeItem
-    | TimeItem,
-    Field(discriminator="type"),
-]
+    | TimeItem
+)
 
 
 class SurveyAnswer(BaseModel):

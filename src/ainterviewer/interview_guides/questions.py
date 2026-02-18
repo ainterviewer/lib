@@ -17,7 +17,7 @@ class QuestionBase(BaseModel):
         description="A description of the question, may be used to reformulate the question and improve the relevance of the probes.",
     )
     main_question: str = Field(description="The question to ask the interviewee")
-    alternative_main_questions: list[str] | None = Field(
+    alternative_main_questions: SkipJsonSchema[list[str] | None] = Field(
         None,
         description="List of alternative formulations of the main question, will be chosen at random.",
     )
@@ -31,6 +31,9 @@ class QuestionBase(BaseModel):
     max_probes_time: float | None = Field(
         None, gt=0, description="Max time to spend on probing, in seconds"
     )
+
+    survey_item: SurveyItem | None = None
+
     can_answer: bool = Field(
         True,
         description="Should the user be able to answer the question? Disable this to make the question into a message",
@@ -77,7 +80,6 @@ class Question(QuestionBase):
         None,
         description="Variables that can be used in the question, ie. uuid. In case they are supplied, they will be filled in before the question is asked. The question should be formatted with Jinja2 style templating.",
     )
-    survey_item: Optional[SurveyItem] = None
     references: list[Reference] | None = None
     image: Image | None = None
     user_image: bool = Field(
