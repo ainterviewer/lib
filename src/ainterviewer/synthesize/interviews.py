@@ -3,7 +3,6 @@ import json
 import random
 import time
 from pathlib import Path
-from typing import Optional
 from uuid import uuid4
 
 from jinja2 import DictLoader
@@ -136,15 +135,14 @@ class DB:
         include_in_history: bool = True,
         attachment: Path | None = None,
         survey_item: SurveyItem | None = None,
-        image: Optional[Image | list[Image]] = None,
-        section: Optional[int] = None,
-        main_question: Optional[int] = None,
-        sub_question: Optional[int] = None,
+        image: Image | list[Image] | None = None,
+        section: int | None = None,
+        main_question: int | None = None,
+        sub_question: int | None = None,
         is_introduction: bool = False,
         outro: bool = False,
         timed: bool = False,
-    ) -> int:
-        return message_id
+    ) -> int: ...
 
     def insert_task(
         self,
@@ -152,12 +150,12 @@ class DB:
         interview_id: UUID4,
         project_id: UUID4,
         task: str,
-        reason: Optional[str] = None,
-        context: Optional[str] = None,
-        content: Optional[str] = None,
-        response: Optional[str] = None,
-        model: Optional[str] = None,
-        time_spend: Optional[int] = None,
+        reason: str | None = None,
+        context: str | None = None,
+        content: str | None = None,
+        response: str | None = None,
+        model: str | None = None,
+        time_spend: int | None = None,
     ): ...
 
     def save_image(self, image: Image): ...

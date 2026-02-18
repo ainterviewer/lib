@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Type, TypeVar
+from typing import Type, TypeVar
 
 from jinja2 import BaseLoader, Environment, PackageLoader, select_autoescape
 
@@ -37,7 +37,7 @@ T = TypeVar("T", bound=BasePrompts)
 def get_agent_prompts(
     agent_name: str,
     lang: LanguageCode = "EN",
-    template_loader: Optional[BaseLoader] = None,
+    template_loader: BaseLoader | None = None,
     **kwargs,
 ) -> T:
     if lang not in PROMPT_LANGS:

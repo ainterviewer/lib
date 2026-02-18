@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Generic, Optional, TypeAlias, TypeVar
+from typing import Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema

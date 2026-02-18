@@ -6,7 +6,7 @@ They are not supposed to be imported directly,
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import Union
 
 from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 
@@ -23,7 +23,7 @@ class BasePrompts(ABC):
     def __init__(
         self,
         lang: LanguageCode = "EN",
-        template_loader: Optional[BaseLoader] = None,
+        template_loader: BaseLoader | None = None,
     ):
         if not template_loader:
             template_loader = PackageLoader(

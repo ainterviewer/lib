@@ -3,7 +3,7 @@ import json
 import re
 import time
 from datetime import datetime
-from typing import Any, Literal, Optional, Self
+from typing import Any, Literal, Self
 
 from jinja2 import BaseLoader
 from pydantic import UUID4
@@ -224,11 +224,11 @@ class AInterviewer:
         text: str,
         can_answer: bool = True,
         include_in_history: bool = True,
-        survey_item: Optional[SurveyItem] = None,
-        image: Optional[Image | list[Image]] = None,
+        survey_item: SurveyItem | None = None,
+        image: Image | list[Image] | None = None,
         with_interview_structure: bool = True,
         user_image: bool = False,
-        questions_asked: Optional[int] = None,
+        questions_asked: int | None = None,
         is_introduction: bool = False,
         outro: bool = False,
         timed: bool = False,
@@ -289,7 +289,7 @@ class AInterviewer:
 
     async def send_progress(
         self,
-        questions_asked: Optional[int],
+        questions_asked: int | None,
         finished: bool = False,
     ):
         if questions_asked is not None:
@@ -315,7 +315,7 @@ class AInterviewer:
     async def interview(
         self,
         probing="restricted",
-        interview_history: Optional[list] = None,
+        interview_history: list | None = None,
     ):
         """
         Main entry point for the interview process

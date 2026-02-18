@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, Optional, Self
+from typing import Literal, Self
 
 from pydantic import UUID4, BaseModel, Field
 
@@ -41,7 +41,7 @@ class Image(MediaModel):
 
     type: MediaType = "image"
 
-    primer: Optional[str] = Field(
+    primer: str | None = Field(
         None, description="A primer to show the interviewee before showing the image"
     )
     description: str = Field(

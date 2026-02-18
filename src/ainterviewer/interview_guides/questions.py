@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
@@ -23,14 +21,14 @@ class QuestionBase(BaseModel):
         None,
         description="List of alternative formulations of the main question, will be chosen at random.",
     )
-    probes: Optional[list[str]] = Field(
+    probes: list[str] | None = Field(
         None,
         description="A list of possible follow-up questions to ask after the main question",
     )
-    max_probes_n: Optional[int] = Field(
+    max_probes_n: int | None = Field(
         default=4, ge=0, description="Max number of probes"
     )
-    max_probes_time: Optional[float] = Field(
+    max_probes_time: float | None = Field(
         None, gt=0, description="Max time to spend on probing, in seconds"
     )
     can_answer: bool = Field(
@@ -75,19 +73,19 @@ class QuestionBase(BaseModel):
 class Question(QuestionBase):
     """A question that can be asked to the interviewee"""
 
-    variables: Optional[list[str]] = Field(
+    variables: list[str] | None = Field(
         None,
         description="Variables that can be used in the question, ie. uuid. In case they are supplied, they will be filled in before the question is asked. The question should be formatted with Jinja2 style templating.",
     )
     survey_item: Optional[SurveyItem] = None
-    references: Optional[list[Reference]] = None
-    image: Optional[Image] = None
+    references: list[Reference] | None = None
+    image: Image | None = None
     user_image: bool = Field(
         False,
         description="Whether the user should be able to upload an image as a response",
     )
-    conditions: Optional[Conditions] = None
-    probing_context: Optional[ContextType] = None
+    conditions: Conditions | None = None
+    probing_context: ContextType | None = None
 
     def __init__(self, **data):
         super().__init__(**data)

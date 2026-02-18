@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
 
@@ -55,16 +55,16 @@ class VLLMModelConfig(BaseModel):
     tokenizer_mode: str | None = None
     dtype: str | None = None
     gpu_memory_utilization: float | None = Field(0.95, ge=0, le=1)
-    max_model_len: Optional[int] = None
-    max_num_seq: Optional[int] = 20
-    quantization: Optional[QuantizationMethods] = None
-    load_format: Optional[str] = None
-    async_scheduling: Optional[bool] = None
-    tensor_parallel_size: Optional[int] = None
-    enable_expert_parallel: Optional[bool] = None
-    enforce_eager: Optional[bool] = None
-    enable_chunked_prefill: Optional[bool] = True
-    served_model_name: Optional[str] = None
+    max_model_len: int | None = None
+    max_num_seq: int | None = 20
+    quantization: QuantizationMethods | None = None
+    load_format: str | None = None
+    async_scheduling: bool | None = None
+    tensor_parallel_size: int | None = None
+    enable_expert_parallel: bool | None = None
+    enforce_eager: bool | None = None
+    enable_chunked_prefill: bool | None = True
+    served_model_name: str | None = None
     config_format: Literal["auto", "hf", "mistral"] | None = None
     limit_mm_per_prompt: dict | None = None
     mm_preprocessor_cache_gb: int | None = None
@@ -93,7 +93,7 @@ class VLLMModelConfigs(RootModel):
     def __getitem__(self, model: str) -> VLLMModelConfig:
         return self.root[model]
 
-    def get(self, model: str) -> Optional[VLLMModelConfig]:
+    def get(self, model: str) -> VLLMModelConfig | None:
         try:
             return self.root.get(model)
         except KeyError:
