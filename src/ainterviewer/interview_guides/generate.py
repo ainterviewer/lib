@@ -76,7 +76,7 @@ async def generate_section(
             content=(
                 f"# Instructions:\n{prompt}\n\n"
                 f"# Interview Guide Context\n\n{guide}\n\n"
-                f"# Response Schema\n\nResponse in the following format:\n```\n{QuestionSection.model_json_schema()}\n```\n"
+                f"# Response Schema\n\nResponse in the following format:\n```\n{QuestionSectionTemplate.model_json_schema()}\n```\n"
             ),
         ),
     ]
