@@ -30,6 +30,7 @@ class InterviewHistory(BaseModel):
     sections: list[SectionHistory] = Field(default_factory=list)
     outro: HistoryMessage | None = None
     timed_messages: list[HistoryMessage] = Field(default_factory=list)
+    is_finished: bool = False
 
     @property
     def current_section(self) -> SectionHistory:
@@ -82,6 +83,9 @@ class InterviewHistory(BaseModel):
                         count += 1
 
         if self.outro:
+            count += 1
+
+        if self.is_finished:
             count += 1
 
         return count

@@ -178,6 +178,7 @@ class AInterviewer:
         # TODO:
         # - Log exceptions
         # - Store reason
+
         if exc_type is not None:
             self.db.update_interview_status(
                 self.project_id,
@@ -340,6 +341,23 @@ class AInterviewer:
                 case _:
                     raise ValueError("Invalid probing method")
 
+        except EndInterviewException:
+            # TODO:
+            # - Make more fine-grained an configurable.
+            # Raised by a condition that ends the interview, i.e. missing
+            # consent
+
+            if outro := self.interview_guide.alt_outro:
+                message = await self.preprocess_message(outro)
+                self.interview_history.outro = HistoryMessage(message=message)
+                await self.send_data(
+                    message,
+                    with_interview_structure=False,
+                    can_answer=False,
+                    outro=True,
+                )
+
+        if self.interview_history.outro is None:
             if outro := self.interview_guide.outro:
                 if isinstance(outro, InterviewMessage):
                     if outro.variables:
@@ -363,27 +381,6 @@ class AInterviewer:
                     can_answer=False,
                     outro=True,
                 )
-        except EndInterviewException:
-            # Raised by a condition that ends the interview, i.e. missing
-            # consent
-            if outro := self.interview_guide.alt_outro:
-                message = await self.preprocess_message(outro)
-                self.interview_history.outro = HistoryMessage(message=message)
-                await self.send_data(
-                    message,
-                    with_interview_structure=False,
-                    can_answer=False,
-                    outro=True,
-                )
-
-            await self.send_progress(None, finished=True)
-
-            await self.send_data(
-                CustomTokens.end_of_interview,
-                with_interview_structure=False,
-                can_answer=False,
-            )
-            return
 
         await self.send_progress(None, finished=True)
 
@@ -394,8 +391,12 @@ class AInterviewer:
             time_spent=self.time_spent,
         )
 
+        self.interview_history.is_finished = True
+
         await self.send_data(
-            CustomTokens.end_of_interview, with_interview_structure=False
+            CustomTokens.end_of_interview,
+            with_interview_structure=False,
+            can_answer=False,
         )
 
     async def process_history(self, interview_history: list):
