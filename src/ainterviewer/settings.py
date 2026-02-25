@@ -2,9 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Literal
-
-from pydantic import BaseModel, Field, SecretStr, computed_field, field_validator
 from zoneinfo import ZoneInfo
+
+from pydantic import (
+    BaseModel,
+    Field,
+    SecretStr,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -61,9 +68,15 @@ def BaseSettingsConfigDict(**kwargs) -> SettingsConfigDict:
 class LLMSettings(BaseModel):
     llm_host: str = "0.0.0.0"
     llm_port: int = 8880
+
     model_storage: Literal["local", "s3_bucket"] = "local"
+
     available_models: list[str] = Field(default_factory=lambda: ["gpt-5-mini"])
     default_model: str = "gpt-5-mini"
+
+    demo_models: list[str] | None = Field(None, validate_default=True)
+    default_demo_model: str | None = Field(None, validate_default=True)
+
     seed: int = 4268
 
     @computed_field
@@ -71,12 +84,24 @@ class LLMSettings(BaseModel):
     def llm_endpoint(self) -> str:
         return f"http://{self.llm_host}:{self.llm_port}"
 
-    @field_validator("default_model")
-    def default_must_be_available(cls, v, info):
-        available = info.data.get("available_models", [])
-        if v not in available:
+    @model_validator(mode="after")
+    def finalize(self):
+        if not self.available_models:
+            raise ValueError("available_models cannot be empty")
+
+        if self.default_model not in self.available_models:
             raise ValueError("default_model must be one of available_models")
-        return v
+
+        if self.demo_models is None:
+            self.demo_models = list(self.available_models)
+
+        if self.default_demo_model is None:
+            self.default_demo_model = self.default_model
+
+        if self.default_demo_model not in self.demo_models:
+            raise ValueError("default_demo_model must be one of demo_models")
+
+        return self
 
 
 class Secrets(BaseSettings):
@@ -125,4 +150,4 @@ if __name__ == "__main__":
     print(settings.model_dump_json(indent=4))
     print(settings.llm.llm_endpoint)
     print(settings.debug)
-    print(settings.secrets.openai_api_key.get_secret_value())
+    # print(settings.secrets.openai_api_key.get_secret_value())
