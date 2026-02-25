@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, SecretStr, computed_field, field_validator
+from zoneinfo import ZoneInfo
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -89,6 +90,8 @@ class Secrets(BaseSettings):
 
 class Settings(BaseSettings):
     debug: bool = False
+
+    tzinfo: ZoneInfo = "Europe/Copenhagen"  # ty: ignore[invalid-assignment]
 
     llm: LLMSettings = LLMSettings()
     secrets: Secrets = Secrets()

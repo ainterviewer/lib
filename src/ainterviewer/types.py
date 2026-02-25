@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from enum import StrEnum
 from typing import Annotated, Literal, TypedDict
 
@@ -27,6 +28,13 @@ class TimeDelta(BaseModel):
     minutes: int = 0
     hours: int = 0
     weeks: int = 0
+
+    @classmethod
+    def parse_timedelta(cls, value: timedelta) -> TimeDelta:
+        return TimeDelta(seconds=int(value.total_seconds()))
+
+    def to_timedelta(self) -> timedelta:
+        return timedelta(**self.model_dump())
 
 
 class TranslationDirection(StrEnum):

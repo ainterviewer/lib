@@ -2,17 +2,17 @@ import base64
 import inspect
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cache, wraps
 from pathlib import Path
 from typing import Any, Callable
-from zoneinfo import ZoneInfo
 
 from requests.exceptions import RequestException
 
 from ainterviewer.constants import LANGUAGES
 from ainterviewer.lpm.types import Message
-from ainterviewer.types import LanguageCode, LanguageDict
+from ainterviewer.settings import settings
+from ainterviewer.types import LanguageCode, LanguageDict, TimeDelta
 
 
 def get_language_dict(
@@ -46,8 +46,12 @@ def dict2xml(
     return xml
 
 
-def now(zone="Europe/Copenhagen") -> datetime:
-    return datetime.now(ZoneInfo(zone))
+def now() -> datetime:
+    return datetime.now(settings.tzinfo)
+
+
+def timedelta_to_dict(value: timedelta) -> dict[str, int]:
+    return TimeDelta.parse_timedelta(value).model_dump()
 
 
 @cache
