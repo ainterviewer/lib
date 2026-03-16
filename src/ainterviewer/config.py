@@ -30,11 +30,6 @@ class InterviewConfig(BaseModel):
         description="Allows the respondents to record their answers as audio messages which are transcribed before send as answers to the AInterviewer.",
     )
 
-    referer_id_key: str | None = Field(
-        None,
-        description="Key for the value of the id sent in the referer header",
-    )
-
 
 @cache
 def get_configs(name: str) -> tuple[InterviewConfig, AgentConfigs]:
