@@ -14,6 +14,7 @@ from pydantic import BaseModel
 class Prompts(BaseModel):
     probing_agent: PromptTemplates
     classification_agent: PromptTemplates
+    guide_agent: PromptTemplates
     answering_agent: PromptTemplates
     history_agent: PromptTemplates
     security_agent: PromptTemplates

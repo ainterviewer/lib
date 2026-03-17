@@ -20,6 +20,7 @@ class AgentConfigs(BaseModel):
     classification: AgentConfig = Field(
         default_factory=lambda: AgentConfig(temperature=0.0)
     )
+    guide: AgentConfig = Field(default_factory=lambda: AgentConfig())
     history: AgentConfig = Field(default_factory=lambda: AgentConfig())
     security: SecurityConfig = Field(default_factory=lambda: SecurityConfig())
     visual: VisualConfig = Field(default_factory=lambda: VisualConfig())

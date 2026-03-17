@@ -10,13 +10,13 @@ from pydantic import UUID4
 
 from ainterviewer.agents import (
     ClassificationAgent,
+    GuideAgent,
     HistoryAgent,
     ProbingAgent,
     ReformulationAgent,
     SecurityAgent,
     VisualAgent,
 )
-from ainterviewer.agents.guide_agent import GuideAgent
 from ainterviewer.config import AgentConfigs, InterviewConfig
 from ainterviewer.exceptions import (
     EndInterviewException,
@@ -131,9 +131,9 @@ class AInterviewer:
 
         self.guide_agent: GuideAgent = GuideAgent(
             template_loader=template_loader,
-            model=_agent_configs["history"].pop("model"),
-            language=_agent_configs["history"].pop("lang"),
-            chat_kwargs=_agent_configs["history"],
+            model=_agent_configs["guide"].pop("model"),
+            language=_agent_configs["guide"].pop("lang"),
+            chat_kwargs=_agent_configs["guide"],
         )
 
         self.history_agent: HistoryAgent = HistoryAgent(
@@ -574,90 +574,34 @@ class AInterviewer:
                 self.resume_from_history = False
             else:
                 self.interview_history.add_section(section.description)
-
                 initial_question_index = 0
 
+            await self.handle_section(section, initial_question_index)
+
+        for _ in range(self.interview_guide.ai_generated_sections):
+            transcript = self.interview_history.get_transcript(with_descriptions=True)
+
+            section = await self.guide_agent.generate_question_section(
+                interview_transcript=transcript,
+                interview_guide=self.interview_guide,
+                translation=self.translation,
+            )
+            self.interview_guide.question_sections.append(section)
+            self.interview_guide.ai_generated_sections -= 1
+
+            self.db.update_interview_guide(
+                self.project_id, self.interview_id, self.interview_guide
+            )
+
+            self.interview_history.add_section(section.description)
+            await self.handle_section(section)
+
+    async def handle_section(
+        self, section: QuestionSection[Question], initial_question_index: int = 0
+    ):
+        try:
             for question in section.questions[initial_question_index:]:
-                # TODO:
-                # await asyncio.sleep(3)
-                question_reformulated = False
-                check_condition_after = False
-
-                try:
-                    if conditions := question.conditions:
-                        for condition in conditions.conditions:
-                            if (
-                                condition.question_context.section
-                                == self.interview_history.current_section_index
-                                and condition.question_context.question
-                                == self.interview_history.current_question_index + 1
-                                # NOTE:
-                                # We have to add one to the question index, because it
-                                # is only added when the question is asked, and we want
-                                # to check for the current question
-                            ):
-                                check_condition_after = True
-
-                        if not check_condition_after:
-                            await self.check_conditions(conditions)
-
-                    if self.interview_history.current_question_index > 0:
-                        if question.check_if_answered:
-                            if await self.has_question_been_answered(
-                                question.main_question
-                            ):
-                                question.main_question = (
-                                    await self.reformulate_question(
-                                        question=question,
-                                        section_description=section.description,
-                                        reason="already_answered",
-                                    )
-                                )
-                                question_reformulated = True
-
-                    if question.create_segue and not question_reformulated:
-                        question.main_question = await self.reformulate_question(
-                            question=question,
-                            section_description=section.description,
-                            reason="segue",
-                        )
-
-                    if not question.check_if_answered and not question.create_segue:
-                        await asyncio.sleep(1)
-
-                    answer = await self.ask_question(question)
-
-                    if answer == CustomTokens.skip_question:
-                        # TODO:
-                        # Should skipping main question reformulate it or send
-                        # it to next main question?
-
-                        reformulated_question = await self.reformulate_question(
-                            question=question,
-                            section_description=section.description,
-                            reason="skipped",
-                        )
-                        answer = await self.ask_probe(question, reformulated_question)
-
-                        if answer == CustomTokens.skip_question:
-                            continue
-                    elif answer == CustomTokens.no_answer:
-                        await asyncio.sleep(2.5)
-                        continue
-
-                    if conditions is not None and check_condition_after:
-                        await self.check_conditions(conditions)
-
-                    if question.max_probes_n or question.max_probes_time:
-                        await self.probe(question, section.description)
-
-                # TODO: We need to handle this somehow in the interview history / database ...
-
-                except SkipSectionException:
-                    break  # Exit the section
-                except SkipQuestionException:
-                    await self.handle_skip_question_exception(question)
-                    continue  # Skip the question
+                await self.handle_question(question, section.description)
 
             for _ in range(section.ai_generated_questions):
                 transcript = self.interview_history.get_transcript(
@@ -669,15 +613,91 @@ class AInterviewer:
                     interview_guide=self.interview_guide,
                     translation=self.translation,
                 )
+                section.questions.append(question)
+                section.ai_generated_questions -= 1
 
-        for _ in range(self.interview_guide.ai_generated_sections):
-            transcript = self.interview_history.get_transcript(with_descriptions=True)
+                self.db.update_interview_guide(
+                    self.project_id, self.interview_id, self.interview_guide
+                )
 
-            section = await self.guide_agent.generate_question_section(
-                interview_transcript=transcript,
-                interview_guide=self.interview_guide,
-                translation=self.translation,
-            )
+                await self.handle_question(question, section.description)
+        except SkipSectionException:
+            # TODO: We need to handle this somehow in the interview history / database ...
+            return
+
+    async def handle_question(self, question: Question, section_description: str):
+        # TODO:
+        # await asyncio.sleep(3)
+        question_reformulated = False
+        check_condition_after = False
+
+        try:
+            if conditions := question.conditions:
+                for condition in conditions.conditions:
+                    if (
+                        condition.question_context.section
+                        == self.interview_history.current_section_index
+                        and condition.question_context.question
+                        == self.interview_history.current_question_index + 1
+                        # NOTE:
+                        # We have to add one to the question index, because it
+                        # is only added when the question is asked, and we want
+                        # to check for the current question
+                    ):
+                        check_condition_after = True
+
+                if not check_condition_after:
+                    await self.check_conditions(conditions)
+
+            if self.interview_history.current_question_index > 0:
+                if question.check_if_answered:
+                    if await self.has_question_been_answered(question.main_question):
+                        question.main_question = await self.reformulate_question(
+                            question=question,
+                            section_description=section_description,
+                            reason="already_answered",
+                        )
+                        question_reformulated = True
+
+            if question.create_segue and not question_reformulated:
+                question.main_question = await self.reformulate_question(
+                    question=question,
+                    section_description=section_description,
+                    reason="segue",
+                )
+
+            if not question.check_if_answered and not question.create_segue:
+                await asyncio.sleep(1)
+
+            answer = await self.ask_question(question)
+
+            if answer == CustomTokens.skip_question:
+                # TODO:
+                # Should skipping main question reformulate it or send
+                # it to next main question?
+
+                reformulated_question = await self.reformulate_question(
+                    question=question,
+                    section_description=section_description,
+                    reason="skipped",
+                )
+                answer = await self.ask_probe(question, reformulated_question)
+
+                if answer == CustomTokens.skip_question:
+                    return
+            elif answer == CustomTokens.no_answer:
+                await asyncio.sleep(2.5)
+                return
+
+            if conditions is not None and check_condition_after:
+                await self.check_conditions(conditions)
+
+            if question.max_probes_n or question.max_probes_time:
+                await self.probe(question, section_description)
+
+        except SkipQuestionException:
+            # TODO: We need to handle this somehow in the interview history / database ...
+            await self.handle_skip_question_exception(question)
 
     async def preprocess_answer(self, message: str) -> str:
         # TODO: Add other preprocessing steps, including security measurements

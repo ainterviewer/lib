@@ -4,6 +4,7 @@ from typing import Literal, Protocol, Self
 
 from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
 
+from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.lpm.types import CustomTokens
@@ -99,6 +100,13 @@ class PersistenceProtocol(Protocol):
         interview_id: UUID4,
         status: InterviewStatus,
         time_spent: int = 0,
+    ): ...
+
+    def update_interview_guide(
+        self,
+        project_id: UUID4,
+        interview_id: UUID4,
+        interview_guide: InterviewGuide,
     ): ...
 
     def insert_message(
