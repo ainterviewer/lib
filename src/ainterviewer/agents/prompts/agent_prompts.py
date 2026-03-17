@@ -10,6 +10,9 @@ from typing import Union
 
 from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 
+from ainterviewer.interview_guides import InterviewGuide
+from ainterviewer.interview_guides.questions import QuestionBase
+from ainterviewer.interview_guides.sections import QuestionSectionTemplate
 from ainterviewer.synthesize.interviewees import (
     INTERVIEWEE_INFORMATION_TEMPLATE,
     InterviewSubject,
@@ -128,6 +131,42 @@ class ProbingAgentPrompts(BasePrompts):
             probes=probes,
             translation=translation,
             few_shot_examples=few_shot_examples,
+        )
+
+
+class GuideAgentPrompts(BasePrompts):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def generate_system_prompt(self) -> str:
+        return self.get_template("guide_agent_system_prompt.jinja").render()
+
+    def generate_question_prompt(
+        self,
+        interview_transcript: str,
+        interview_guide: InterviewGuide,
+        translation: str | None,
+    ) -> str:
+        return self.get_template("guide_agent_instruction_prompt.jinja").render(
+            interview_guide_component="main question",
+            interview_transcript=interview_transcript,
+            interview_guide=interview_guide,
+            translation=translation,
+            interview_guide_component_schema=QuestionBase.model_json_schema(),
+        )
+
+    def generate_section_prompt(
+        self,
+        interview_transcript: str,
+        interview_guide: InterviewGuide,
+        translation: str | None,
+    ) -> str:
+        return self.get_template("guide_agent_instruction_prompt.jinja").render(
+            interview_guide_component="question section",
+            interview_transcript=interview_transcript,
+            interview_guide=interview_guide,
+            translation=translation,
+            interview_guide_component_schema=QuestionSectionTemplate.model_json_schema(),
         )
 
 

@@ -8,15 +8,14 @@
 from __future__ import annotations
 
 import warnings
-from typing import Generic, TypeAlias, TypeVar
+from typing import Generic, TypeAlias
 
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
 from ainterviewer.interview_guides.questions import Question, QuestionBase
+from ainterviewer.interview_guides.sections import Q, QuestionSection
 from ainterviewer.interview_guides.utils import shuffle_items
-
-Q = TypeVar("Q", bound=QuestionBase)
 
 
 class InterviewGuideBase(BaseModel, Generic[Q]):
@@ -92,19 +91,6 @@ class InterviewGuideBase(BaseModel, Generic[Q]):
                     question.max_probes_time = None
 
 
-class QuestionSection(BaseModel, Generic[Q]):
-    """A section of questions that all revolve around the same topic"""
-
-    description: str = Field(
-        description="A description of the section, used as context for the prober to limit its scope."
-    )
-    questions: list[Q]
-    shuffle: bool = Field(
-        False,
-        description="Should the section be included in shuffling?",
-    )
-
-
 class TimedMessage(BaseModel):
     """A message that is displayed to the interviewee after a certain amount of time"""
 
@@ -137,10 +123,6 @@ class InterviewMessage(BaseModel):
     )
 
 
-class QuestionSectionTemplate(QuestionSection[QuestionBase]):
-    model_config = {"title": "QuestionSectionTemplate"}
-
-
 class InterviewGuideTemplate(InterviewGuideBase[QuestionBase]):
     model_config = {"title": "InterviewGuideTemplate"}
 
@@ -152,6 +134,7 @@ class InterviewGuide(InterviewGuideBase[Question]):
         None,
         description="Messages that are displayed to the interviewee after a certain amount of time",
     )
+    ai_generated_sections: int = 0
 
 
 DecimalString: TypeAlias = str

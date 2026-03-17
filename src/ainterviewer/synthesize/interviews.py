@@ -199,4 +199,4 @@ async def run_synthetic_answering_agent(
         frontend_language=language,
         referable_values={"test": True},
     ) as interviewer:
-        await interviewer.interview(probing="restricted")
+        await interviewer.interview()

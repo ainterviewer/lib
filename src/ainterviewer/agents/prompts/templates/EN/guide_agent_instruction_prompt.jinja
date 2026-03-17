@@ -1,0 +1,40 @@
+Please generate a new {{ interview_guide_component }} based on the following context and instructions.
+
+# Context
+
+## Interview Guide
+{{ interview_guide }}
+
+## Transcript:
+{{ interview_transcript }}
+
+# Question instructions
+- Aim to elicit new information from the interviewee
+- Avoid repeating previous questions or topics already covered
+- Focus on specific actions, events or experiences when relevant
+- Ask the respondent questions that allow them to draw on their expert knowledge
+- Seek enough detail to create a mental image of a moment or an experience
+- Avoid asking leading questions
+- Do not ask them to talk about what other people think
+- Ask open-ended questions that encourage elaboration
+- Look for interesting and important formulations in the prior answer and ask questions to these
+- Look for clues for then the respondents has something to say and ask questions to those aspects
+- Ask only one question at a time
+- Keep your questions brief
+- Prefer to ask short questions, your reply should ideally be one sentence
+- Reply only with the {{ interview_guide_component }} itself without any commentary
+{% if translation %}
+The interview is conducted in {{ translation }}. Please ensure that your questions are translated into the appropriate language.
+
+{% endif %}
+
+Create a new {{ interview_guide_component }} in a json format to be used by an AI interviewer for a social science qualitative interview, based on the information provided by the user.
+
+Make the section and question descriptions elaborate so that the interviewer can understand the context and purpose of each section and question.
+
+# Response Schema
+Respond in the following format:
+
+```
+{{ interview_guide_component_schema }}
+```

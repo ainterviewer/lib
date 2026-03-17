@@ -16,6 +16,7 @@ from ainterviewer.agents import (
     SecurityAgent,
     VisualAgent,
 )
+from ainterviewer.agents.guide_agent import GuideAgent
 from ainterviewer.config import AgentConfigs, InterviewConfig
 from ainterviewer.exceptions import (
     EndInterviewException,
@@ -46,6 +47,7 @@ from ainterviewer.interview_guides.history import (
     InterviewHistory,
     Turn,
 )
+from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
 from ainterviewer.lpm.types import CustomTokens
@@ -85,12 +87,12 @@ class AInterviewer:
                 if previous_time_spent <= timed_message.time
             ]
 
-        self.io = io
-        self.db = db
+        self.io: IOProtocol = io
+        self.db: PersistenceProtocol = db
 
-        self.config = config
+        self.config: InterviewConfig = config
 
-        self.one_question = one_question
+        self.one_question: bool = one_question
 
         self.interview_guide: InterviewGuide = interview_guide
 
@@ -98,15 +100,15 @@ class AInterviewer:
 
         self.translation = frontend_language if frontend_language != "EN" else None
 
-        self.project_id = project_id
-        self.interview_id = interview_id
+        self.project_id: UUID4 = project_id
+        self.interview_id: UUID4 = interview_id
 
         self.referable_values = (referable_values or {}) | {
             "project_id": project_id,
             "interview_id": interview_id,
         }
 
-        self.resume_from_history = False
+        self.resume_from_history: bool = False
 
         self._evaluated_conditions: dict[DecimalString, str] = {}
 
@@ -125,6 +127,13 @@ class AInterviewer:
             model=_agent_configs["probing"].pop("model"),
             language=_agent_configs["probing"].pop("lang"),
             chat_kwargs=_agent_configs["probing"],
+        )
+
+        self.guide_agent: GuideAgent = GuideAgent(
+            template_loader=template_loader,
+            model=_agent_configs["history"].pop("model"),
+            language=_agent_configs["history"].pop("lang"),
+            chat_kwargs=_agent_configs["history"],
         )
 
         self.history_agent: HistoryAgent = HistoryAgent(
@@ -313,11 +322,7 @@ class AInterviewer:
 
         return questions_asked / n_total_questions * 100
 
-    async def interview(
-        self,
-        probing="restricted",
-        interview_history: list | None = None,
-    ):
+    async def interview(self, interview_history: list | None = None):
         """
         Main entry point for the interview process
         """
@@ -333,13 +338,7 @@ class AInterviewer:
             await self.handle_intro(intro)
 
         try:
-            match probing:
-                case "free":
-                    await self.free_probing()
-                case "restricted":
-                    await self.restricted_probing()
-                case _:
-                    raise ValueError("Invalid probing method")
+            await self.handle_sections()
 
         except EndInterviewException:
             # TODO:
@@ -561,7 +560,7 @@ class AInterviewer:
             skipped_by_condition=True,
         )
 
-    async def restricted_probing(self):
+    async def handle_sections(self):
         # NOTE:
         # The ranges are needed when the interview is resumed
 
@@ -659,6 +658,26 @@ class AInterviewer:
                 except SkipQuestionException:
                     await self.handle_skip_question_exception(question)
                     continue  # Skip the question
+
+            for _ in range(section.ai_generated_questions):
+                transcript = self.interview_history.get_transcript(
+                    with_descriptions=True
+                )
+
+                question = await self.guide_agent.generate_main_question(
+                    interview_transcript=transcript,
+                    interview_guide=self.interview_guide,
+                    translation=self.translation,
+                )
+
+        for _ in range(self.interview_guide.ai_generated_sections):
+            transcript = self.interview_history.get_transcript(with_descriptions=True)
+
+            section = await self.guide_agent.generate_question_section(
+                interview_transcript=transcript,
+                interview_guide=self.interview_guide,
+                translation=self.translation,
+            )
 
     async def preprocess_answer(self, message: str) -> str:
         # TODO: Add other preprocessing steps, including security measurements

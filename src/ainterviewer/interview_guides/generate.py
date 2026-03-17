@@ -1,27 +1,24 @@
 import json
 
-from openai import AsyncOpenAI
-
 from ainterviewer.interview_guides.interview_guide import (
     InterviewGuide,
     InterviewGuideTemplate,
     Question,
     QuestionSection,
-    QuestionSectionTemplate,
 )
 from ainterviewer.interview_guides.questions import QuestionBase
+from ainterviewer.interview_guides.sections import QuestionSectionTemplate
+from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message, MessageRole
-from ainterviewer.settings import settings
-
-# TODO:
-# Should use the lpm.clients chat function instead
-client = AsyncOpenAI(api_key=settings.secrets.openai_api_key.get_secret_value())
 
 _DUMMY_PROMPT = "Create an interview guide targeted at participants of the IC2S2 computational social science conference. The interview guide should be structured to gather insights on the participants' experiences, motivations, and challenges in computational social science research."
 
 
 async def generate_interview_guide(
-    prompt: str, *, output_path: str | None
+    prompt: str,
+    model: str,
+    *,
+    output_path: str | None,
 ) -> InterviewGuide:
     """Generate an interview guide based on the InterviewGuideTemplate structure and a given prompt."""
     messages = [
@@ -39,16 +36,13 @@ async def generate_interview_guide(
         ),
     ]
 
-    response = await client.responses.parse(
-        model="gpt-5-mini",
-        input=messages,
-        text_format=InterviewGuideTemplate,
-        reasoning={
-            "effort": "minimal",
-        },
+    template = await chat(
+        messages=messages,
+        model=model,
+        response_format=InterviewGuideTemplate,
     )
 
-    interview_guide = InterviewGuide.model_validate_json(response.output_text)
+    interview_guide = InterviewGuide.model_validate(template.model_dump())
 
     if output_path:
         with open(output_path, "w") as f:
@@ -58,10 +52,11 @@ async def generate_interview_guide(
 
 
 async def generate_section(
-    prompt: str,
+    instruction: str,
+    model: str,
     guide: InterviewGuide,
 ) -> QuestionSection[Question]:
-    """Generate a question section based on the QuestionSectionTemplate structure and a given prompt."""
+    """Generate a question section based on the QuestionSectionTemplate structure and an instruction."""
     messages = [
         Message(
             role=MessageRole.SYSTEM,
@@ -74,68 +69,63 @@ async def generate_section(
         Message(
             role=MessageRole.USER,
             content=(
-                f"# Instructions:\n{prompt}\n\n"
+                f"# Instructions:\n{instruction}\n\n"
                 f"# Interview Guide Context\n\n{guide}\n\n"
-                f"# Response Schema\n\nResponse in the following format:\n```\n{QuestionSectionTemplate.model_json_schema()}\n```\n"
+                f"# Response Schema\n\nRespond in the following format:\n```\n{QuestionSectionTemplate.model_json_schema()}\n```\n"
             ),
         ),
     ]
 
-    response = await client.responses.parse(
-        model="gpt-5-mini",
-        input=messages,
-        text_format=QuestionSectionTemplate,
-        reasoning={
-            "effort": "minimal",
-        },
+    template = await chat(
+        messages=messages,
+        model=model,
+        response_format=QuestionSectionTemplate,
     )
 
-    question_section = QuestionSection.model_validate_json(response.output_text)
+    question_section = QuestionSection[Question].model_validate(template.model_dump())
 
     return question_section
 
 
 async def generate_question(
-    prompt: str,
+    instructions: str,
+    model: str,
     guide: InterviewGuide,
     section: QuestionSection[Question] | None = None,
 ) -> Question:
-    """Generate a question based on the QuestionBase structure and a given prompt."""
+    """Generate a question based on the QuestionBase structure and an instruction."""
     messages = [
         Message(
-            role="system",
+            role=MessageRole.SYSTEM,
             content=(
                 "Create a new question in a json format to be used by an AI interviewer for a social science qualitative interview, based on the information provided by the user. "
                 "Make the question description elaborate so that the interviewer can understand the context and purpose of the question. "
             ),
         ),
         Message(
-            role="user",
+            role=MessageRole.USER,
             content=(
-                f"# Instructions:\n{prompt}\n\n"
+                f"# Instructions:\n{instructions}\n\n"
                 f"# Interview Guide Context\n\n{guide}\n\n"
                 + (
                     f"# Relevant Section\n\nThe new question will be added to the end of this specific section\n```\n{section}\n```\n\n"
                     if section
                     else ""
                 )
-                + f"# Response Schema\n\nResponse in the following format:\n```\n{QuestionBase.model_json_schema()}\n```\n"
+                + f"# Response Schema\n\nRespond in the following format:\n```\n{QuestionBase.model_json_schema()}\n```\n"
             ),
         ),
     ]
 
-    response = await client.responses.parse(
-        model="gpt-5-mini",
-        input=messages,
-        text_format=QuestionBase,
-        reasoning={
-            "effort": "minimal",
-        },
+    base = await chat(
+        messages=messages,
+        model=model,
+        response_format=QuestionBase,
     )
 
-    question_section = Question.model_validate_json(response.output_text)
+    question = Question.model_validate(base.model_dump())
 
-    return question_section
+    return question
 
 
 if __name__ == "__main__":
