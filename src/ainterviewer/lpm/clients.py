@@ -34,7 +34,7 @@ async def chat(
     stop_tokens: list[str] | str | None = None,
     include_stop_token: bool = False,
     sanitize: bool = True,
-    top_logprogs: int | None = None,
+    top_logprobs: int | None = None,
     **model_kwargs,
 ) -> T: ...
 
@@ -47,7 +47,7 @@ async def chat(
     stop_tokens: list[str] | str | None = None,
     include_stop_token: bool = False,
     sanitize: bool = True,
-    top_logprogs: int | None = None,
+    top_logprobs: int | None = None,
     response_format: None = None,
     **model_kwargs,
 ) -> str: ...
@@ -60,7 +60,7 @@ async def chat(
     stop_tokens: list[str] | str | None = None,
     include_stop_token: bool = False,
     sanitize: bool = True,
-    top_logprogs: int | None = None,
+    top_logprobs: int | None = None,
     response_format: type[T] | None = None,
     **model_kwargs,
 ) -> str | T:
@@ -73,7 +73,7 @@ async def chat(
         messages=messages,
         temperature=temperature,
         stop=stop_tokens,
-        top_logprobs=top_logprogs,
+        top_logprobs=top_logprobs,
         seed=settings.llm.seed,
         drop_params=True,
         stream=False,
@@ -108,17 +108,17 @@ async def chat(
     else:
         server_endpoint = f"{settings.llm.llm_endpoint}/v1"
 
-        model_kwargs = {}
+        extra_model_kwargs = {}
 
-        model_kwargs["model"] = "hosted_vllm/" + (
+        extra_model_kwargs["model"] = "hosted_vllm/" + (
             served_model_name
             if (served_model_name := VLLM_MODEL_CONFIGS[model].served_model_name)
             else model
         )
 
         if model in ("gpt-oss-120b"):
-            model_kwargs["reasoning_effort"] = "low"
-            model_kwargs["top_k"] = 3
+            extra_model_kwargs["reasoning_effort"] = "low"
+            extra_model_kwargs["top_k"] = 3
 
             if response_format is None:
                 # TODO:
@@ -126,7 +126,7 @@ async def chat(
                 # - maybe they should be words, and tokens fetched and cached from the api.
                 # - how to implement in interface.
                 print("Applying logit bias")
-                model_kwargs["logit_bias"] = {
+                extra_model_kwargs["logit_bias"] = {
                     # Negative
                     4157: -3,  #  kun
                     65512: -7,  # Kan
@@ -143,7 +143,7 @@ async def chat(
         chat_completion: ModelResponse = await chat(
             api_base=server_endpoint,
             api_key=settings.secrets.vllm_api_key.get_secret_value(),
-            **model_kwargs,
+            **extra_model_kwargs,
         )
 
     if response_format:
