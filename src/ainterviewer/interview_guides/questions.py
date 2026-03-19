@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field, model_validator
-from pydantic.json_schema import SkipJsonSchema
 
 from ainterviewer.interview_guides import Image
 from ainterviewer.interview_guides.conditions import Conditions
@@ -17,10 +16,6 @@ class QuestionBase(BaseModel):
         description="A description of the question, may be used to reformulate the question and improve the relevance of the probes.",
     )
     main_question: str = Field(description="The question to ask the interviewee")
-    alternative_main_questions: SkipJsonSchema[list[str] | None] = Field(
-        None,
-        description="List of alternative formulations of the main question, will be chosen at random.",
-    )
     probes: list[str] | None = Field(
         None,
         description="A list of possible follow-up questions to ask after the main question",
@@ -32,16 +27,28 @@ class QuestionBase(BaseModel):
         None, gt=0, description="Max time to spend on probing, in seconds"
     )
 
+
+class QuestionBaseExtended(QuestionBase):
     survey_item: SurveyItem | None = None
 
+    # NOTE: We currently avoid doing this during the interview so the
+    # interviewee doesn't get stuck because the last message has
+    # can_answer=False
+    # TODO: Consider flipping to cant_answer instead
     can_answer: bool = Field(
         True,
         description="Should the user be able to answer the question? Disable this to make the question into a message",
     )
-    exclude_from_history: bool = Field(
-        False,
-        description="Exclude from the interview history. This means that the model will not use this question or the response as a context when it asks further questions.",
+
+
+class Question(QuestionBaseExtended):
+    """A question that can be asked to the interviewee"""
+
+    alternative_main_questions: list[str] | None = Field(
+        None,
+        description="List of alternative formulations of the main question, will be chosen at random.",
     )
+
     check_if_answered: bool = Field(
         True,
         description="Check if the question has already been answered under a previous question",
@@ -61,20 +68,10 @@ class QuestionBase(BaseModel):
         True,
         description="Create a segue from the previous question, to possibly improve the flow of the interview.",
     )
-
-    # Automatically generated
-    n_question: SkipJsonSchema[int] = Field(
-        default=0,
-        description="Question number, from 0-n total questions in the interview.",
+    exclude_from_history: bool = Field(
+        False,
+        description="Exclude from the interview history. This means that the model will not use this question or the response as a context when it asks further questions.",
     )
-    index: SkipJsonSchema[tuple[int, int] | None] = Field(
-        None,
-        description="The index of the question in the interview, ie (section, question) = (2, 2) (for 3rd section 3rd question)",
-    )
-
-
-class Question(QuestionBase):
-    """A question that can be asked to the interviewee"""
 
     variables: list[str] | None = Field(
         None,
@@ -88,6 +85,12 @@ class Question(QuestionBase):
     )
     conditions: Conditions | None = None
     probing_context: ContextType | None = None
+
+    # Automatically generated in interview guide generation
+    index: tuple[int, int] | None = Field(
+        None,
+        description="The index of the question in the interview, ie (section, question) = (2, 2) (for 3rd section 3rd question). Used to keep track of questions initial position after shuffling.",
+    )
 
     def __init__(self, **data):
         super().__init__(**data)

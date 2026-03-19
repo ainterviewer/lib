@@ -4,7 +4,7 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-from ainterviewer.interview_guides.questions import QuestionBase
+from ainterviewer.interview_guides.questions import QuestionBase, QuestionBaseExtended
 
 Q = TypeVar("Q", bound=QuestionBase)
 
@@ -27,4 +27,8 @@ class QuestionSection(QuestionSectionBase[Q], Generic[Q]):
 
 
 class QuestionSectionTemplate(QuestionSectionBase[QuestionBase]):
+    model_config = {"title": "QuestionSectionTemplate"}
+
+
+class QuestionSectionBaseExtendedTemplate(QuestionSectionBase[QuestionBaseExtended]):
     model_config = {"title": "QuestionSectionTemplate"}

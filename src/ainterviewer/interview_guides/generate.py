@@ -6,8 +6,8 @@ from ainterviewer.interview_guides.interview_guide import (
     Question,
     QuestionSection,
 )
-from ainterviewer.interview_guides.questions import QuestionBase
-from ainterviewer.interview_guides.sections import QuestionSectionTemplate
+from ainterviewer.interview_guides.questions import QuestionBaseExtended
+from ainterviewer.interview_guides.sections import QuestionSectionBaseExtendedTemplate
 from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message, MessageRole
 
@@ -71,7 +71,7 @@ async def generate_section(
             content=(
                 f"# Instructions:\n{instruction}\n\n"
                 f"# Interview Guide Context\n\n{guide}\n\n"
-                f"# Response Schema\n\nRespond in the following format:\n```\n{QuestionSectionTemplate.model_json_schema()}\n```\n"
+                f"# Response Schema\n\nRespond in the following format:\n```\n{QuestionSectionBaseExtendedTemplate.model_json_schema()}\n```\n"
             ),
         ),
     ]
@@ -79,7 +79,7 @@ async def generate_section(
     template = await chat(
         messages=messages,
         model=model,
-        response_format=QuestionSectionTemplate,
+        response_format=QuestionSectionBaseExtendedTemplate,
     )
 
     question_section = QuestionSection[Question].model_validate(template.model_dump())
@@ -112,7 +112,7 @@ async def generate_question(
                     if section
                     else ""
                 )
-                + f"# Response Schema\n\nRespond in the following format:\n```\n{QuestionBase.model_json_schema()}\n```\n"
+                + f"# Response Schema\n\nRespond in the following format:\n```\n{QuestionBaseExtended.model_json_schema()}\n```\n"
             ),
         ),
     ]
@@ -120,7 +120,7 @@ async def generate_question(
     base = await chat(
         messages=messages,
         model=model,
-        response_format=QuestionBase,
+        response_format=QuestionBaseExtended,
     )
 
     question = Question.model_validate(base.model_dump())

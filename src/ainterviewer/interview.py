@@ -789,7 +789,7 @@ class AInterviewer:
             message,
             survey_item=question.survey_item,
             user_image=question.user_image,
-            questions_asked=question.n_question,
+            questions_asked=self.interview_history.n_questions,
             can_answer=question.can_answer,
             include_in_history=not question.exclude_from_history,
             image=image,

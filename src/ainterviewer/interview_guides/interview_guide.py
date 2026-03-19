@@ -43,53 +43,6 @@ class InterviewGuideBase(BaseModel, Generic[Q]):
         description="Used as if the a condition results in an EndInterview, eg. from missing consent.",
     )
 
-    def __init__(self, **data):
-        super().__init__(**data)
-
-        self.index_questions()
-
-    def index_questions(self):
-        n_total = 0
-
-        for n_section, section in enumerate(self.question_sections):
-            for n_question, question in enumerate(section.questions):
-                # Avoids settings when shuffling
-                if question.index is None:
-                    indexes = [
-                        question.index
-                        for section in self.question_sections
-                        for question in section.questions
-                        if question.index
-                    ]
-                    if (index := (n_section, n_question)) in indexes:
-                        warnings.warn(f"Index {index} already exists, overwriting")
-
-                    question.index = index
-
-                question.n_question = n_total
-                n_total += 1
-
-    def shuffle(self):
-        """Shuffles sections and questions in the interview guide, based on
-        their configuration."""
-        self.question_sections = shuffle_items(self.question_sections)
-
-        for section in self.question_sections:
-            section.questions = shuffle_items(section.questions)
-
-        self.index_questions()
-
-    def reduce(self):
-        """Reduce the interview guide to contain one probe per main question.
-        Used as a utility when synthesizing fixed answers.
-        """
-
-        for section in self.question_sections:
-            for question in section.questions:
-                if question.can_answer:
-                    question.max_probes_n = 1
-                    question.max_probes_time = None
-
 
 class TimedMessage(BaseModel):
     """A message that is displayed to the interviewee after a certain amount of time"""
@@ -135,6 +88,48 @@ class InterviewGuide(InterviewGuideBase[Question]):
         description="Messages that are displayed to the interviewee after a certain amount of time",
     )
     ai_generated_sections: int = 0
+
+    def __init__(self, **data):
+        super().__init__(**data)
+
+        self.index_questions()
+
+    def index_questions(self):
+        for n_section, section in enumerate(self.question_sections):
+            for n_question, question in enumerate(section.questions):
+                # Avoids settings when shuffling
+                if question.index is None:
+                    indexes = [
+                        question.index
+                        for section in self.question_sections
+                        for question in section.questions
+                        if question.index
+                    ]
+                    if (index := (n_section, n_question)) in indexes:
+                        warnings.warn(f"Index {index} already exists, overwriting")
+
+                    question.index = index
+
+    def shuffle(self):
+        """Shuffles sections and questions in the interview guide, based on
+        their configuration."""
+        self.question_sections = shuffle_items(self.question_sections)
+
+        for section in self.question_sections:
+            section.questions = shuffle_items(section.questions)
+
+        self.index_questions()
+
+    def reduce(self):
+        """Reduce the interview guide to contain one probe per main question.
+        Used as a utility when synthesizing fixed answers.
+        """
+
+        for section in self.question_sections:
+            for question in section.questions:
+                if question.can_answer:
+                    question.max_probes_n = 1
+                    question.max_probes_time = None
 
 
 DecimalString: TypeAlias = str
