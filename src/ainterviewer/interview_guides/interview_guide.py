@@ -94,6 +94,16 @@ class InterviewGuide(InterviewGuideBase[Question]):
 
         self.index_questions()
 
+    @property
+    def n_total_questions(self) -> int:
+        return (
+            sum(
+                len(section.questions) + section.ai_generated_questions
+                for section in self.question_sections
+            )
+            + self.ai_generated_sections * 5
+        )
+
     def index_questions(self):
         for n_section, section in enumerate(self.question_sections):
             for n_question, question in enumerate(section.questions):

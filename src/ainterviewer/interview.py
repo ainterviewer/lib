@@ -316,11 +316,7 @@ class AInterviewer:
         await self.io.send_data(payload)
 
     def calculate_progress(self, questions_asked: int):
-        n_total_questions = sum(
-            len(section.questions) for section in self.interview_guide.question_sections
-        )
-
-        return questions_asked / n_total_questions * 100
+        return questions_asked / self.interview_guide.n_total_questions * 100
 
     async def interview(self, interview_history: list | None = None):
         """
@@ -789,7 +785,7 @@ class AInterviewer:
             message,
             survey_item=question.survey_item,
             user_image=question.user_image,
-            questions_asked=self.interview_history.n_questions,
+            questions_asked=self.interview_history.n_questions - 1,
             can_answer=question.can_answer,
             include_in_history=not question.exclude_from_history,
             image=image,
