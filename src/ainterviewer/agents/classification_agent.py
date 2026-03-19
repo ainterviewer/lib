@@ -23,9 +23,9 @@ def generate_classification_model(
         CarColor(response="red")
     """
     if multilable:
-        response = list[Literal[*options]]
+        response = list[Literal[*options]]  # ty: ignore[invalid-type-form]
     else:
-        response = Literal[*options]
+        response = Literal[*options]  # ty: ignore[invalid-type-form]
 
     return create_model(name, response=response)
 
@@ -34,7 +34,7 @@ def generate_scoring_model(
     name: str,
     options: list[int],
 ):
-    values = Literal[*options]
+    values = Literal[*options]  # ty: ignore[invalid-type-form]
     return create_model(name, value=values)
 
 
