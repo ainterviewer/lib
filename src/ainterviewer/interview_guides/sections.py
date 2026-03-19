@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ainterviewer.interview_guides.questions import QuestionBase, QuestionBaseExtended
 
@@ -28,6 +28,11 @@ class QuestionSection(QuestionSectionBase[Q], Generic[Q]):
 
 class QuestionSectionTemplate(QuestionSectionBase[QuestionBase]):
     model_config = {"title": "QuestionSectionTemplate"}
+
+    @field_validator("questions")
+    @classmethod
+    def validate_questions(cls, values: list):
+        return values[:5]
 
 
 class QuestionSectionBaseExtendedTemplate(QuestionSectionBase[QuestionBaseExtended]):
