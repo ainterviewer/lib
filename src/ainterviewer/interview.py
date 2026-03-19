@@ -1015,8 +1015,8 @@ class AInterviewer:
                 return False
 
         if self.interview_history.current_probe_index > 0:
-            contains_multiple_refusals = await self.contains_multiple_refusals()
-            if contains_multiple_refusals:
+            contains_refusal = await self.contains_refusal()
+            if contains_refusal:
                 return False
 
             if question.check_if_exhausted:
@@ -1085,14 +1085,14 @@ class AInterviewer:
 
         return response
 
-    async def contains_multiple_refusals(self) -> bool:
+    async def contains_refusal(self) -> bool:
         now = time.time()
         current_question_transcript = (
             self.interview_history.current_question.transcribe()
         )
-        contains_multiple_refusals: bool = await self.classification_agent.classify(
+        contains_refusal = await self.classification_agent.classify(
             current_question_transcript,
-            "contains multiple answers (A:) from the respondent in a row that are explicit refusals to answer",
+            "contains an explicit refusal to answer the questions or a wish to skip to next question from the respondent (A:)",
         )
         time_spend = time.time() - now
 
@@ -1102,11 +1102,11 @@ class AInterviewer:
             project_id=self.project_id,
             task="contains_multiple_refusals",
             content=current_question_transcript,
-            response=contains_multiple_refusals,
+            response=str(contains_refusal),
             time_spend=int(time_spend),
         )
 
-        return contains_multiple_refusals
+        return contains_refusal
 
     async def reformulate_question(
         self,
