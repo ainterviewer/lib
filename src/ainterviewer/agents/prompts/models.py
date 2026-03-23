@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # TODO:
 # The individual prompt templates should probably be validated in this models.
@@ -53,6 +53,8 @@ class Prompts(BaseModel):
 
 
 class PromptTemplates(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     system_prompt: str
     instruction_prompt: str
 
@@ -67,7 +69,7 @@ def get_default_prompts() -> tuple[dict[str, dict[str, str]], dict[str, str]]:
     for prompt in prompt_files:
         if "agent" in prompt.stem:
             agent_name = "_".join(prompt.stem.split("_")[0:2])
-            prompt_name = "_".join(prompt.stem.split("_")[2:4])
+            prompt_name = "_".join(prompt.stem.split("_")[2:])
             agent_prompts[agent_name][prompt_name] = prompt.read_text()
         else:
             prompt_name = "_".join(prompt.stem.split("_")[:-1])

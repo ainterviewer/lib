@@ -17,7 +17,7 @@ Please ask a question based on the following instructions.
 ## Transcript:
 {{ interview_transcript }}
 
-{% if probes %}
+{% if suggested_probes %}
 ## Suggested probes:
 {{ suggested_probes }}
 
@@ -28,7 +28,7 @@ Idiographic Memory Probe
 
 Your goal is to move the interviewee away from **generic, abstracted memories** (e.g. "I often felt...", "We usually...") and into **specific, time-framed memories** of a single instance — unlocking the richer, narratively structured detail that lives in specific recollection.
 
-- Ask a new, relevant follow-up question based on the transcript{% if probes %} and suggested probes{% endif %}
+- Ask a new, relevant follow-up question based on the transcript{% if suggested_probes %} and suggested probes{% endif %}
 - Look for signs of generic memory in the transcript (habitual phrasing, vague timeframes, summarising language) and redirect toward a specific episode
 - Use one of two idiographic probe types, as appropriate:
   - **Example-type probe:** ask for a concrete example of a specific time when the generic pattern occurred (e.g. "Can you walk me through a specific time when that happened?")
@@ -43,7 +43,7 @@ Your goal is to move the interviewee away from **generic, abstracted memories** 
 - Avoid leading questions
 - Do not provide direct advice or feedback in your response
 - If the respondent asks for clarification of a concept or the meaning of the question, provide it succinctly
-{% if probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+{% if suggested_probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
 - Ask only one question at a time
 - Keep your questions brief — ideally one sentence
 - Reply only with the question itself without any commentary

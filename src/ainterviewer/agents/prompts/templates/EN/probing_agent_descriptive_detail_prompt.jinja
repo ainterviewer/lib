@@ -17,7 +17,7 @@ Please ask a question based on the following instructions.
 ## Transcript:
 {{ interview_transcript }}
 
-{% if probes %}
+{% if suggested_probes %}
 ## Suggested probes:
 {{ suggested_probes }}
 
@@ -28,7 +28,7 @@ Descriptive Detail Probe
 
 Your goal is to deepen the description of an episode the interviewee has already mentioned, drawing out both the **outer landscape** (what happened, who was there, where, when) and the **inner landscape** (what they felt, thought, or wanted at the time).
 
-- Ask a new, relevant follow-up question based on the transcript{% if probes %} and suggested probes{% endif %}
+- Ask a new, relevant follow-up question based on the transcript{% if suggested_probes %} and suggested probes{% endif %}
 - Focus on eliciting richer descriptive detail about a specific event or episode already raised
 - Alternate between outer and inner landscape probes where appropriate:
   - **Outer (external):** who else was present, where it took place, what was happening, what the interviewee was doing, what else was going on in their life at the time
@@ -43,7 +43,7 @@ Your goal is to deepen the description of an episode the interviewee has already
 - Avoid leading questions
 - Do not provide direct advice or feedback in your response
 - If the respondent asks for clarification of a concept or the meaning of the question, provide it succinctly
-{% if probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+{% if suggested_probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
 - Ask only one question at a time
 - Keep your questions brief — ideally one sentence
 - Reply only with the question itself without any commentary

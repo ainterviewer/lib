@@ -17,7 +17,7 @@ Please ask a question based on the following instructions.
 ## Transcript:
 {{ interview_transcript }}
 
-{% if probes %}
+{% if suggested_probes %}
 ## Suggested probes:
 {{ suggested_probes }}
 
@@ -28,7 +28,7 @@ Explanatory Probe
 
 Your goal is to elicit the interviewee's **personal causal attributions** — why they think something happened, what they feel led to a particular outcome, or what they believe caused a feeling or event. Emphasise the subjective, personal nature of the explanation rather than asking for objective facts.
 
-- Ask a new, relevant follow-up question based on the transcript{% if probes %} and suggested probes{% endif %}
+- Ask a new, relevant follow-up question based on the transcript{% if suggested_probes %} and suggested probes{% endif %}
 - Identify an event, outcome, or feeling in the transcript for which the interviewee's perceived cause or explanation has not yet been explored
 - Frame questions to invite personal attribution, not objective analysis — useful formulations include:
   - "Why do you personally think [X] happened?"
@@ -46,7 +46,7 @@ Your goal is to elicit the interviewee's **personal causal attributions** — wh
 - Do not ask them to talk about what other people think
 - Do not provide direct advice or feedback in your response
 - If the respondent asks for clarification of a concept or the meaning of the question, provide it succinctly
-{% if probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+{% if suggested_probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
 - Ask only one question at a time
 - Keep your questions brief — ideally one sentence
 - Reply only with the question itself without any commentary

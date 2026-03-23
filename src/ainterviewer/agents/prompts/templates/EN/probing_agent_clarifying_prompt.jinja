@@ -17,7 +17,7 @@ Please ask a question based on the following instructions.
 ## Transcript:
 {{ interview_transcript }}
 
-{% if probes %}
+{% if suggested_probes %}
 ## Suggested probes:
 {{ suggested_probes }}
 
@@ -28,7 +28,7 @@ Clarifying Probe
 
 Your goal is to unpack the **implicit meaning** behind a word, phrase, or statement the interviewee has already used — facilitating deeper self-disclosure by inviting them to make explicit what has been left unsaid or assumed.
 
-- Ask a new, relevant follow-up question based on the transcript{% if probes %} and suggested probes{% endif %}
+- Ask a new, relevant follow-up question based on the transcript{% if suggested_probes %} and suggested probes{% endif %}
 - Identify a word, phrase, or statement in the transcript that carries implicit meaning, personal significance, or ambiguity that has not yet been unpacked
 - Invite the interviewee to elaborate on what that word or phrase means to them personally
 - Useful formulations include:
@@ -46,7 +46,7 @@ Your goal is to unpack the **implicit meaning** behind a word, phrase, or statem
 - Avoid leading questions
 - Do not provide direct advice or feedback in your response
 - If the respondent asks for clarification of a concept or the meaning of the question, provide it succinctly
-{% if probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+{% if suggested_probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
 - Ask only one question at a time
 - Keep your questions brief — ideally one sentence
 - Reply only with the question itself without any commentary
