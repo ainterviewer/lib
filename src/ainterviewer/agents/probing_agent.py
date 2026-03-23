@@ -1,4 +1,7 @@
+import asyncio
+from collections.abc import Sequence
 from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from ainterviewer.agents.base import BaseAgent
@@ -94,6 +97,9 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             {"role": MessageRole.SYSTEM, "content": self.prompts.system_prompt},
         ]
 
+    # ############### #
+    # General Probing #
+    # ############### #
     async def generate_probe(
         self,
         section_description: str,
@@ -127,21 +133,31 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         self.logger.info(f"Probe generated: {probe}")
         return probe
 
-    async def generate_master_to_one_probe(
+    # ################### #
+    # Specialized Probing #
+    # ################### #
+
+    async def _generate_specialized_probe(
         self,
+        strategy_name: str,
         section_description: str,
         question_description: str,
         main_question: str,
         transcript: str,
         suggested_probes: str | None,
-    ) -> str:
+    ) -> dict[str, str]:
+        """Generate a probe using a specific specialized probing strategy.
+
+        Returns a dict with 'strategy' and 'question' keys.
+        """
         translation_lang = (
             get_language_dict(language_code=self.language)["name"]
             if self.language != "EN"
             else None
         )
 
-        probing_prompt = self.prompts.generate_master_to_one_prompt(
+        probing_prompt = self.prompts.generate_specialized_probe_prompt(
+            strategy_name=strategy_name,
             interview_framing=self.interview_framing,
             section_description=section_description,
             question_description=question_description,
@@ -155,10 +171,54 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         messages = self.messages + [
             Message(role=MessageRole.USER, content=probing_prompt)
         ]
-        self.logger.info(f"Generating probe: {messages}")
-        probe = await self.chat_api(messages)
-        self.logger.info(f"Probe generated: {probe}")
-        return probe
+        self.logger.info(f"Generating specialized probe ({strategy_name})")
+        question = await self.chat_api(messages)
+        self.logger.info(f"Specialized probe ({strategy_name}): {question}")
+        return {"strategy": strategy_name, "question": question}
+
+    async def generate_master_to_one_probe(
+        self,
+        section_description: str,
+        question_description: str,
+        main_question: str,
+        transcript: str,
+        suggested_probes: str | None,
+        available_strategies: list[dict[str, str]],
+    ) -> str:
+        """Master selects the single best strategy, then that strategy generates the probe.
+
+        Steps:
+            1. Master picks one strategy via structured output (DiceProbesSingle).
+            2. The selected specialized agent generates the probe.
+        """
+        # Step 1: Master selects the best strategy
+        probing_prompt = self.prompts.generate_master_to_one_prompt(
+            interview_framing=self.interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            interview_transcript=transcript,
+            suggested_probes=suggested_probes,
+            available_strategies=available_strategies,
+        )
+
+        messages = self.messages + [
+            Message(role=MessageRole.USER, content=probing_prompt)
+        ]
+        self.logger.info("Master selecting probe strategy")
+        selection = await self.chat_api(messages, response_format=DiceProbesSingle)
+        self.logger.info(f"Master selected strategy: {selection.probing_type}")
+
+        # Step 2: Selected specialized agent generates the probe
+        result = await self._generate_specialized_probe(
+            strategy_name=selection.probing_type,
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            transcript=transcript,
+            suggested_probes=suggested_probes,
+        )
+        return result["question"]
 
     async def generate_ensemble_to_master_probe(
         self,
@@ -167,61 +227,98 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         main_question: str,
         transcript: str,
         suggested_probes: str | None,
+        strategy_names: Sequence[str],
     ) -> str:
+        """All specialized agents generate probes concurrently, master picks the best.
+
+        Steps:
+            1. All specialized agents generate candidate probes in parallel.
+            2. Master selects the best candidate.
+        """
+        # Step 1: All specialized agents generate probes concurrently
+        self.logger.info(f"Ensemble generating probes for strategies: {strategy_names}")
+        candidate_probes = await asyncio.gather(
+            *(
+                self._generate_specialized_probe(
+                    strategy_name=name,
+                    section_description=section_description,
+                    question_description=question_description,
+                    main_question=main_question,
+                    transcript=transcript,
+                    suggested_probes=suggested_probes,
+                )
+                for name in strategy_names
+            )
+        )
+
+        # Step 2: Master selects the best candidate
         translation_lang = (
             get_language_dict(language_code=self.language)["name"]
             if self.language != "EN"
             else None
         )
 
-        probing_prompt = self.prompts.generate_ensemble_to_master_prompt(
+        master_prompt = self.prompts.generate_ensemble_to_master_prompt(
             interview_framing=self.interview_framing,
             section_description=section_description,
             question_description=question_description,
             main_question=main_question,
             interview_transcript=transcript,
             suggested_probes=suggested_probes,
+            candidate_probes=list(candidate_probes),
             translation=translation_lang,
             few_shot_examples=self.few_shot_examples,
         )
 
         messages = self.messages + [
-            Message(role=MessageRole.USER, content=probing_prompt)
+            Message(role=MessageRole.USER, content=master_prompt)
         ]
-        self.logger.info(f"Generating probe: {messages}")
+        self.logger.info(f"Master selecting best from {len(candidate_probes)} candidates")
         probe = await self.chat_api(messages)
-        self.logger.info(f"Probe generated: {probe}")
+        self.logger.info(f"Master selected probe: {probe}")
         return probe
 
-    async def generate_master_to_ensemble_probe(
+    async def generate_master_to_ensemble_to_one_probe(
         self,
         section_description: str,
         question_description: str,
         main_question: str,
         transcript: str,
         suggested_probes: str | None,
+        available_strategies: list[dict[str, str]],
     ) -> str:
-        translation_lang = (
-            get_language_dict(language_code=self.language)["name"]
-            if self.language != "EN"
-            else None
-        )
+        """Master selects relevant strategies, those generate probes concurrently, master picks the best.
 
-        probing_prompt = self.prompts.generate_master_to_ensemble_prompt(
+        Steps:
+            1. Master selects a subset of strategies via structured output (DiceProbesMultiple).
+            2. Selected specialized agents generate candidate probes in parallel.
+            3. Master selects the best candidate.
+        """
+        # Step 1: Master selects relevant strategies
+        selection_prompt = self.prompts.generate_master_to_ensemble_prompt(
             interview_framing=self.interview_framing,
             section_description=section_description,
             question_description=question_description,
             main_question=main_question,
             interview_transcript=transcript,
             suggested_probes=suggested_probes,
-            translation=translation_lang,
-            few_shot_examples=self.few_shot_examples,
+            available_strategies=available_strategies,
         )
 
         messages = self.messages + [
-            Message(role=MessageRole.USER, content=probing_prompt)
+            Message(role=MessageRole.USER, content=selection_prompt)
         ]
-        self.logger.info(f"Generating probe: {messages}")
-        probe = await self.chat_api(messages)
-        self.logger.info(f"Probe generated: {probe}")
-        return probe
+        self.logger.info("Master selecting ensemble strategies")
+        selection = await self.chat_api(messages, response_format=DiceProbesMultiple)
+        selected_strategies = selection.probing_types
+        self.logger.info(f"Master selected strategies: {selected_strategies}")
+
+        # Steps 2 & 3: Delegate to ensemble_to_master with the selected subset
+        return await self.generate_ensemble_to_master_probe(
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            transcript=transcript,
+            suggested_probes=suggested_probes,
+            strategy_names=selected_strategies,
+        )

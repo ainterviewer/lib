@@ -976,13 +976,20 @@ class AInterviewer:
             if (probes := question.probes) is not None:
                 probes = "\n".join("- " + probe for probe in probes)
 
-            probe = await self.probing_agent.generate_probe(
+            probe = await self.probing_agent.generate_master_to_one_probe(
                 section_description=section_description,
                 question_description=question.description,
                 main_question=question.main_question,
                 transcript=transcript,
                 suggested_probes=probes,
             )
+            # probe = await self.probing_agent.generate_probe(
+            #     section_description=section_description,
+            #     question_description=question.description,
+            #     main_question=question.main_question,
+            #     transcript=transcript,
+            #     suggested_probes=probes,
+            # )
 
             if probe.lower().startswith(CustomTokens.end_of_probe):
                 break

@@ -133,8 +133,16 @@ class ProbingAgentPrompts(BasePrompts):
             few_shot_examples=few_shot_examples,
         )
 
-    def generate_master_to_one_prompt(
+    STRATEGY_TEMPLATE_MAP: dict[str, str] = {
+        "descriptive": "probing_agent_descriptive_detail_prompt.jinja",
+        "idiographic": "probing_agent_idiographic_memory_prompt.jinja",
+        "clarifying": "probing_agent_clarifying_prompt.jinja",
+        "explanatory": "probing_agent_explanatory_prompt.jinja",
+    }
+
+    def generate_specialized_probe_prompt(
         self,
+        strategy_name: str,
         interview_framing: str,
         section_description: str,
         question_description: str,
@@ -144,7 +152,13 @@ class ProbingAgentPrompts(BasePrompts):
         translation: str | None,
         few_shot_examples: list[str] | None = None,
     ) -> str:
-        return self.get_template("probing_agent_master_to_one_prompt.jinja").render(
+        template_name = self.STRATEGY_TEMPLATE_MAP.get(strategy_name)
+        if template_name is None:
+            raise ValueError(
+                f"Unknown probing strategy '{strategy_name}'. "
+                f"Available: {list(self.STRATEGY_TEMPLATE_MAP.keys())}"
+            )
+        return self.get_template(template_name).render(
             interview_framing=interview_framing,
             section_description=section_description,
             question_description=question_description,
@@ -155,6 +169,26 @@ class ProbingAgentPrompts(BasePrompts):
             few_shot_examples=few_shot_examples,
         )
 
+    def generate_master_to_one_prompt(
+        self,
+        interview_framing: str,
+        section_description: str,
+        question_description: str,
+        main_question: str,
+        interview_transcript: str,
+        suggested_probes: str | None,
+        available_strategies: list[dict[str, str]],
+    ) -> str:
+        return self.get_template("probing_agent_master_to_one_prompt.jinja").render(
+            interview_framing=interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            interview_transcript=interview_transcript,
+            suggested_probes=suggested_probes,
+            available_strategies=available_strategies,
+        )
+
     def generate_ensemble_to_master_prompt(
         self,
         interview_framing: str,
@@ -163,6 +197,7 @@ class ProbingAgentPrompts(BasePrompts):
         main_question: str,
         interview_transcript: str,
         suggested_probes: str | None,
+        candidate_probes: list[dict[str, str]],
         translation: str | None,
         few_shot_examples: list[str] | None = None,
     ) -> str:
@@ -175,6 +210,7 @@ class ProbingAgentPrompts(BasePrompts):
             main_question=main_question,
             interview_transcript=interview_transcript,
             suggested_probes=suggested_probes,
+            candidate_probes=candidate_probes,
             translation=translation,
             few_shot_examples=few_shot_examples,
         )
@@ -187,8 +223,7 @@ class ProbingAgentPrompts(BasePrompts):
         main_question: str,
         interview_transcript: str,
         suggested_probes: str | None,
-        translation: str | None,
-        few_shot_examples: list[str] | None = None,
+        available_strategies: list[dict[str, str]],
     ) -> str:
         return self.get_template(
             "probing_agent_master_to_ensemble_prompt.jinja"
@@ -199,8 +234,7 @@ class ProbingAgentPrompts(BasePrompts):
             main_question=main_question,
             interview_transcript=interview_transcript,
             suggested_probes=suggested_probes,
-            translation=translation,
-            few_shot_examples=few_shot_examples,
+            available_strategies=available_strategies,
         )
 
 
