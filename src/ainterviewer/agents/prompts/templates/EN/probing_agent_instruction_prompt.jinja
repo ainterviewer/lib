@@ -19,11 +19,11 @@ Please ask a question based on the following instructions.
 
 {% if probes %}
 ## Suggested probes:
-{{ probes }}
+{{ suggested_probes }}
 
 {% endif %}
 # Probing instructions
-- Ask a new, relevant follow-up question based on the transcript{% if probes %} and suggested probes{% endif %}
+- Ask a new, relevant follow-up question based on the transcript{% if suggested_probes %} and suggested probes{% endif %}
 - Aim to elicit new information from the interviewee
 - Avoid repeating previous questions or topics already covered
 - You must vary the formulation of the question to avoid repetition compared to the previously asked questions
@@ -35,7 +35,7 @@ Please ask a question based on the following instructions.
 - Ask open-ended questions that encourage elaboration
 - Do not provide direct advice or feedback in your response
 - If the respondent asks for clarification of a concept or the meaning of the question, provide it succinctly as an answer
-{% if probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+{% if suggested_probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
 - Look for interesting and important formulations in the prior answer and ask questions to these
 - Look for clues for then the respondents has something to say and ask questions to aspects
 - Ask only one question at a time

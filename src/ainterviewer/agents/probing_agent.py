@@ -1,5 +1,6 @@
 from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
+from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
 from ainterviewer.utils import get_language_dict
 
@@ -8,7 +9,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
     def __init__(
         self,
         language: LanguageCode,
-        interview_framing: str | None,
+        interview_framing: str,
         few_shot_examples: list[str] | None = None,
         *args,
         **kwargs,
@@ -28,7 +29,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         question_description: str,
         main_question: str,
         transcript: str,
-        probes: str | None,
+        suggested_probes: str | None,
     ) -> str:
         translation_lang = (
             get_language_dict(language_code=self.language)["name"]
@@ -42,12 +43,14 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             question_description=question_description,
             main_question=main_question,
             interview_transcript=transcript,
-            probes=probes,
+            suggested_probes=suggested_probes,
             translation=translation_lang,
             few_shot_examples=self.few_shot_examples,
         )
 
-        messages = self.messages + [{"role": "user", "content": probing_prompt}]
+        messages = self.messages + [
+            Message(role=MessageRole.USER, content=probing_prompt)
+        ]
         self.logger.info(f"Generating probe: {messages}")
         probe = await self.chat_api(messages)
         self.logger.info(f"Probe generated: {probe}")

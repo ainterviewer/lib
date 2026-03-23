@@ -118,7 +118,7 @@ class ProbingAgentPrompts(BasePrompts):
         question_description: str,
         main_question: str,
         interview_transcript: str,
-        probes: str | None,
+        suggested_probes: str | None,
         translation: str | None,
         few_shot_examples: list[str] | None = None,
     ) -> str:
@@ -128,7 +128,7 @@ class ProbingAgentPrompts(BasePrompts):
             question_description=question_description,
             main_question=main_question,
             interview_transcript=interview_transcript,
-            probes=probes,
+            suggested_probes=suggested_probes,
             translation=translation,
             few_shot_examples=few_shot_examples,
         )

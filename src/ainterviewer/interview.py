@@ -981,7 +981,7 @@ class AInterviewer:
                 question_description=question.description,
                 main_question=question.main_question,
                 transcript=transcript,
-                probes=probes,
+                suggested_probes=probes,
             )
 
             if probe.lower().startswith(CustomTokens.end_of_probe):
