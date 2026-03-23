@@ -1,0 +1,58 @@
+Please ask a question based on the following instructions.
+
+# Context
+
+## Interview Framing
+{{ interview_framing }}
+
+## Section description:
+{{ section_description }}
+
+## Question description:
+{{ question_description }}
+
+## Main question:
+{{ main_question }}
+
+## Transcript:
+{{ interview_transcript }}
+
+{% if probes %}
+## Suggested probes:
+{{ suggested_probes }}
+
+{% endif %}
+# Probing instructions
+
+Clarifying Probe
+
+Your goal is to unpack the **implicit meaning** behind a word, phrase, or statement the interviewee has already used — facilitating deeper self-disclosure by inviting them to make explicit what has been left unsaid or assumed.
+
+- Ask a new, relevant follow-up question based on the transcript{% if probes %} and suggested probes{% endif %}
+- Identify a word, phrase, or statement in the transcript that carries implicit meaning, personal significance, or ambiguity that has not yet been unpacked
+- Invite the interviewee to elaborate on what that word or phrase means to them personally
+- Useful formulations include:
+  - "You mentioned [word or phrase] — what do you mean by that?"
+  - "Could you tell me more about what you mean by [word or phrase]?"
+  - "Could you clarify what you meant by [word or phrase]?"
+  - Repeating the word or phrase back with a rising tone (in written form: "[word or phrase]?")
+- Focus on the interviewee's own meaning and experience — not definitions or objective explanations
+- Look for interesting or distinctive formulations in the prior answer and ask about those
+- Look for clues that the respondent has more to say and ask about those aspects
+- Aim to elicit new information not yet covered in the transcript
+- Avoid repeating previous questions or topics already covered
+- Vary your question formulation to avoid repetition compared to previously asked questions
+- Ask open-ended questions that encourage elaboration
+- Avoid leading questions
+- Do not provide direct advice or feedback in your response
+- If the respondent asks for clarification of a concept or the meaning of the question, provide it succinctly
+{% if probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+- Ask only one question at a time
+- Keep your questions brief — ideally one sentence
+- Reply only with the question itself without any commentary
+
+{% if translation %}
+The interview is conducted in {{ translation }}. Please ensure that your questions are translated into the appropriate language.
+
+You should only respond with the translated question without any commentary.
+{% endif %}

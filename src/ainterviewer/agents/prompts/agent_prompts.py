@@ -133,6 +133,76 @@ class ProbingAgentPrompts(BasePrompts):
             few_shot_examples=few_shot_examples,
         )
 
+    def generate_master_to_one_prompt(
+        self,
+        interview_framing: str,
+        section_description: str,
+        question_description: str,
+        main_question: str,
+        interview_transcript: str,
+        suggested_probes: str | None,
+        translation: str | None,
+        few_shot_examples: list[str] | None = None,
+    ) -> str:
+        return self.get_template("probing_agent_master_to_one_prompt.jinja").render(
+            interview_framing=interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            interview_transcript=interview_transcript,
+            suggested_probes=suggested_probes,
+            translation=translation,
+            few_shot_examples=few_shot_examples,
+        )
+
+    def generate_ensemble_to_master_prompt(
+        self,
+        interview_framing: str,
+        section_description: str,
+        question_description: str,
+        main_question: str,
+        interview_transcript: str,
+        suggested_probes: str | None,
+        translation: str | None,
+        few_shot_examples: list[str] | None = None,
+    ) -> str:
+        return self.get_template(
+            "probing_agent_ensemble_to_master_prompt.jinja"
+        ).render(
+            interview_framing=interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            interview_transcript=interview_transcript,
+            suggested_probes=suggested_probes,
+            translation=translation,
+            few_shot_examples=few_shot_examples,
+        )
+
+    def generate_master_to_ensemble_prompt(
+        self,
+        interview_framing: str,
+        section_description: str,
+        question_description: str,
+        main_question: str,
+        interview_transcript: str,
+        suggested_probes: str | None,
+        translation: str | None,
+        few_shot_examples: list[str] | None = None,
+    ) -> str:
+        return self.get_template(
+            "probing_agent_master_to_ensemble_prompt.jinja"
+        ).render(
+            interview_framing=interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            interview_transcript=interview_transcript,
+            suggested_probes=suggested_probes,
+            translation=translation,
+            few_shot_examples=few_shot_examples,
+        )
+
 
 class GuideAgentPrompts(BasePrompts):
     def __init__(self, *args, **kwargs):

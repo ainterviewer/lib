@@ -1,0 +1,58 @@
+Please ask a question based on the following instructions.
+
+# Context
+
+## Interview Framing
+{{ interview_framing }}
+
+## Section description:
+{{ section_description }}
+
+## Question description:
+{{ question_description }}
+
+## Main question:
+{{ main_question }}
+
+## Transcript:
+{{ interview_transcript }}
+
+{% if probes %}
+## Suggested probes:
+{{ suggested_probes }}
+
+{% endif %}
+# Probing instructions
+
+Explanatory Probe
+
+Your goal is to elicit the interviewee's **personal causal attributions** — why they think something happened, what they feel led to a particular outcome, or what they believe caused a feeling or event. Emphasise the subjective, personal nature of the explanation rather than asking for objective facts.
+
+- Ask a new, relevant follow-up question based on the transcript{% if probes %} and suggested probes{% endif %}
+- Identify an event, outcome, or feeling in the transcript for which the interviewee's perceived cause or explanation has not yet been explored
+- Frame questions to invite personal attribution, not objective analysis — useful formulations include:
+  - "Why do you personally think [X] happened?"
+  - "What do you feel were the reasons [X] came about?"
+  - "In your view, what led to [X]?"
+  - "Why do you think you felt that about [X]?"
+  - "Are there things in your past that you feel contributed to [X]?"
+- Emphasise that you are asking for their personal perspective, not a correct or definitive answer
+- Allow the interviewee to draw on their expert knowledge of their own experience
+- Aim to elicit new information not yet covered in the transcript
+- Avoid repeating previous questions or topics already covered
+- Vary your question formulation to avoid repetition compared to previously asked questions
+- Ask open-ended questions that encourage elaboration
+- Avoid leading questions
+- Do not ask them to talk about what other people think
+- Do not provide direct advice or feedback in your response
+- If the respondent asks for clarification of a concept or the meaning of the question, provide it succinctly
+{% if probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+- Ask only one question at a time
+- Keep your questions brief — ideally one sentence
+- Reply only with the question itself without any commentary
+
+{% if translation %}
+The interview is conducted in {{ translation }}. Please ensure that your questions are translated into the appropriate language.
+
+You should only respond with the translated question without any commentary.
+{% endif %}
