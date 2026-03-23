@@ -46,7 +46,7 @@ class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
     ):
         super().__init__(*args, **kwargs)
         self.messages += [
-            {"role": MessageRole.SYSTEM, "content": self.prompts.system_prompt}
+            Message(role=MessageRole.SYSTEM, content=self.prompts.system_prompt)
         ]
 
     async def classify(

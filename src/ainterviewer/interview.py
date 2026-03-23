@@ -213,6 +213,13 @@ class AInterviewer:
 
         processed_text = await self.preprocess_answer(text)
 
+        # TODO:
+        # Implement and updated version of the SafetyAgent
+        #
+        # if self.security_agent and not self.security_agent.is_safe(processed_text):
+        #     message = "I'm sorry, but your last message is not within the scope of this interview. Please try again."
+        #     await self.send_data(message)
+
         self.db.insert_message(
             message_id=self.interview_history.current_message_id + 1,
             content=processed_text,
@@ -804,13 +811,6 @@ class AInterviewer:
         # TODO: if the answer is a special token, should it then be added to
         # the interview history?
 
-        # if self.security_agent and not self.security_agent.is_safe(
-        #     answer
-        # ):
-        #     message = "I'm sorry, but your last message is not within the scope of this interview. Please try again."
-        #     await self.send_data(message)
-        #     continue
-
         return answer
 
     async def ask_probe(self, question: Question, probe: str):
@@ -846,14 +846,6 @@ class AInterviewer:
 
         # TODO: if the answer is a special token, should it then be added to
         # the interview history?
-
-        # FIXME:
-        # if self.security_agent and not self.security_agent.is_safe(
-        #     answer
-        # ):
-        #     message = "I'm sorry, but your last message is not within the scope of this interview. Please try again."
-        #     await self.send_data(message)
-        #     continue
 
         return answer
 

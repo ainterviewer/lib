@@ -14,10 +14,6 @@ class EndInterviewException(ConditionalException):
     pass
 
 
-class SecurityException(Exception):
-    pass
-
-
 class LanguageNotSupportedError(Exception):
     pass
 
