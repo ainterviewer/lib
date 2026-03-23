@@ -177,7 +177,7 @@ class ProbingAgentPrompts(BasePrompts):
         main_question: str,
         interview_transcript: str,
         suggested_probes: str | None,
-        available_strategies: list[dict[str, str]],
+        response_schema: dict,
     ) -> str:
         return self.get_template("probing_agent_master_to_one_prompt.jinja").render(
             interview_framing=interview_framing,
@@ -186,7 +186,7 @@ class ProbingAgentPrompts(BasePrompts):
             main_question=main_question,
             interview_transcript=interview_transcript,
             suggested_probes=suggested_probes,
-            available_strategies=available_strategies,
+            response_schema=response_schema,
         )
 
     def generate_ensemble_to_master_prompt(
@@ -223,7 +223,7 @@ class ProbingAgentPrompts(BasePrompts):
         main_question: str,
         interview_transcript: str,
         suggested_probes: str | None,
-        available_strategies: list[dict[str, str]],
+        response_schema: dict,
     ) -> str:
         return self.get_template(
             "probing_agent_master_to_ensemble_prompt.jinja"
@@ -234,7 +234,7 @@ class ProbingAgentPrompts(BasePrompts):
             main_question=main_question,
             interview_transcript=interview_transcript,
             suggested_probes=suggested_probes,
-            available_strategies=available_strategies,
+            response_schema=response_schema,
         )
 
 

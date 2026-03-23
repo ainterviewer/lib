@@ -22,15 +22,14 @@ Given the interview context below, determine which specialized probing strategie
 {{ suggested_probes }}
 
 {% endif %}
-# Available probing strategies
-{% for strategy in available_strategies %}
-- **{{ strategy.name }}**: {{ strategy.description }}
-{% endfor %}
-
 # Selection instructions
 - Analyse the transcript carefully, paying close attention to the interviewee's most recent response
 - Consider what types of information are currently missing or underdeveloped
 - Select the probing strategies that could each produce a valuable follow-up question at this point in the interview
 - Exclude strategies that are clearly unsuitable given the current interview stage or transcript content
 - You may select one or more strategies — include all that are genuinely relevant, but do not include strategies just for coverage
-- Reply only with the exact names of the selected strategies, separated by commas, without any commentary or justification
+- Respond with a JSON object matching the following schema:
+
+```json
+{{ response_schema }}
+```

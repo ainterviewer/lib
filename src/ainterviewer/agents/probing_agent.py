@@ -183,7 +183,6 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         main_question: str,
         transcript: str,
         suggested_probes: str | None,
-        available_strategies: list[dict[str, str]],
     ) -> str:
         """Master selects the single best strategy, then that strategy generates the probe.
 
@@ -199,7 +198,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             main_question=main_question,
             interview_transcript=transcript,
             suggested_probes=suggested_probes,
-            available_strategies=available_strategies,
+            response_schema=DiceProbesSingle.model_json_schema(),
         )
 
         messages = self.messages + [
@@ -285,7 +284,6 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         main_question: str,
         transcript: str,
         suggested_probes: str | None,
-        available_strategies: list[dict[str, str]],
     ) -> str:
         """Master selects relevant strategies, those generate probes concurrently, master picks the best.
 
@@ -302,7 +300,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             main_question=main_question,
             interview_transcript=transcript,
             suggested_probes=suggested_probes,
-            available_strategies=available_strategies,
+            response_schema=DiceProbesMultiple.model_json_schema(),
         )
 
         messages = self.messages + [
