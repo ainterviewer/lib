@@ -38,7 +38,7 @@ class BaseAgent(ABC, Generic[PromptT]):
         self.chat_kwargs = chat_kwargs if chat_kwargs else {}
         self.model = model
         self._language = language
-        self.logger = get_logger(agent=self.__class__.__name__)
+        self.logger = get_logger(agent=self.__class__.__name__, language=language)
         self.logger.info("Agent initialized")
 
     @property
