@@ -16,6 +16,9 @@ class SpecializedProbeType(BaseModel):
     emotion: bool = Field()
 
 
+DEFAULT_STRATEGIES = {"descriptive", "idiographic", "clarifying", "explanatory"}
+
+
 class DiceProbes(BaseModel):
     """DICE probing strategies to use in qualitative research interview.
 
@@ -65,7 +68,7 @@ class DiceProbesSingle(DiceProbes):
 
 
 class DiceProbesMultiple(DiceProbes):
-    probing_types: list[
+    probing_types: set[
         Literal["descriptive", "idiographic", "clarifying", "explanatory"]
     ] = Field(
         ...,
@@ -226,7 +229,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         main_question: str,
         transcript: str,
         suggested_probes: str | None,
-        strategy_names: Sequence[str],
+        strategy_names: set[str] = DEFAULT_STRATEGIES,
     ) -> str:
         """All specialized agents generate probes concurrently, master picks the best.
 
@@ -272,9 +275,15 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         messages = self.messages + [
             Message(role=MessageRole.USER, content=master_prompt)
         ]
-        self.logger.info(f"Master selecting best from {len(candidate_probes)} candidates")
+
+        self.logger.info(
+            f"Master selecting best from {len(candidate_probes)} candidates"
+        )
+
         probe = await self.chat_api(messages)
+
         self.logger.info(f"Master selected probe: {probe}")
+
         return probe
 
     async def generate_master_to_ensemble_to_one_probe(
@@ -318,5 +327,5 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             main_question=main_question,
             transcript=transcript,
             suggested_probes=suggested_probes,
-            strategy_names=selected_strategies,
+            strategy_names=selected_strategies,  # ty: ignore[invalid-argument-type]
         )
