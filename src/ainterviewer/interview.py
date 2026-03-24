@@ -112,65 +112,57 @@ class AInterviewer:
 
         self._evaluated_conditions: dict[DecimalString, str] = {}
 
-        _agent_configs = {
-            agent: agent_config.model_dump() for agent, agent_config in agent_configs
-        }
-
-        include_agent = {
-            agent: config.pop("include") for agent, config in _agent_configs.items()
-        }
-
         self.probing_agent: ProbingAgent = ProbingAgent(
             interview_framing=interview_guide.framing,
-            few_shot_examples=_agent_configs["probing"].pop("few_shot_examples"),
+            few_shot_examples=agent_configs.probing.few_shot_examples,
             template_loader=template_loader,
-            model=_agent_configs["probing"].pop("model"),
+            model=agent_configs.probing.model,
             language=language,
-            chat_kwargs=_agent_configs["probing"],
+            chat_kwargs=agent_configs.probing.chat_kwargs,
         )
 
         self.guide_agent: GuideAgent = GuideAgent(
             template_loader=template_loader,
-            model=_agent_configs["guide"].pop("model"),
+            model=agent_configs.guide.model,
             language=language,
-            chat_kwargs=_agent_configs["guide"],
+            chat_kwargs=agent_configs.guide.chat_kwargs,
         )
 
         self.history_agent: HistoryAgent = HistoryAgent(
             template_loader=template_loader,
-            model=_agent_configs["history"].pop("model"),
+            model=agent_configs.history.model,
             language=language,
-            chat_kwargs=_agent_configs["history"],
+            chat_kwargs=agent_configs.history.chat_kwargs,
         )
 
         self.classification_agent: ClassificationAgent = ClassificationAgent(
             template_loader=template_loader,
-            model=_agent_configs["classification"].pop("model"),
+            model=agent_configs.classification.model,
             language=language,
-            chat_kwargs=_agent_configs["classification"],
+            chat_kwargs=agent_configs.classification.chat_kwargs,
         )
 
         self.reformulation_agent: ReformulationAgent = ReformulationAgent(
             template_loader=template_loader,
-            model=_agent_configs["reformulation"].pop("model"),
+            model=agent_configs.reformulation.model,
             language=language,
-            chat_kwargs=_agent_configs["reformulation"],
+            chat_kwargs=agent_configs.reformulation.chat_kwargs,
         )
 
-        if include_agent["security"]:
+        if agent_configs.security.include:
             self.security_agent: SecurityAgent | None = SecurityAgent(
                 template_loader=template_loader,
-                model=_agent_configs["security"].pop("model"),
+                model=agent_configs.security.model,
                 language=language,
-                chat_kwargs=_agent_configs["security"],
+                chat_kwargs=agent_configs.security.chat_kwargs,
             )
         else:
             self.security_agent = None
 
-        if include_agent["visual"]:
+        if agent_configs.visual.include:
             self.visual_agent: VisualAgent = VisualAgent(
                 template_loader=template_loader,
-                model=_agent_configs["visual"].pop("model"),
+                model=agent_configs.visual.model,
                 language=language,
             )
 

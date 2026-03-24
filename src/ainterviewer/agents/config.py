@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Generator
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -26,9 +25,6 @@ class AgentConfigs(BaseModel):
     answering: AgentConfig = Field(default_factory=lambda: AgentConfig())
     reformulation: AgentConfig = Field(default_factory=lambda: AgentConfig())
 
-    def __iter__(self) -> Generator[tuple[str, AgentConfig], None, None]:
-        yield from self.__dict__.items()
-
 
 class AgentConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
@@ -36,6 +32,10 @@ class AgentConfig(BaseModel):
     model: str = settings.llm.default_model
     temperature: Temperature = Field(default=0.7)
     include: bool = True
+
+    @property
+    def chat_kwargs(self) -> dict:
+        return {"temperature": self.temperature}
 
 
 class ProbingAgentConfig(AgentConfig):
