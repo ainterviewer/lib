@@ -24,7 +24,7 @@ class Prompts(BaseModel):
 
     def dump_templates(self) -> dict[str, str]:
         dump = {
-            agent + "_" + template_name + ".jinja": template_content
+            agent + "/" + template_name + ".jinja": template_content
             for agent, templates in self.__dict__.items()
             if "agent" in agent
             for template_name, template_content in templates.model_dump().items()
@@ -60,18 +60,20 @@ class PromptTemplates(BaseModel):
 
 
 def get_default_prompts() -> tuple[dict[str, dict[str, str]], dict[str, str]]:
-    prompt_files = Path(__file__).parent.glob("templates/EN/*.jinja")
+    templates_dir = Path(__file__).parent / "templates" / "EN"
 
     agent_prompts: dict[str, dict[str, str]] = defaultdict(dict)
-
     extra_prompts: dict[str, str] = {}
 
-    for prompt in prompt_files:
-        if "agent" in prompt.stem:
-            agent_name = "_".join(prompt.stem.split("_")[0:2])
-            prompt_name = "_".join(prompt.stem.split("_")[2:])
-            agent_prompts[agent_name][prompt_name] = prompt.read_text()
-        else:
+    # Agent prompts live in subdirectories: templates/EN/{agent_name}/{prompt}.jinja
+    for prompt in templates_dir.glob("*_agent/*.jinja"):
+        agent_name = prompt.parent.name
+        prompt_name = prompt.stem
+        agent_prompts[agent_name][prompt_name] = prompt.read_text()
+
+    # Extra prompts live at the top level: templates/EN/{prompt}.jinja
+    for prompt in templates_dir.glob("*.jinja"):
+        if "agent" not in prompt.stem:
             prompt_name = "_".join(prompt.stem.split("_")[:-1])
             extra_prompts[prompt_name] = prompt.read_text()
 

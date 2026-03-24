@@ -47,7 +47,7 @@ class BasePrompts(ABC):
                 raise FileNotFoundError("The template has no filename")
 
             return self.env.loader.get_source(
-                self.env, template.filename.split("/")[-1]
+                self.env, "/".join(template.filename.split("/")[-2:])
             )[0]
 
         raise TypeError(
@@ -80,7 +80,7 @@ class AnsweringAgentPrompts(BasePrompts):
 
     def generate_system_prompt(self) -> str:
         system_prompt_template = self.get_template(
-            "answering_agent_system_prompt.jinja"
+            "answering_agent/system_prompt.jinja"
         )
         return system_prompt_template.render()
 
@@ -92,7 +92,7 @@ class AnsweringAgentPrompts(BasePrompts):
         translation: LanguageCode | None = None,
     ) -> str:
         answering_prompt_template = self.get_template(
-            "answering_agent_instruction_prompt.jinja"
+            "answering_agent/instruction_prompt.jinja"
         )
 
         return answering_prompt_template.render(
@@ -109,7 +109,7 @@ class ProbingAgentPrompts(BasePrompts):
         super().__init__(*args, **kwargs)
 
     def generate_system_prompt(self) -> str:
-        return self.get_template("probing_agent_system_prompt.jinja").render()
+        return self.get_template("probing_agent/system_prompt.jinja").render()
 
     def generate_probing_prompt(
         self,
@@ -122,7 +122,7 @@ class ProbingAgentPrompts(BasePrompts):
         translation: str | None,
         few_shot_examples: list[str] | None = None,
     ) -> str:
-        return self.get_template("probing_agent_instruction_prompt.jinja").render(
+        return self.get_template("probing_agent/instruction_prompt.jinja").render(
             interview_framing=interview_framing,
             section_description=section_description,
             question_description=question_description,
@@ -134,10 +134,10 @@ class ProbingAgentPrompts(BasePrompts):
         )
 
     STRATEGY_TEMPLATE_MAP: dict[str, str] = {
-        "descriptive": "probing_agent_descriptive_detail_prompt.jinja",
-        "idiographic": "probing_agent_idiographic_memory_prompt.jinja",
-        "clarifying": "probing_agent_clarifying_prompt.jinja",
-        "explanatory": "probing_agent_explanatory_prompt.jinja",
+        "descriptive": "probing_agent/descriptive_detail_prompt.jinja",
+        "idiographic": "probing_agent/idiographic_memory_prompt.jinja",
+        "clarifying": "probing_agent/clarifying_prompt.jinja",
+        "explanatory": "probing_agent/explanatory_prompt.jinja",
     }
 
     def generate_specialized_probe_prompt(
@@ -179,7 +179,7 @@ class ProbingAgentPrompts(BasePrompts):
         suggested_probes: str | None,
         response_schema: dict,
     ) -> str:
-        return self.get_template("probing_agent_master_to_one_prompt.jinja").render(
+        return self.get_template("probing_agent/master_to_one_prompt.jinja").render(
             interview_framing=interview_framing,
             section_description=section_description,
             question_description=question_description,
@@ -202,7 +202,7 @@ class ProbingAgentPrompts(BasePrompts):
         few_shot_examples: list[str] | None = None,
     ) -> str:
         return self.get_template(
-            "probing_agent_ensemble_to_master_prompt.jinja"
+            "probing_agent/ensemble_to_master_prompt.jinja"
         ).render(
             interview_framing=interview_framing,
             section_description=section_description,
@@ -226,7 +226,7 @@ class ProbingAgentPrompts(BasePrompts):
         response_schema: dict,
     ) -> str:
         return self.get_template(
-            "probing_agent_master_to_ensemble_prompt.jinja"
+            "probing_agent/master_to_ensemble_prompt.jinja"
         ).render(
             interview_framing=interview_framing,
             section_description=section_description,
@@ -243,7 +243,7 @@ class GuideAgentPrompts(BasePrompts):
         super().__init__(*args, **kwargs)
 
     def generate_system_prompt(self) -> str:
-        return self.get_template("guide_agent_system_prompt.jinja").render()
+        return self.get_template("guide_agent/system_prompt.jinja").render()
 
     def generate_question_prompt(
         self,
@@ -251,7 +251,7 @@ class GuideAgentPrompts(BasePrompts):
         interview_guide: InterviewGuide,
         translation: str | None,
     ) -> str:
-        return self.get_template("guide_agent_instruction_prompt.jinja").render(
+        return self.get_template("guide_agent/instruction_prompt.jinja").render(
             interview_guide_component="main question",
             interview_transcript=interview_transcript,
             interview_guide=interview_guide,
@@ -265,7 +265,7 @@ class GuideAgentPrompts(BasePrompts):
         interview_guide: InterviewGuide,
         translation: str | None,
     ) -> str:
-        return self.get_template("guide_agent_instruction_prompt.jinja").render(
+        return self.get_template("guide_agent/instruction_prompt.jinja").render(
             interview_guide_component="question section",
             interview_transcript=interview_transcript,
             interview_guide=interview_guide,
@@ -279,7 +279,7 @@ class HistoryAgentPrompts(BasePrompts):
         super().__init__(*args, **kwargs)
 
     def generate_system_prompt(self) -> str:
-        return self.get_template("history_agent_system_prompt.jinja").render()
+        return self.get_template("history_agent/system_prompt.jinja").render()
 
 
 class SecurityAgentPrompts(BasePrompts):
@@ -287,10 +287,10 @@ class SecurityAgentPrompts(BasePrompts):
         super().__init__(*args, **kwargs)
 
     def generate_system_prompt(self) -> str:
-        return self.get_template("security_agent_system_prompt.jinja").render()
+        return self.get_template("security_agent/system_prompt.jinja").render()
 
     def generate_security_prompt(self, question: str, answer: str) -> str:
-        return self.get_template("security_agent_instruction_prompt.jinja").render(
+        return self.get_template("security_agent/instruction_prompt.jinja").render(
             question=question, answer=answer
         )
 
@@ -300,7 +300,7 @@ class ClassificationAgentPrompts(BasePrompts):
         super().__init__(*args, **kwargs)
 
     def generate_system_prompt(self) -> str:
-        return self.get_template("classification_agent_system_prompt.jinja").render()
+        return self.get_template("classification_agent/system_prompt.jinja").render()
 
     def generate_classification_prompt(
         self,
@@ -310,7 +310,7 @@ class ClassificationAgentPrompts(BasePrompts):
         classification_examples: str | dict | None = None,
     ) -> str:
         return self.get_template(
-            "classification_agent_instruction_prompt.jinja"
+            "classification_agent/instruction_prompt.jinja"
         ).render(
             text=text,
             next_question_instruction=next_question_instruction,
@@ -325,15 +325,15 @@ class VisualAgentPrompts(BasePrompts):
         self.description_prompt = self.generate_description_prompt()
 
     def generate_system_prompt(self) -> str:
-        return self.get_template("visual_agent_system_prompt.jinja").render()
+        return self.get_template("visual_agent/system_prompt.jinja").render()
 
     def generate_description_prompt(self) -> str:
-        return self.get_template("visual_agent_instruction_prompt.jinja").render()
+        return self.get_template("visual_agent/instruction_prompt.jinja").render()
 
 
 class ReformulationAgentPrompts(BasePrompts):
     def generate_system_prompt(self) -> str:
-        return self.get_template("reformulation_agent_system_prompt.jinja").render()
+        return self.get_template("reformulation_agent/system_prompt.jinja").render()
 
     def generate_reformulation_prompt(
         self,
@@ -344,7 +344,7 @@ class ReformulationAgentPrompts(BasePrompts):
         additional_guidelines: list[str] | None = None,
         translation: LanguageCode | None = None,
     ) -> str:
-        return self.get_template("reformulation_agent_instruction_prompt.jinja").render(
+        return self.get_template("reformulation_agent/instruction_prompt.jinja").render(
             interview_transcript=interview_transcript,
             probing_context=probing_context,
             question=question,
