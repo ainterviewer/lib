@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ainterviewer.lpm.types import Temperature
 from ainterviewer.settings import settings
-from ainterviewer.types import LanguageCode
 
 CONFIG_FOLDER = Path(__file__).parent.parent.parent / "data" / "configs"
 
@@ -36,7 +35,6 @@ class AgentConfig(BaseModel):
 
     model: str = settings.llm.default_model
     temperature: Temperature = Field(default=0.7)
-    lang: LanguageCode = "EN"
     include: bool = True
 
 

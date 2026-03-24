@@ -67,7 +67,7 @@ class AInterviewer:
         previous_time_spent: int = 0,
         one_question: bool = False,
         template_loader: BaseLoader | None = None,
-        frontend_language: LanguageCode = "EN",
+        language: LanguageCode = "EN",
         referable_values: dict[str, Any] | None = None,
     ):
         self.interview_started = datetime.now()
@@ -98,7 +98,7 @@ class AInterviewer:
 
         self.interview_history: InterviewHistory = InterviewHistory()
 
-        self.translation = frontend_language if frontend_language != "EN" else None
+        self.translation = language if language != "EN" else None
 
         self.project_id: UUID4 = project_id
         self.interview_id: UUID4 = interview_id
@@ -125,35 +125,35 @@ class AInterviewer:
             few_shot_examples=_agent_configs["probing"].pop("few_shot_examples"),
             template_loader=template_loader,
             model=_agent_configs["probing"].pop("model"),
-            language=_agent_configs["probing"].pop("lang"),
+            language=language,
             chat_kwargs=_agent_configs["probing"],
         )
 
         self.guide_agent: GuideAgent = GuideAgent(
             template_loader=template_loader,
             model=_agent_configs["guide"].pop("model"),
-            language=_agent_configs["guide"].pop("lang"),
+            language=language,
             chat_kwargs=_agent_configs["guide"],
         )
 
         self.history_agent: HistoryAgent = HistoryAgent(
             template_loader=template_loader,
             model=_agent_configs["history"].pop("model"),
-            language=_agent_configs["history"].pop("lang"),
+            language=language,
             chat_kwargs=_agent_configs["history"],
         )
 
         self.classification_agent: ClassificationAgent = ClassificationAgent(
             template_loader=template_loader,
             model=_agent_configs["classification"].pop("model"),
-            language=_agent_configs["classification"].pop("lang"),
+            language=language,
             chat_kwargs=_agent_configs["classification"],
         )
 
         self.reformulation_agent: ReformulationAgent = ReformulationAgent(
             template_loader=template_loader,
             model=_agent_configs["reformulation"].pop("model"),
-            language=_agent_configs["reformulation"].pop("lang"),
+            language=language,
             chat_kwargs=_agent_configs["reformulation"],
         )
 
@@ -161,7 +161,7 @@ class AInterviewer:
             self.security_agent: SecurityAgent | None = SecurityAgent(
                 template_loader=template_loader,
                 model=_agent_configs["security"].pop("model"),
-                language=_agent_configs["security"].pop("lang"),
+                language=language,
                 chat_kwargs=_agent_configs["security"],
             )
         else:
@@ -171,7 +171,7 @@ class AInterviewer:
             self.visual_agent: VisualAgent = VisualAgent(
                 template_loader=template_loader,
                 model=_agent_configs["visual"].pop("model"),
-                language=_agent_configs["visual"].pop("lang"),
+                language=language,
             )
 
     async def __aenter__(self) -> Self:
@@ -976,13 +976,30 @@ class AInterviewer:
             if (probes := question.probes) is not None:
                 probes = "\n".join("- " + probe for probe in probes)
 
-            probe = await self.probing_agent.generate_master_to_one_probe(
+            # probe = await self.probing_agent.generate_master_to_one_probe(
+            #     section_description=section_description,
+            #     question_description=question.description,
+            #     main_question=question.main_question,
+            #     transcript=transcript,
+            #     suggested_probes=probes,
+            # )
+
+            probe = await self.probing_agent.generate_ensemble_to_master_probe(
                 section_description=section_description,
                 question_description=question.description,
                 main_question=question.main_question,
                 transcript=transcript,
                 suggested_probes=probes,
             )
+
+            # probe = await self.probing_agent.generate_master_to_ensemble_to_one_probe(
+            #     section_description=section_description,
+            #     question_description=question.description,
+            #     main_question=question.main_question,
+            #     transcript=transcript,
+            #     suggested_probes=probes,
+            # )
+
             # probe = await self.probing_agent.generate_probe(
             #     section_description=section_description,
             #     question_description=question.description,

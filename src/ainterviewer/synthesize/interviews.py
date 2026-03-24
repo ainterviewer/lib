@@ -196,7 +196,7 @@ async def run_synthetic_answering_agent(
         project_id=project_id,
         interview_id=interview_id,
         message_id=message_id,
-        frontend_language=language,
+        language=language,
         referable_values={"test": True},
     ) as interviewer:
         await interviewer.interview()
