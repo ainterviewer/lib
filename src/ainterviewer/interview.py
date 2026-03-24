@@ -32,7 +32,6 @@ from ainterviewer.interfaces import (
 from ainterviewer.interview_guides import (
     Condition,
     ConditionAction,
-    DecimalString,
     Image,
     InterviewGuide,
     InterviewMessage,
@@ -47,6 +46,7 @@ from ainterviewer.interview_guides.history import (
     InterviewHistory,
     Turn,
 )
+from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
@@ -110,7 +110,7 @@ class AInterviewer:
 
         self.resume_from_history: bool = False
 
-        self._evaluated_conditions: dict[DecimalString, str] = {}
+        self._evaluated_conditions: dict[QuestionIndex, str] = {}
 
         self.probing_agent: ProbingAgent = ProbingAgent(
             interview_framing=interview_guide.framing,

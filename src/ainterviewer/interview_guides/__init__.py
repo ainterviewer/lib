@@ -3,13 +3,12 @@ from ainterviewer.interview_guides.conditions import (
     ConditionAction,
     evaluate_condition,
 )
-from ainterviewer.interview_guides.media import Image, Audio, Video
 from ainterviewer.interview_guides.interview_guide import (
-    DecimalString,
     InterviewGuide,
     InterviewMessage,
     TimedMessage,
 )
+from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.questions import Question
 from ainterviewer.interview_guides.survey_items import (
     CheckboxItem,
@@ -30,7 +29,6 @@ __all__ = [
     "ConditionAction",
     "DateItem",
     "DatetimeItem",
-    "DecimalString",
     "Image",
     "InterviewGuide",
     "InterviewMessage",

@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Generic, TypeAlias
+from typing import Generic
 
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
@@ -140,12 +140,6 @@ class InterviewGuide(InterviewGuideBase[Question]):
                 if question.can_answer:
                     question.max_probes_n = 1
                     question.max_probes_time = None
-
-
-DecimalString: TypeAlias = str
-"""Decimal string, should be in reference to section and question number
-where initial condition is added, ie. 1.3 for the 3rd question in the 1st section"""
-# TODO: Should the index be a DecimalString or a Tuple[int, int]?
 
 
 if __name__ == "__main__":

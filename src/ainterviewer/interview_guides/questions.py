@@ -1,9 +1,9 @@
 from pydantic import BaseModel, Field, model_validator
 
-from ainterviewer.interview_guides import Image
 from ainterviewer.interview_guides.conditions import Conditions
 from ainterviewer.interview_guides.exceptions import OverwriteError
-from ainterviewer.interview_guides.references import Reference
+from ainterviewer.interview_guides.media import Image
+from ainterviewer.interview_guides.references import QuestionIndex, Reference
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
 
@@ -87,7 +87,7 @@ class Question(QuestionBaseExtended):
     probing_context: ContextType | None = None
 
     # Automatically generated in interview guide generation
-    index: tuple[int, int] | None = Field(
+    index: QuestionIndex | None = Field(
         None,
         description="The index of the question in the interview, ie (section, question) = (2, 2) (for 3rd section 3rd question). Used to keep track of questions initial position after shuffling.",
     )
