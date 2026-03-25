@@ -7,9 +7,9 @@ authors = [{ name = "Tobias Gårdhus", email = "tobias_gaardhus@hotmail.com" }]
 requires-python = ">=3.12.0"
 
 dependencies = [
+  "any-llm-sdk[gemini,openai,openrouter,vllm]>=1.13.0",
   "fastapi[standard]>=0.128.7",
   "jinja2>=3.1.6",
-  "litellm>=1.81.9",
   "openai>=2.9.0",
   "polars>=1.35.2",
   "pyarrow>=22.0.0",

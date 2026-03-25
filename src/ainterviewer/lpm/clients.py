@@ -5,10 +5,9 @@ from functools import partial
 from types import CoroutineType
 from typing import Any, Callable, TypeVar, overload
 
-import litellm
 import requests
-from litellm import acompletion
-from litellm.types.utils import ModelResponse
+from any_llm import acompletion
+from any_llm.types.completion import ChatCompletion
 from pydantic import BaseModel
 
 from ainterviewer.lpm.types import CustomTokens, Message, Temperature
@@ -17,8 +16,6 @@ from ainterviewer.lpm.vllm import VLLM_MODEL_CONFIGS
 from ainterviewer.settings import settings
 from ainterviewer.types import MessageRole
 from ainterviewer.utils import encode_image
-
-litellm.suppress_debug_info = True  # ty: ignore[invalid-assignment]
 
 _DUMMY_MESSAGES: list[Message] = [{"role": MessageRole.USER, "content": "Hello"}]
 
@@ -68,39 +65,38 @@ async def chat(
         if isinstance(stop_tokens, str):
             stop_tokens = [stop_tokens]
 
-    chat: Callable[..., CoroutineType[Any, Any, ModelResponse]] = partial(
+    chat: Callable[..., CoroutineType[Any, Any, ChatCompletion]] = partial(  # ty: ignore[invalid-assignment]
         acompletion,
         messages=messages,
         temperature=temperature,
         stop=stop_tokens,
         top_logprobs=top_logprobs,
         seed=settings.llm.seed,
-        drop_params=True,
         stream=False,
         response_format=response_format,
         **model_kwargs,
     )
 
-    if model.startswith("openrouter/"):
-        chat_completion: ModelResponse = await chat(
+    if model.startswith("openrouter:"):
+        chat_completion = await chat(
             model=model,
-            provider={"order": ["deepinfra"]},
+            extra_body={"provider": {"order": ["deepinfra"]}},
             api_key=settings.secrets.openrouter_api_key.get_secret_value(),
             reasoning_effort="low",
         )
-    elif model.startswith("openai/"):
-        chat_completion: ModelResponse = await chat(
+    elif model.startswith("openai:"):
+        chat_completion = await chat(
             model=model,
             api_key=settings.secrets.openai_api_key.get_secret_value(),
-            reasoning_effort="minimal",
+            reasoning_effort="none",
         )
-    elif model.startswith("gemini/"):
+    elif model.startswith("gemini:"):
         # map system roles for gemini compatability
         messages = [
             {"role": map_system_to_user(message["role"]), "content": message["content"]}
             for message in messages
         ]
-        chat_completion: ModelResponse = await chat(
+        chat_completion = await chat(
             messages=messages,
             model=model,
             api_key=settings.secrets.google_ai_api_key.get_secret_value(),
@@ -110,7 +106,7 @@ async def chat(
 
         extra_model_kwargs = {}
 
-        extra_model_kwargs["model"] = "hosted_vllm/" + (
+        model = "vllm:" + (
             served_model_name
             if (served_model_name := VLLM_MODEL_CONFIGS[model].served_model_name)
             else model
@@ -118,7 +114,7 @@ async def chat(
 
         if model in ("gpt-oss-120b"):
             extra_model_kwargs["reasoning_effort"] = "low"
-            extra_model_kwargs["top_k"] = 3
+            extra_model_kwargs["extra_body"] = {"top_k": 3}
 
             if response_format is None:
                 # TODO:
@@ -128,19 +124,20 @@ async def chat(
                 print("Applying logit bias")
                 extra_model_kwargs["logit_bias"] = {
                     # Negative
-                    4157: -3,  #  kun
-                    65512: -7,  # Kan
-                    98936: -5,  # Kunne
-                    11: -7,  # ,
-                    80750: -15,  # konkre
-                    102719: -15,  #  konkret
-                    12855: -15,  #  specif
+                    "4157": -3,  #  kun
+                    "65512": -7,  # Kan
+                    "98936": -5,  # Kunne
+                    "11": -7,  # ,
+                    "80750": -15,  # konkre
+                    "102719": -15,  #  konkret
+                    "12855": -15,  #  specif
                     # Positive
-                    73760: 5,  # Tak
-                    30: 7,  # ?
+                    "73760": 5,  # Tak
+                    "30": 7,  # ?
                 }
 
-        chat_completion: ModelResponse = await chat(
+        chat_completion = await chat(
+            model=model,
             api_base=server_endpoint,
             api_key=settings.secrets.vllm_api_key.get_secret_value(),
             **extra_model_kwargs,
@@ -213,6 +210,9 @@ async def main(
 if __name__ == "__main__":
     import asyncio
 
-    model = "gemma3-27b"
+    # model = "openrouter:openai/gpt-oss-120b"
+    # model = "openrouter:openai/gpt-oss-120b"
+    # model = "openai:gpt-5.2"
+    model = "gpt-oss-120b"
 
     asyncio.run(main(model=model))
