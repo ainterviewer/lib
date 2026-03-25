@@ -9,7 +9,7 @@ from ainterviewer.types import MessageRole
 
 
 class BinaryClassificationModel(BaseModel):
-    value: Literal[0, 1]
+    classification: bool
 
 
 def generate_classification_model(
@@ -55,12 +55,7 @@ class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
         next_question_instruction: str,
         interview_history: str | None = None,
         classification_examples=None,
-        unsafe: bool = True,
     ) -> bool:
-        """
-        The model will try to parse the response as an int and return it as a boolean.
-            If this fails and unsafe is True [default], it will look for the first digit and parse that instead.
-        """
         message = self.prompts.generate_classification_prompt(
             text,
             next_question_instruction,
@@ -80,4 +75,19 @@ class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
 
         self.logger.info("classification response", context=response)
 
-        return bool(response.value)
+        return response.classification
+
+    async def classify_multi(
+        self,
+        text: str,
+        options: list[str],
+        multilabel: bool = False,
+    ) -> BaseModel:
+        raise NotImplementedError
+
+    async def score(
+        self,
+        text: str,
+        options: list[int],
+    ) -> BaseModel:
+        raise NotImplementedError

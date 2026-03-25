@@ -1,22 +1,26 @@
-The following text is a part of a semi-structured interview. 
-Your job is to classify the text as either 0 or 1 based on the following instructions.
+You are given a text excerpt from a semi-structured interview. Your task is to determine whether the criterion described below is met.
 {% if classification_examples %}
+
 Here are some examples:
 ```json
 {{ classification_examples }}
 ```
 {% endif %}
 {% if interview_history %}
-Here is the previous part of the interview:
+
+Here is the previous part of the interview for context:
 
 """interview_context:
 {{ interview_history }}
 """
 {% endif %}
-The overall classification task it to identify whether the following text {{ next_question_instruction }} or not.
+
+Criterion: "{{ next_question_instruction }}"
+
+Text to evaluate:
 
 """text:
 {{ text }}
 """
 
-Reply with 1 if the text {{ next_question_instruction }} and 0 if not.
+Does the text above satisfy the criterion? Reply true if yes, false if no.
