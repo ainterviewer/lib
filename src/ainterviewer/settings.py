@@ -20,7 +20,7 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
-from .storage import ExperimentStorage, InterviewStorage, ProjectStorage
+from ainterviewer.storage import ExperimentStorage, InterviewStorage, ProjectStorage
 
 
 class MediaStorageSettings(BaseModel):

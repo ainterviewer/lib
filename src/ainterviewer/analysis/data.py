@@ -2,7 +2,7 @@ import sqlite3
 
 import polars as pl
 
-from .utils import get_device
+from ainterviewer.analysis.utils import get_device
 
 
 def read_from_database(

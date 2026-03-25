@@ -5,8 +5,7 @@ from uuid import uuid4
 from typer import Typer
 
 from ainterviewer.synthesize.interviewees import DEFAULT_BACKGROUND_INFO_OPTIONS
-
-from .interviews import synthesize
+from ainterviewer.synthesize.interviews import synthesize
 
 cli = Typer()
 
