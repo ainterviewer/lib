@@ -39,7 +39,7 @@ from ainterviewer.interview_guides import (
     TimedMessage,
     fill_variables_in_message,
 )
-from ainterviewer.interview_guides.conditions import Conditions, evaluate_conditions
+from ainterviewer.interview_guides.conditions import ConditionEvaluator, Conditions
 from ainterviewer.interview_guides.history import (
     HistoryMessage,
     ImageHistory,
@@ -140,6 +140,10 @@ class AInterviewer:
             model=agent_configs.classification.model,
             language=language,
             chat_kwargs=agent_configs.classification.chat_kwargs,
+        )
+
+        self.condition_evaluator = ConditionEvaluator(
+            classifier=self.classification_agent
         )
 
         self.reformulation_agent: ReformulationAgent = ReformulationAgent(
@@ -877,7 +881,9 @@ class AInterviewer:
             self.get_condition_context(condition) for condition in conditions.conditions
         ]
 
-        condition_triggered = evaluate_conditions(condition_contexts, conditions)
+        condition_triggered = await self.condition_evaluator.evaluate_conditions(
+            condition_contexts, conditions
+        )
 
         self.db.insert_task(
             message_id=self.interview_history.current_message_id,

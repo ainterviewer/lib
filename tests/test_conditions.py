@@ -1,13 +1,14 @@
+from unittest.mock import AsyncMock
+
 import pytest
 
 from ainterviewer.interview_guides.conditions import (
     Condition,
     ConditionEvaluation,
+    ConditionEvaluator,
     Conditions,
     QuestionContext,
     _evaluate_single,
-    evaluate_condition,
-    evaluate_conditions,
     evaluate_match_condition,
 )
 from ainterviewer.interview_guides.types import ConditionAction, ConditionTrigger
@@ -32,6 +33,10 @@ def _make_condition(
         trigger_type=trigger_type,
         combine_next=combine_next,
     )
+
+
+def _make_evaluator(classifier=None) -> ConditionEvaluator:
+    return ConditionEvaluator(classifier=classifier)
 
 
 # ── _evaluate_single ───────────────────────────────────────────────────────
@@ -134,58 +139,142 @@ class TestEvaluateMatchCondition:
         assert evaluate_match_condition("a | c", evals) is True
 
 
-# ── evaluate_condition ──────────────────────────────────────────────────────
+# ── ConditionEvaluator.evaluate_condition ──────────────────────────────────
 
 
 class TestEvaluateCondition:
-    def test_match_true(self):
-        cond = _make_condition([ConditionEvaluation(trigger_value="yes")])
-        assert evaluate_condition("yes", cond) is True
+    @pytest.fixture
+    def evaluator(self):
+        return _make_evaluator()
 
-    def test_match_false(self):
+    @pytest.mark.anyio
+    async def test_match_true(self, evaluator):
         cond = _make_condition([ConditionEvaluation(trigger_value="yes")])
-        assert evaluate_condition("no", cond) is False
+        assert await evaluator.evaluate_condition("yes", cond) is True
 
-    def test_negated_true_becomes_false(self):
+    @pytest.mark.anyio
+    async def test_match_false(self, evaluator):
+        cond = _make_condition([ConditionEvaluation(trigger_value="yes")])
+        assert await evaluator.evaluate_condition("no", cond) is False
+
+    @pytest.mark.anyio
+    async def test_negated_true_becomes_false(self, evaluator):
         cond = _make_condition(
             [ConditionEvaluation(trigger_value="yes")], negated=True
         )
-        assert evaluate_condition("yes", cond) is False
+        assert await evaluator.evaluate_condition("yes", cond) is False
 
-    def test_negated_false_becomes_true(self):
+    @pytest.mark.anyio
+    async def test_negated_false_becomes_true(self, evaluator):
         cond = _make_condition(
             [ConditionEvaluation(trigger_value="yes")], negated=True
         )
-        assert evaluate_condition("no", cond) is True
+        assert await evaluator.evaluate_condition("no", cond) is True
 
-    def test_classification_raises(self):
+    @pytest.mark.anyio
+    async def test_classification_without_classifier_raises(self):
+        evaluator = _make_evaluator(classifier=None)
         cond = _make_condition(
-            [ConditionEvaluation(trigger_value="yes")],
+            [ConditionEvaluation(trigger_value="is employed")],
             trigger_type=ConditionTrigger.CLASSIFICATION,
         )
-        with pytest.raises(NotImplementedError):
-            evaluate_condition("yes", cond)
+        with pytest.raises(ValueError, match="classifier is required"):
+            await evaluator.evaluate_condition("I work at a bank", cond)
+
+    @pytest.mark.anyio
+    async def test_classification_with_classifier(self):
+        classifier = AsyncMock()
+        classifier.classify.return_value = True
+        evaluator = _make_evaluator(classifier=classifier)
+
+        cond = _make_condition(
+            [ConditionEvaluation(trigger_value="is employed")],
+            trigger_type=ConditionTrigger.CLASSIFICATION,
+        )
+        result = await evaluator.evaluate_condition("I work at a bank", cond)
+
+        assert result is True
+        classifier.classify.assert_called_once_with(
+            "I work at a bank", "is employed"
+        )
+
+    @pytest.mark.anyio
+    async def test_classification_negated(self):
+        classifier = AsyncMock()
+        classifier.classify.return_value = True
+        evaluator = _make_evaluator(classifier=classifier)
+
+        cond = _make_condition(
+            [ConditionEvaluation(trigger_value="is employed")],
+            trigger_type=ConditionTrigger.CLASSIFICATION,
+            negated=True,
+        )
+        result = await evaluator.evaluate_condition("I work at a bank", cond)
+
+        assert result is False
+
+    @pytest.mark.anyio
+    async def test_classification_multiple_evaluations_and(self):
+        classifier = AsyncMock()
+        classifier.classify.side_effect = [True, False]
+        evaluator = _make_evaluator(classifier=classifier)
+
+        cond = _make_condition(
+            [
+                ConditionEvaluation(trigger_value="is employed", combine_next="AND"),
+                ConditionEvaluation(trigger_value="is married"),
+            ],
+            trigger_type=ConditionTrigger.CLASSIFICATION,
+        )
+        result = await evaluator.evaluate_condition("I work at a bank", cond)
+
+        assert result is False
+
+    @pytest.mark.anyio
+    async def test_classification_multiple_evaluations_or(self):
+        classifier = AsyncMock()
+        classifier.classify.side_effect = [False, True]
+        evaluator = _make_evaluator(classifier=classifier)
+
+        cond = _make_condition(
+            [
+                ConditionEvaluation(trigger_value="is employed", combine_next="OR"),
+                ConditionEvaluation(trigger_value="is a student"),
+            ],
+            trigger_type=ConditionTrigger.CLASSIFICATION,
+        )
+        result = await evaluator.evaluate_condition("I am a student", cond)
+
+        assert result is True
 
 
-# ── evaluate_conditions ─────────────────────────────────────────────────────
+# ── ConditionEvaluator.evaluate_conditions ─────────────────────────────────
 
 
 class TestEvaluateConditions:
-    def test_empty_conditions_returns_true(self):
+    @pytest.fixture
+    def evaluator(self):
+        return _make_evaluator()
+
+    @pytest.mark.anyio
+    async def test_empty_conditions_returns_true(self, evaluator):
         conds = Conditions(conditions=[], action=ConditionAction.SKIP_QUESTION)
-        assert evaluate_conditions([], conds) is True
+        assert await evaluator.evaluate_conditions([], conds) is True
 
-    def test_single_condition_true(self):
+    @pytest.mark.anyio
+    async def test_single_condition_true(self, evaluator):
         cond = _make_condition([ConditionEvaluation(trigger_value="yes")])
         conds = Conditions(conditions=[cond], action=ConditionAction.SKIP_QUESTION)
-        assert evaluate_conditions(["yes"], conds) is True
+        assert await evaluator.evaluate_conditions(["yes"], conds) is True
 
-    def test_single_condition_false(self):
+    @pytest.mark.anyio
+    async def test_single_condition_false(self, evaluator):
         cond = _make_condition([ConditionEvaluation(trigger_value="yes")])
         conds = Conditions(conditions=[cond], action=ConditionAction.SKIP_QUESTION)
-        assert evaluate_conditions(["no"], conds) is False
+        assert await evaluator.evaluate_conditions(["no"], conds) is False
 
-    def test_two_conditions_and(self):
+    @pytest.mark.anyio
+    async def test_two_conditions_and(self, evaluator):
         cond1 = _make_condition(
             [ConditionEvaluation(trigger_value="yes")], combine_next="AND"
         )
@@ -193,9 +282,10 @@ class TestEvaluateConditions:
         conds = Conditions(
             conditions=[cond1, cond2], action=ConditionAction.ASK_QUESTION
         )
-        assert evaluate_conditions(["yes", "no"], conds) is True
+        assert await evaluator.evaluate_conditions(["yes", "no"], conds) is True
 
-    def test_two_conditions_and_one_fails(self):
+    @pytest.mark.anyio
+    async def test_two_conditions_and_one_fails(self, evaluator):
         cond1 = _make_condition(
             [ConditionEvaluation(trigger_value="yes")], combine_next="AND"
         )
@@ -203,9 +293,10 @@ class TestEvaluateConditions:
         conds = Conditions(
             conditions=[cond1, cond2], action=ConditionAction.ASK_QUESTION
         )
-        assert evaluate_conditions(["yes", "yes"], conds) is False
+        assert await evaluator.evaluate_conditions(["yes", "yes"], conds) is False
 
-    def test_two_conditions_or(self):
+    @pytest.mark.anyio
+    async def test_two_conditions_or(self, evaluator):
         cond1 = _make_condition(
             [ConditionEvaluation(trigger_value="yes")], combine_next="OR"
         )
@@ -213,15 +304,17 @@ class TestEvaluateConditions:
         conds = Conditions(
             conditions=[cond1, cond2], action=ConditionAction.SKIP_SECTION
         )
-        assert evaluate_conditions(["nope", "no"], conds) is True
+        assert await evaluator.evaluate_conditions(["nope", "no"], conds) is True
 
-    def test_mismatched_contexts_raises(self):
+    @pytest.mark.anyio
+    async def test_mismatched_contexts_raises(self, evaluator):
         cond = _make_condition([ConditionEvaluation(trigger_value="yes")])
         conds = Conditions(conditions=[cond], action=ConditionAction.SKIP_QUESTION)
         with pytest.raises(ValueError, match="Number of contexts"):
-            evaluate_conditions(["a", "b"], conds)
+            await evaluator.evaluate_conditions(["a", "b"], conds)
 
-    def test_missing_combine_next_raises(self):
+    @pytest.mark.anyio
+    async def test_missing_combine_next_raises(self, evaluator):
         cond1 = _make_condition(
             [ConditionEvaluation(trigger_value="yes")], combine_next=None
         )
@@ -230,7 +323,7 @@ class TestEvaluateConditions:
             conditions=[cond1, cond2], action=ConditionAction.END_INTERVIEW
         )
         with pytest.raises(ValueError, match="Must specify a combine_next"):
-            evaluate_conditions(["yes", "no"], conds)
+            await evaluator.evaluate_conditions(["yes", "no"], conds)
 
 
 # ── QuestionContext ─────────────────────────────────────────────────────────

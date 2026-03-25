@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import operator
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +18,16 @@ comparison_operators = {
     ">": operator.gt,
     ">=": operator.ge,
 }
+
+
+class Classifier(Protocol):
+    async def classify(
+        self,
+        text: str,
+        next_question_instruction: str,
+        interview_history: str | None = None,
+        classification_examples: str | dict | None = None,
+    ) -> bool: ...
 
 
 class Conditions(BaseModel):
@@ -79,63 +90,92 @@ class ConditionEvaluation(BaseModel):
     )
 
 
-def evaluate_conditions(contexts: list[str], conditions: Conditions) -> bool:
-    """Evaluate multiple conditions against their corresponding contexts.
+class ConditionEvaluator:
+    """Evaluates conditions, optionally using a classifier for non-deterministic evaluation."""
 
-    Args:
-        contexts: List of response/values to evaluate, one per condition.
-        conditions: The Conditions object containing the list of conditions.
+    def __init__(self, classifier: Classifier | None = None):
+        self.classifier = classifier
 
-    Returns:
-        True if the combined conditions are met, False otherwise.
-    """
-    condition_list = conditions.conditions
+    async def evaluate_conditions(
+        self, contexts: list[str], conditions: Conditions
+    ) -> bool:
+        """Evaluate multiple conditions against their corresponding contexts."""
+        condition_list = conditions.conditions
 
-    if not condition_list:
-        return True
+        if not condition_list:
+            return True
 
-    if len(contexts) != len(condition_list):
-        raise ValueError(
-            f"Number of contexts ({len(contexts)}) must match number of conditions ({len(condition_list)})"
-        )
+        if len(contexts) != len(condition_list):
+            raise ValueError(
+                f"Number of contexts ({len(contexts)}) must match number of conditions ({len(condition_list)})"
+            )
 
-    result = evaluate_condition(contexts[0], condition_list[0])
+        result = await self.evaluate_condition(contexts[0], condition_list[0])
 
-    for i in range(len(condition_list) - 1):
-        current_condition = condition_list[i]
-        next_result = evaluate_condition(contexts[i + 1], condition_list[i + 1])
+        for i in range(len(condition_list) - 1):
+            current_condition = condition_list[i]
+            next_result = await self.evaluate_condition(
+                contexts[i + 1], condition_list[i + 1]
+            )
 
-        match current_condition.combine_next:
-            case "AND":
-                result = result and next_result
-            case "OR":
-                result = result or next_result
-            case None:
-                raise ValueError(
-                    "Must specify a combine_next value when there are more conditions"
+            match current_condition.combine_next:
+                case "AND":
+                    result = result and next_result
+                case "OR":
+                    result = result or next_result
+                case None:
+                    raise ValueError(
+                        "Must specify a combine_next value when there are more conditions"
+                    )
+
+        return result
+
+    async def evaluate_condition(self, context: str, condition: Condition) -> bool:
+        """Evaluate a condition against the given context."""
+        match condition.trigger_type:
+            case ConditionTrigger.MATCH:
+                result = evaluate_match_condition(context, condition.evaluation)
+            case ConditionTrigger.CLASSIFICATION:
+                result = await self._evaluate_classification_condition(
+                    context, condition.evaluation
                 )
 
-    return result
+        return not result if condition.negated else result
 
+    async def _evaluate_classification_condition(
+        self, context: str, evaluations: list[ConditionEvaluation]
+    ) -> bool:
+        """Evaluate conditions using classification (non-deterministic).
 
-def evaluate_condition(context: str, condition: Condition) -> bool:
-    """Evaluate a condition against the given context.
+        Each evaluation's trigger_value is used as the classification instruction.
+        All classifications run concurrently, then results are combined left-to-right.
+        """
+        if self.classifier is None:
+            raise ValueError(
+                "A classifier is required to evaluate classification conditions"
+            )
 
-    Args:
-        context: The response/value to evaluate against.
-        condition: The condition with its evaluations to check.
+        results = await asyncio.gather(
+            *(
+                self.classifier.classify(context, ev.trigger_value)
+                for ev in evaluations
+            )
+        )
 
-    Returns:
-        True if the condition is met, False otherwise.
-        Result is negated if condition.negated is True.
-    """
-    match condition.trigger_type:
-        case ConditionTrigger.MATCH:
-            result = evaluate_match_condition(context, condition.evaluation)
-        case ConditionTrigger.CLASSIFICATION:
-            result = evaluate_classification_condition(context, condition.evaluation)
+        result = results[0]
 
-    return not result if condition.negated else result
+        for i in range(len(evaluations) - 1):
+            match evaluations[i].combine_next:
+                case "AND":
+                    result = result and results[i + 1]
+                case "OR":
+                    result = result or results[i + 1]
+                case None:
+                    raise ValueError(
+                        "Must specify a combine_next value when there are more evaluations"
+                    )
+
+        return result
 
 
 def evaluate_match_condition(
@@ -192,13 +232,3 @@ def _evaluate_single(context: str, evaluation: ConditionEvaluation) -> bool:
 
     op = comparison_operators[evaluation.comparison_operator]
     return op(context_value, trigger_value)
-
-
-def evaluate_classification_condition(
-    context: str, evaluations: list[ConditionEvaluation]
-) -> bool:
-    """Evaluate conditions using classification (non-deterministic).
-
-    TODO: Implement classification-based evaluation.
-    """
-    raise NotImplementedError("Classification-based evaluation not yet implemented")

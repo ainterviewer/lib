@@ -1,7 +1,7 @@
 from ainterviewer.interview_guides.conditions import (
     Condition,
     ConditionAction,
-    evaluate_condition,
+    ConditionEvaluator,
 )
 from ainterviewer.interview_guides.interview_guide import (
     InterviewGuide,
@@ -40,6 +40,6 @@ __all__ = [
     "TimeItem",
     "TimedMessage",
     "Video",
-    "evaluate_condition",
+    "ConditionEvaluator",
     "fill_variables_in_message",
 ]
