@@ -832,21 +832,16 @@ class AInterviewer:
 
         if condition_triggered:
             match conditions.action:
-                case ConditionAction.SKIP_SECTION:
-                    raise SkipSectionException
-                case ConditionAction.SKIP_QUESTION:
-                    raise SkipQuestionException
-                case ConditionAction.END_INTERVIEW:
-                    raise EndInterviewException
-                case ConditionAction.ASK_QUESTION:
-                    pass
                 case ConditionAction.SKIP_PROBES:
                     raise SkipProbesException
+                case ConditionAction.SKIP_QUESTION:
+                    raise SkipQuestionException
+                case ConditionAction.SKIP_SECTION:
+                    raise SkipSectionException
+                case ConditionAction.END_INTERVIEW:
+                    raise EndInterviewException
                 case _:
                     raise ValueError("Invalid condition action")
-        else:
-            if conditions.action == ConditionAction.ASK_QUESTION:
-                raise SkipQuestionException
 
     def get_condition_context(self, condition: Condition) -> str:
         section_context = self.interview_history[condition.question_context.section]

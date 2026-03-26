@@ -280,7 +280,7 @@ class TestEvaluateConditions:
         )
         cond2 = _make_condition([ConditionEvaluation(trigger_value="no")])
         conds = Conditions(
-            conditions=[cond1, cond2], action=ConditionAction.ASK_QUESTION
+            conditions=[cond1, cond2], action=ConditionAction.SKIP_QUESTION
         )
         assert await evaluator.evaluate_conditions(["yes", "no"], conds) is True
 
@@ -291,7 +291,7 @@ class TestEvaluateConditions:
         )
         cond2 = _make_condition([ConditionEvaluation(trigger_value="no")])
         conds = Conditions(
-            conditions=[cond1, cond2], action=ConditionAction.ASK_QUESTION
+            conditions=[cond1, cond2], action=ConditionAction.SKIP_QUESTION
         )
         assert await evaluator.evaluate_conditions(["yes", "yes"], conds) is False
 

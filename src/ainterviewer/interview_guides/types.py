@@ -10,7 +10,6 @@ class ConditionAction(StrEnum):
     END_INTERVIEW = "end_interview"
     SKIP_SECTION = "skip_section"
     SKIP_QUESTION = "skip_question"
-    ASK_QUESTION = "ask_question"
     SKIP_PROBES = "skip_probes"
 
 
