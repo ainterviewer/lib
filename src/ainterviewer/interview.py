@@ -1043,7 +1043,7 @@ class AInterviewer:
         transcript = self.interview_history.get_transcript(with_excludes=True)
         response = await self.classification_agent.classify(
             question,
-            "has already been answered by the user",
+            "The question has already been answered by the user in the interview",
             transcript,
         )
 
@@ -1077,7 +1077,7 @@ class AInterviewer:
 
         response = await self.classification_agent.classify(
             context,
-            "has been extensively answered by the user to a satisfying degree",
+            "The main question has been extensively and satisfactorily answered by the user",
             transcript,
         )
 
@@ -1102,7 +1102,7 @@ class AInterviewer:
         )
         contains_refusal = await self.classification_agent.classify(
             current_question_transcript,
-            "contains an explicit refusal to answer the questions or a wish to skip to next question from the respondent (A:)",
+            "The respondent explicitly refuses to answer the question or expresses a wish to skip to the next question",
         )
         time_spend = time.time() - now
 
