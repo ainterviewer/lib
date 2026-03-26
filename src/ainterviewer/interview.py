@@ -1035,9 +1035,6 @@ class AInterviewer:
 
         return True
 
-    async def free_probing(self):
-        raise NotImplementedError("This interview-loop is currently not optimized")
-
     async def has_question_been_answered(self, question: str) -> bool:
         start_time = time.time()
         transcript = self.interview_history.get_transcript(with_excludes=True)
