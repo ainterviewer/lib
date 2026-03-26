@@ -328,24 +328,18 @@ class AInterviewer:
         """
 
         if interview_history:
-            try:
-                await self.process_history(interview_history)
-            except SkipQuestionException:
-                # TODO: This has to be moved to process_history
-                # self.handle_skip_question_exception(question)
-                pass
+            await self.process_history(interview_history)
         elif intro := self.interview_guide.introduction:
             await self.handle_intro(intro)
 
         try:
             await self.handle_sections()
-
         except EndInterviewException:
-            # TODO:
-            # - Make more fine-grained an configurable.
             # Raised by a condition that ends the interview, i.e. missing
             # consent
 
+            # TODO:
+            # - Make more fine-grained an configurable.
             if outro := self.interview_guide.alt_outro:
                 message = await self.preprocess_message(outro)
                 self.interview_history.outro = HistoryMessage(message=message)
@@ -403,71 +397,14 @@ class AInterviewer:
         # - Fix image replay
         # If an image has failed being send, the primer might be the last
         # message and the interview stuck.
-        #
+
         # TODO:
-        # - The data class for the stored interviews have to be a part of this
+        # - The data class for the stored interviews should be a part of this
         # library, so we can use it in this function
-        # - Should this method be moved to InterviewHistory class?
 
-        # Backfill messages to the history
-        for message in interview_history:
-            history_message = HistoryMessage(
-                message=message.content,
-                skipped_by_condition=message.skipped_by_condition,
-            )
-
-            # TODO: Fix for surveys
-            if message.role.value == "assistant":
-                if message.is_introduction:
-                    self.interview_history.introduction = history_message
-                elif message.outro:
-                    self.interview_history.outro = history_message
-                elif message.timed:
-                    self.interview_history.timed_messages.append(history_message)
-                else:
-                    try:
-                        section = self.interview_history[message.section]
-                    except IndexError:
-                        section = self.interview_history.add_section(
-                            self.interview_guide.question_sections[
-                                message.section
-                            ].description
-                        )
-
-                    if message.sub_question == 0:
-                        question_description = (
-                            self.interview_guide.question_sections[message.section]
-                            .questions[message.main_question]
-                            .description
-                        )
-                        section.add_question(
-                            question_description,
-                            main_question=Turn(question=history_message),
-                            exclude_from_history=not message.include_in_history,
-                            image=ImageHistory(
-                                primer=HistoryMessage(message=message.image.primer),
-                                description=HistoryMessage(
-                                    message=message.image.description
-                                ),
-                            )
-                            if message.image
-                            else None,
-                        )
-                    else:
-                        question = section[message.main_question]
-                        question.add_probe(Turn(question=history_message))
-
-            if message.role == "user":
-                if message.sub_question == 0:
-                    self.interview_history.current_question.main_question.answer = (
-                        history_message
-                    )
-                else:
-                    # sub questions in the database are 1 indexed,
-                    # since sub question 0 is the main question
-                    self.interview_history.current_question.probes[
-                        message.sub_question - 1
-                    ].answer = history_message
+        message = self.interview_history.process_history(
+            interview_history, self.interview_guide
+        )
 
         if not message:
             raise ValueError("No messages in interview history")
@@ -475,21 +412,20 @@ class AInterviewer:
         if message.is_introduction:
             return
 
-        history_message = HistoryMessage(
-            message=message.content, skipped_by_condition=message.skipped_by_condition
-        )
-
         await self.send_progress(questions_asked=self.interview_history.n_questions - 1)
-
-        if message.role == "assistant" and message.can_answer:
-            await self.receive_data()
 
         last_section = self.interview_guide.question_sections[message.section]
         last_question = last_section.questions[message.main_question]
 
-        await self.probe(last_question, last_section.description)
+        try:
+            if message.role == "assistant" and message.can_answer:
+                await self.receive_data()
 
-        self.resume_from_history = True
+            await self.probe(last_question, last_section.description)
+
+            self.resume_from_history = True
+        except SkipQuestionException:
+            await self.handle_skip_question_exception(last_question)
 
     async def handle_intro(self, intro: str | InterviewMessage):
         if isinstance(intro, InterviewMessage):
@@ -514,7 +450,7 @@ class AInterviewer:
         )
 
         # TODO: Make this configurable by the user, or set it dynamically
-        # based on the length of the introduction
+        # based on the length of the introduction message
         await asyncio.sleep(0.5)
 
     async def handle_skip_question_exception(self, question: Question):
@@ -626,8 +562,6 @@ class AInterviewer:
             return
 
     async def handle_question(self, question: Question, section_description: str):
-        # TODO:
-        # await asyncio.sleep(3)
         question_reformulated = False
         check_condition_after = False
 
@@ -699,7 +633,6 @@ class AInterviewer:
             pass
 
         except SkipQuestionException:
-            # TODO: We need to handle this somehow in the interview history / database ...
             await self.handle_skip_question_exception(question)
 
     async def preprocess_answer(self, message: str) -> str:
@@ -718,7 +651,6 @@ class AInterviewer:
 
     async def ask_question(self, question: Question) -> str:
         """Asks the user a question and returns the answer"""
-        # FIXME: Update security check to fit in the flow
 
         # https://s.epinionglobal.com/mrIWeb/mrIWeb.srf?I.Project=P2100211_TEST&i.user2=n&i.user5=complete&id=ID1
 

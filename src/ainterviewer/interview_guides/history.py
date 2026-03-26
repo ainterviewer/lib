@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from ainterviewer.interview_guides import InterviewGuide
+
 type SectionsRange = int | slice | list[int] | None
 
 
@@ -171,6 +173,69 @@ class InterviewHistory(BaseModel):
             raise TypeError(f"Unsupported section_range type: {type(section_range)}")
 
         return sections
+
+    def process_history(self, interview_history: list, interview_guide: InterviewGuide):
+        """Backfill messages to the history"""
+        message = None
+
+        for message in interview_history:
+            history_message = HistoryMessage(
+                message=message.content,
+                skipped_by_condition=message.skipped_by_condition,
+            )
+
+            # TODO: Fix for surveys
+            if message.role.value == "assistant":
+                if message.is_introduction:
+                    self.introduction = history_message
+                elif message.outro:
+                    self.outro = history_message
+                elif message.timed:
+                    self.timed_messages.append(history_message)
+                else:
+                    try:
+                        section = self[message.section]
+                    except IndexError:
+                        section = self.add_section(
+                            interview_guide.question_sections[
+                                message.section
+                            ].description
+                        )
+
+                    if message.sub_question == 0:
+                        question_description = (
+                            interview_guide.question_sections[message.section]
+                            .questions[message.main_question]
+                            .description
+                        )
+                        section.add_question(
+                            question_description,
+                            main_question=Turn(question=history_message),
+                            exclude_from_history=not message.include_in_history,
+                            image=ImageHistory(
+                                primer=HistoryMessage(message=message.image.primer),
+                                description=HistoryMessage(
+                                    message=message.image.description
+                                ),
+                            )
+                            if message.image
+                            else None,
+                        )
+                    else:
+                        question = section[message.main_question]
+                        question.add_probe(Turn(question=history_message))
+
+            if message.role == "user":
+                if message.sub_question == 0:
+                    self.current_question.main_question.answer = history_message
+                else:
+                    # sub questions in the database are 1 indexed,
+                    # since sub question 0 is the main question
+                    self.current_question.probes[
+                        message.sub_question - 1
+                    ].answer = history_message
+
+        return message
 
 
 class SectionHistory(BaseModel):
