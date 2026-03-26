@@ -14,6 +14,10 @@ class EndInterviewException(ConditionalException):
     pass
 
 
+class SkipProbesException(ConditionalException):
+    pass
+
+
 class LanguageNotSupportedError(Exception):
     pass
 

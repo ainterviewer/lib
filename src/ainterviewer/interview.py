@@ -20,6 +20,7 @@ from ainterviewer.agents import (
 from ainterviewer.config import AgentConfigs, InterviewConfig
 from ainterviewer.exceptions import (
     EndInterviewException,
+    SkipProbesException,
     SkipQuestionException,
     SkipSectionException,
 )
@@ -694,6 +695,9 @@ class AInterviewer:
             if question.max_probes_n or question.max_probes_time:
                 await self.probe(question, section_description)
 
+        except SkipProbesException:
+            pass
+
         except SkipQuestionException:
             # TODO: We need to handle this somehow in the interview history / database ...
             await self.handle_skip_question_exception(question)
@@ -904,6 +908,8 @@ class AInterviewer:
                     raise EndInterviewException
                 case ConditionAction.ASK_QUESTION:
                     pass
+                case ConditionAction.SKIP_PROBES:
+                    raise SkipProbesException
                 case _:
                     raise ValueError("Invalid condition action")
         else:

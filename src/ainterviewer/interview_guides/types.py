@@ -11,6 +11,7 @@ class ConditionAction(StrEnum):
     SKIP_SECTION = "skip_section"
     SKIP_QUESTION = "skip_question"
     ASK_QUESTION = "ask_question"
+    SKIP_PROBES = "skip_probes"
 
 
 class ContextType(StrEnum):
