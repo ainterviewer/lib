@@ -1,5 +1,4 @@
 import asyncio
-from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import BaseModel, Field
