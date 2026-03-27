@@ -51,17 +51,20 @@ class DiceProbes(BaseModel):
     """
 
 
+DICE_SHORT_DESCRIPTION = (
+    "The DICE probe type that is most relevant. "
+    "'descriptive' develops outer and inner landscape detail of a specific episode. "
+    "'idiographic' shifts the interviewee from generic to specific autobiographical memories. "
+    "'clarifying' unpacks implicit meaning in a word or phrase the interviewee has used. "
+    "'explanatory' elicits personal causal attributions for an event, outcome, or feeling."
+)
+
+
 class DiceProbesSingle(DiceProbes):
     probing_type: Literal["descriptive", "idiographic", "clarifying", "explanatory"] = (
         Field(
             ...,
-            description=(
-                "The DICE probe type that is most relevant. "
-                "'descriptive' develops outer and inner landscape detail of a specific episode. "
-                "'idiographic' shifts the interviewee from generic to specific autobiographical memories. "
-                "'clarifying' unpacks implicit meaning in a word or phrase the interviewee has used. "
-                "'explanatory' elicits personal causal attributions for an event, outcome, or feeling."
-            ),
+            description=DICE_SHORT_DESCRIPTION,
         )
     )
 
@@ -71,13 +74,7 @@ class DiceProbesMultiple(DiceProbes):
         Literal["descriptive", "idiographic", "clarifying", "explanatory"]
     ] = Field(
         ...,
-        description=(
-            "The DICE probes types that could be relevant. "
-            "'descriptive' develops outer and inner landscape detail of a specific episode. "
-            "'idiographic' shifts the interviewee from generic to specific autobiographical memories. "
-            "'clarifying' unpacks implicit meaning in a word or phrase the interviewee has used. "
-            "'explanatory' elicits personal causal attributions for an event, outcome, or feeling."
-        ),
+        description=DICE_SHORT_DESCRIPTION,
     )
 
 
