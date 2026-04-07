@@ -27,6 +27,7 @@ __all__ = [
     "CheckboxItem",
     "Condition",
     "ConditionAction",
+    "ConditionEvaluator",
     "DateItem",
     "DatetimeItem",
     "Image",
@@ -40,6 +41,5 @@ __all__ = [
     "TimeItem",
     "TimedMessage",
     "Video",
-    "ConditionEvaluator",
     "fill_variables_in_message",
 ]
