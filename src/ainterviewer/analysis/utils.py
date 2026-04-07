@@ -21,6 +21,28 @@ def get_device(user_agent: str) -> Literal["mobile", "tablet", "pc", "bot"] | No
     return
 
 
+def calculate_response_times(
+    messages: pl.DataFrame,
+    who: Literal["interviewer"] | Literal["user"] = "interviewer",
+) -> list[pl.Datetime]:
+    response_times: list[pl.Datetime] = []
+    for row in messages.filter(role="USER").iter_rows(named=True):
+        if not (
+            next_message := messages.filter(
+                message_id=row["message_id"] + (-1 if who == "user" else 1)
+            )
+        ).is_empty():
+            assert next_message["role"][0] == "ASSISTANT"
+            response_time = (
+                next_message["created_at"] - row["created_at"]
+                if who == "interviewer"
+                else row["created_at"] - next_message["created_at"]
+            )
+            response_times.append(response_time)
+
+    return response_times
+
+
 def print_interview(
     interview_id: str,
     messages: pl.DataFrame,
