@@ -66,7 +66,7 @@ class OutgoingData(BaseModel):
     type: Literal["data"] = "data"
     content: str | None = None
     progress: float | None = Field(default=None, ge=0, le=100)
-    error: Literal["InstanceInitializing"] | None = None
+    error: Literal["InstanceInitializing", "InferenceError"] | None = None
 
     def model_dump(self, **kwargs):
         # NOTE:
