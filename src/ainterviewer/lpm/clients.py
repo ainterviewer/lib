@@ -144,9 +144,7 @@ async def chat(
         )
 
     if response_format:
-        return response_format.model_validate_json(
-            chat_completion.choices[0].message.content
-        )
+        return chat_completion.choices[0].message.parsed
 
     # TODO:
     # - Use the returned log probs
