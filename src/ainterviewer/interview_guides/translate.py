@@ -9,9 +9,15 @@ from ainterviewer.interview_guides.interview_guide import (
     InterviewMessage,
 )
 from ainterviewer.interview_guides.questions import Question
+from ainterviewer.interview_guides.sections import QuestionSection
+from ainterviewer.interview_guides.survey_items import (
+    CheckboxItem,
+    LikertItem,
+    RadioItem,
+    SliderItem,
+)
 from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message, MessageRole
-
 
 _MAX_BATCH_SIZE = 8
 _MAX_TRANSLATION_RETRIES = 3
@@ -147,14 +153,25 @@ def _collect_top_level_strings(guide: InterviewGuide) -> dict[str, str]:
     return out
 
 
-def _collect_question_strings(q: Question) -> dict[str, str]:
-    out: dict[str, str] = {"main_question": q.main_question}
-    if q.description:
-        out["description"] = q.description
-    for pi, p in enumerate(q.probes or []):
-        out[f"probes[{pi}]"] = p
-    for ai, a in enumerate(q.alternative_main_questions or []):
-        out[f"alternative_main_questions[{ai}]"] = a
+def _collect_section_strings(section: QuestionSection[Question]) -> dict[str, str]:
+    out: dict[str, str] = {"description": section.description}
+    for qi, q in enumerate(section.questions):
+        base = f"questions[{qi}]"
+        out[f"{base}.main_question"] = q.main_question
+        if q.description:
+            out[f"{base}.description"] = q.description
+        for pi, p in enumerate(q.probes or []):
+            out[f"{base}.probes[{pi}]"] = p
+        for ai, a in enumerate(q.alternative_main_questions or []):
+            out[f"{base}.alternative_main_questions[{ai}]"] = a
+        if isinstance(q.survey_item, (RadioItem, CheckboxItem, LikertItem)):
+            for oi, option in enumerate(q.survey_item.options):
+                out[f"{base}.survey_item.options[{oi}]"] = option
+        elif isinstance(q.survey_item, SliderItem):
+            if q.survey_item.min_label:
+                out[f"{base}.survey_item.min_label"] = q.survey_item.min_label
+            if q.survey_item.max_label:
+                out[f"{base}.survey_item.max_label"] = q.survey_item.max_label
     return out
 
 
@@ -172,23 +189,41 @@ def _apply_top_level_strings(guide: InterviewGuide, t: dict[str, str]) -> None:
             tm.message = t[key]
 
 
-def _apply_question_strings(q: Question, t: dict[str, str]) -> None:
-    if "main_question" in t:
-        q.main_question = t["main_question"]
+def _apply_section_strings(
+    section: QuestionSection[Question], t: dict[str, str]
+) -> None:
     if "description" in t:
-        q.description = t["description"]
-    if q.probes:
-        q.probes = [
-            t[f"probes[{pi}]"] if f"probes[{pi}]" in t else p
-            for pi, p in enumerate(q.probes)
-        ]
-    if q.alternative_main_questions:
-        q.alternative_main_questions = [
-            t[f"alternative_main_questions[{ai}]"]
-            if f"alternative_main_questions[{ai}]" in t
-            else a
-            for ai, a in enumerate(q.alternative_main_questions)
-        ]
+        section.description = t["description"]
+    for qi, q in enumerate(section.questions):
+        base = f"questions[{qi}]"
+        if (k := f"{base}.main_question") in t:
+            q.main_question = t[k]
+        if (k := f"{base}.description") in t:
+            q.description = t[k]
+        if q.probes:
+            q.probes = [
+                t[f"{base}.probes[{pi}]"] if f"{base}.probes[{pi}]" in t else p
+                for pi, p in enumerate(q.probes)
+            ]
+        if isinstance(q.survey_item, (RadioItem, CheckboxItem, LikertItem)):
+            q.survey_item.options = [
+                t[f"{base}.survey_item.options[{oi}]"]
+                if f"{base}.survey_item.options[{oi}]" in t
+                else option
+                for oi, option in enumerate(q.survey_item.options)
+            ]
+        elif isinstance(q.survey_item, SliderItem):
+            if (k := f"{base}.survey_item.min_label") in t:
+                q.survey_item.min_label = t[k]
+            if (k := f"{base}.survey_item.max_label") in t:
+                q.survey_item.max_label = t[k]
+        if q.alternative_main_questions:
+            q.alternative_main_questions = [
+                t[f"{base}.alternative_main_questions[{ai}]"]
+                if f"{base}.alternative_main_questions[{ai}]" in t
+                else a
+                for ai, a in enumerate(q.alternative_main_questions)
+            ]
 
 
 async def translate_interview_guide(
@@ -198,18 +233,18 @@ async def translate_interview_guide(
 ) -> InterviewGuide:
     """Return a copy of the interview guide with user-facing text translated.
 
-    Top-level fields and each section are translated in parallel LLM calls to
-    keep each call short and avoid the model drifting back to the source
-    language on long outputs. Non-user-facing fields (framing, configs,
-    indices, variables, conditions) are left untouched.
+    Runs one LLM call for top-level messages and one call per section
+    (description + all its questions) in parallel. Non-user-facing fields
+    (framing, configs, indices, variables, conditions) are left untouched;
+    framing is passed as context so translations stay consistent in tone.
     """
     translated = guide.model_copy(deep=True)
 
     base_context = (
         "These strings come from an interview guide used by an AI interviewer "
         "in a social science qualitative interview."
-        + (f"\nFraming: {guide.framing}" if guide.framing else "")
     )
+    framing_context = f"\n\n# Framing\n{guide.framing}" if guide.framing else ""
 
     tasks: list = []
     appliers: list = []
@@ -221,53 +256,30 @@ async def translate_interview_guide(
                 top_strings,
                 target_language=target_language,
                 model=model,
-                context=base_context
-                + "\nThese are top-level messages (introduction, outro, timed messages).",
+                context=(
+                    base_context
+                    + "\nThese are top-level messages (introduction, outro, timed messages)."
+                    + framing_context
+                ),
             )
         )
         appliers.append(lambda r: _apply_top_level_strings(translated, r))
 
-    section_descriptions: dict[str, str] = {
-        f"sections[{si}].description": section.description
-        for si, section in enumerate(translated.question_sections)
-    }
-    if section_descriptions:
-
-        def _apply_section_descriptions(r: dict[str, str]) -> None:
-            for si, section in enumerate(translated.question_sections):
-                key = f"sections[{si}].description"
-                if key in r:
-                    section.description = r[key]
-
+    for si, section in enumerate(translated.question_sections):
+        strings = _collect_section_strings(section)
         tasks.append(
             _translate_strings(
-                section_descriptions,
+                strings,
                 target_language=target_language,
                 model=model,
-                context=base_context + "\nThese are section descriptions.",
+                context=(
+                    base_context + f"\nThese strings belong to section {si + 1} of "
+                    f"{len(translated.question_sections)} (its description and questions)."
+                    + framing_context
+                ),
             )
         )
-        appliers.append(_apply_section_descriptions)
-
-    for si, section in enumerate(translated.question_sections):
-        for qi, question in enumerate(section.questions):
-            q_strings = _collect_question_strings(question)
-            if not q_strings:
-                continue
-            tasks.append(
-                _translate_strings(
-                    q_strings,
-                    target_language=target_language,
-                    model=model,
-                    context=(
-                        base_context
-                        + f"\nThese strings belong to question {qi + 1} in "
-                        f"section {si + 1} of {len(translated.question_sections)}. "
-                        f"Section description: {section.description!r}."
-                    ),
-                )
-            )
-            appliers.append(lambda r, q=question: _apply_question_strings(q, r))
+        appliers.append(lambda r, s=section: _apply_section_strings(s, r))
 
     results = await asyncio.gather(*tasks)
     for applier, result in zip(appliers, results):
