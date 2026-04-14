@@ -40,7 +40,7 @@ class InterviewGuideBase(BaseModel, Generic[Q]):
     # TODO: Should this kind of message instead be specified in the condition?
     alt_outro: SkipJsonSchema[str | None] = Field(
         None,
-        description="Used as if the a condition results in an EndInterview, eg. from missing consent.",
+        description="Used if a condition results in an EndInterview, eg. from missing consent. Displayed to the interviewee as the last message they will see. They will not be able to answer this message.",
     )
 
 
