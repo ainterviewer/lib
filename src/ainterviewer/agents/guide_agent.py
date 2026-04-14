@@ -27,7 +27,6 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
         self,
         interview_transcript: str,
         interview_guide: InterviewGuide,
-        translation: str | None,
     ) -> Question:
         translation_lang = (
             get_language_dict(language_code=self.language)["name"]
@@ -56,7 +55,6 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
         self,
         interview_transcript: str,
         interview_guide: InterviewGuide,
-        translation: str | None,
     ) -> QuestionSection[Question]:
         translation_lang = (
             get_language_dict(language_code=self.language)["name"]

@@ -520,7 +520,6 @@ class AInterviewer:
             section = await self.guide_agent.generate_question_section(
                 interview_transcript=transcript,
                 interview_guide=self.interview_guide,
-                translation=self.translation,
             )
             self.interview_guide.question_sections.append(section)
             self.interview_guide.ai_generated_sections -= 1
@@ -547,7 +546,6 @@ class AInterviewer:
                 question = await self.guide_agent.generate_main_question(
                     interview_transcript=transcript,
                     interview_guide=self.interview_guide,
-                    translation=self.translation,
                 )
                 section.questions.append(question)
                 section.ai_generated_questions -= 1
