@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Any
 from zoneinfo import ZoneInfo
 
 from pydantic import (
@@ -83,6 +83,14 @@ class LLMSettings(BaseModel):
     @property
     def llm_endpoint(self) -> str:
         return f"http://{self.llm_host}:{self.llm_port}"
+
+    @field_validator("available_models")
+    @classmethod
+    def unique_models(cls, v: Any):
+        if len(v) != len(set(v)):
+            raise ValueError("available_models contains duplicate entries")
+
+        return v
 
     @model_validator(mode="after")
     def finalize(self):
