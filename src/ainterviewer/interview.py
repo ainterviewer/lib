@@ -924,8 +924,8 @@ class AInterviewer:
         transcript: str,
     ):
 
-        if (probes := question.probes) is not None:
-            probes = "\n".join("- " + probe for probe in probes)
+        if (suggested_probes := question.probes) is not None:
+            suggested_probes = "\n".join("- " + probe for probe in suggested_probes)
 
         # probe = await self.probing_agent.generate_master_to_one_probe(
         #     section_description=section_description,
