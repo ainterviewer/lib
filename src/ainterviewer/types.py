@@ -4,7 +4,7 @@ from datetime import timedelta
 from enum import StrEnum
 from typing import Annotated, Literal, TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic.types import StringConstraints
 
 type LanguageCode = Annotated[
@@ -21,6 +21,8 @@ class LanguageDict(TypedDict):
 
 
 class TimeDelta(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     days: int = 0
     seconds: int = 0
     microseconds: int = 0
