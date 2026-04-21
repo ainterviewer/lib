@@ -117,14 +117,15 @@ class Question(QuestionBaseExtended):
                 "Probing time specified, but max_probes is 0. Set max_probes to None (null) to only have time limit."
             )
 
-        if (
-            self.probes
-            and (self.max_probes_n == 0 or self.max_probes_n is None)
-            and (self.max_probes_time is None or self.max_probes_time == 0)
-        ):
-            raise ValueError(
-                f"Probe questions specified, but no proper constraint is set. {self.max_probes_n=:}, {self.max_probes_time=:}"
-            )
+        # TODO: Handle in frontend
+        # if (
+        #     self.probes
+        #     and (self.max_probes_n == 0 or self.max_probes_n is None)
+        #     and (self.max_probes_time is None or self.max_probes_time == 0)
+        # ):
+        #     raise ValueError(
+        #         f"Probe questions specified, but no proper constraint is set. {self.max_probes_n=:}, {self.max_probes_time=:}"
+        #     )
 
         return self
 
