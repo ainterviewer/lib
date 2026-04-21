@@ -902,40 +902,11 @@ class AInterviewer:
 
             transcript = self.interview_history.get_transcript()
 
-            if (probes := question.probes) is not None:
-                probes = "\n".join("- " + probe for probe in probes)
-
-            # probe = await self.probing_agent.generate_master_to_one_probe(
-            #     section_description=section_description,
-            #     question_description=question.description,
-            #     main_question=question.main_question,
-            #     transcript=transcript,
-            #     suggested_probes=probes,
-            # )
-
-            probe = await self.probing_agent.generate_ensemble_to_master_probe(
+            probe = await self.generate_probe(
                 section_description=section_description,
-                question_description=question.description,
-                main_question=question.main_question,
+                question=question,
                 transcript=transcript,
-                suggested_probes=probes,
             )
-
-            # probe = await self.probing_agent.generate_master_to_ensemble_to_one_probe(
-            #     section_description=section_description,
-            #     question_description=question.description,
-            #     main_question=question.main_question,
-            #     transcript=transcript,
-            #     suggested_probes=probes,
-            # )
-
-            # probe = await self.probing_agent.generate_probe(
-            #     section_description=section_description,
-            #     question_description=question.description,
-            #     main_question=question.main_question,
-            #     transcript=transcript,
-            #     suggested_probes=probes,
-            # )
 
             if probe.lower().startswith(CustomTokens.end_of_probe):
                 break
@@ -945,6 +916,50 @@ class AInterviewer:
             if answer == CustomTokens.skip_question:
                 # NOTE: skipping a probe skips the main question
                 raise SkipQuestionException
+
+    async def generate_probe(
+        self,
+        section_description: str,
+        question: Question,
+        transcript: str,
+    ):
+
+        if (probes := question.probes) is not None:
+            probes = "\n".join("- " + probe for probe in probes)
+
+        # probe = await self.probing_agent.generate_master_to_one_probe(
+        #     section_description=section_description,
+        #     question_description=question.description,
+        #     main_question=question.main_question,
+        #     transcript=transcript,
+        #     suggested_probes=probes,
+        # )
+        #
+        # probe = await self.probing_agent.generate_ensemble_to_master_probe(
+        #     section_description=section_description,
+        #     question_description=question.description,
+        #     main_question=question.main_question,
+        #     transcript=transcript,
+        #     suggested_probes=probes,
+        # )
+        #
+        # probe = await self.probing_agent.generate_master_to_ensemble_to_one_probe(
+        #     section_description=section_description,
+        #     question_description=question.description,
+        #     main_question=question.main_question,
+        #     transcript=transcript,
+        #     suggested_probes=probes,
+        # )
+
+        probe = await self.probing_agent.generate_probe(
+            section_description=section_description,
+            question_description=question.description,
+            main_question=question.main_question,
+            transcript=transcript,
+            suggested_probes=suggested_probes,
+        )
+
+        return probe
 
     async def can_probe(self, question: Question) -> bool:
         if question.max_probes_n is not None:
