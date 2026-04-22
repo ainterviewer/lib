@@ -3,7 +3,7 @@ from __future__ import annotations
 import warnings
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ainterviewer.settings import settings
 
@@ -87,56 +87,41 @@ class VLLMModelConfig(BaseModel):
         return load_format
 
 
-class VLLMModelConfigs(RootModel):
-    root: dict[str, VLLMModelConfig]
-
-    def __getitem__(self, model: str) -> VLLMModelConfig:
-        return self.root[model]
-
-    def get(self, model: str) -> VLLMModelConfig | None:
-        try:
-            return self.root.get(model)
-        except KeyError:
-            return
-
-
-VLLM_MODEL_CONFIGS = VLLMModelConfigs(
-    **{
-        "gemma3-27b": {
-            "model": "pytorch/gemma-3-27b-it-FP8",  # leon-se/gemma-3-27b-it-FP8-Dynamic ISTA-DASLab/gemma-3-27b-it-GPTQ-4b-128g
-            "served_model_name": "google/gemma-3-27b-it",
-            "max_model_len": 12000,
-            "enforce_eager": True,
-            # "max_num_seq": 32,
-            "limit_mm_per_prompt": {"image": 0, "video": 0},
-            "mm_preprocessor_cache_gb": 0,
-        },
-        "mistral-small": {
-            "model": "stelterlab/Mistral-Small-3.2-24B-Instruct-2506-FP8",
-            "served_model_name": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
-            "max_model_len": 8000,
-            # "max_num_seq": 512,
-            "config_format": "mistral",
-            "tokenizer_mode": "mistral",
-            "load_format": "mistral",
-            "limit_mm_per_prompt": {"image": 0, "video": 0},
-            "mm_preprocessor_cache_gb": 0,
-        },
-        "gpt-oss-120b": {
-            "model": "openai/gpt-oss-120b",
-            "served_model_name": "openai/gpt-oss-120b",
-            "max_model_len": 8000,
-            # "max_num_seq": 512,
-            "tensor_parallel_size": 4,
-            "max_num_seq": 16,
-            "async_scheduling": True,
-            "enforce_eager": True,
-            "enable_expert_parallel": True,
-            "limit_mm_per_prompt": {"image": 0, "video": 0},
-            "mm_preprocessor_cache_gb": 0,
-        },
-    }
-)
+VLLM_MODEL_CONFIGS: dict[str, VLLMModelConfig] = {
+    "gemma3-27b": VLLMModelConfig(
+        model="pytorch/gemma-3-27b-it-FP8",  # leon-se/gemma-3-27b-it-FP8-Dynamic ISTA-DASLab/gemma-3-27b-it-GPTQ-4b-128g
+        served_model_name="google/gemma-3-27b-it",
+        max_model_len=12000,
+        enforce_eager=True,
+        # max_num_seq= 32,
+        limit_mm_per_prompt={"image": 0, "video": 0},
+        mm_preprocessor_cache_gb=0,
+    ),
+    "mistral-small": VLLMModelConfig(
+        model="stelterlab/Mistral-Small-3.2-24B-Instruct-2506-FP8",
+        served_model_name="mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+        max_model_len=8000,
+        # max_num_seq= 512,
+        config_format="mistral",
+        tokenizer_mode="mistral",
+        load_format="mistral",
+        limit_mm_per_prompt={"image": 0, "video": 0},
+        mm_preprocessor_cache_gb=0,
+    ),
+    "gpt-oss-120b": VLLMModelConfig(
+        model="openai/gpt-oss-120b",
+        served_model_name="openai/gpt-oss-120b",
+        max_model_len=8000,
+        # max_num_seq= 512,
+        tensor_parallel_size=4,
+        max_num_seq=16,
+        async_scheduling=True,
+        enforce_eager=True,
+        enable_expert_parallel=True,
+        limit_mm_per_prompt={"image": 0, "video": 0},
+        mm_preprocessor_cache_gb=0,
+    ),
+}
 
 if __name__ == "__main__":
     print(VLLM_MODEL_CONFIGS)
