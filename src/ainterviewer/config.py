@@ -36,16 +36,6 @@ def get_configs(name: str) -> tuple[InterviewConfig, AgentConfigs]:
     return read_configs(CONFIG_FOLDER / f"{name}_config.yaml")
 
 
-def create_template_config():
-    config_folder = Path(__file__).parent / "configs"
-
-    for config in read_configs(config_folder / "default_config.yaml"):
-        dump = config.model_dump(mode="json", serialize_as_any=True)
-
-        with open(config_folder / f"{config.__name__}_template.yaml", "w") as f:
-            yaml.dump(dump, f)
-
-
 def read_configs(path: Path | str) -> tuple[InterviewConfig, AgentConfigs]:
     with open(path) as f:
         config = yaml.safe_load(f)
