@@ -154,7 +154,7 @@ async def chat(
 
     message = message.encode().decode()
 
-    if message in CustomTokens.all:
+    if message in CustomTokens:
         return message
 
     if sanitize:

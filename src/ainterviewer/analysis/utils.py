@@ -60,7 +60,7 @@ def print_interview(
         role = row["role"]
         role_color = "turquoise4" if role == "ASSISTANT" else "orange_red1"
         content = row["content"]
-        if content.strip() in CustomTokens.all:
+        if content.strip() in CustomTokens:
             interview_transcript += f"\n[purple]{content.strip()}[/purple]\n\n"
         else:
             timestamp = row["created_at"].strftime(timestamp_format)

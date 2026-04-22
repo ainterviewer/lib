@@ -20,7 +20,7 @@ class ReceivedData(BaseModel):
     @field_validator("content", mode="before")
     @classmethod
     def escape_html(cls, v: str) -> str:
-        if v and v not in CustomTokens.all:
+        if v and v not in CustomTokens:
             return html.escape(v)
         else:
             return v

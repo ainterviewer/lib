@@ -280,7 +280,7 @@ class AInterviewer:
             project_id=self.project_id,
         )
 
-        if text in CustomTokens.all:
+        if text in CustomTokens:
             data = OutgoingData(content=text)
         else:
             if questions_asked:

@@ -16,11 +16,6 @@ class CustomTokens(StrEnum):
     no_answer = "<|noanswer|>"
     restart_interview = "<|restartinterview|>"
 
-    @classmethod
-    @property
-    def all(cls) -> tuple[str, ...]:
-        return tuple(token.value for token in cls)
-
 
 class Message(TypedDict):
     role: MessageRole
