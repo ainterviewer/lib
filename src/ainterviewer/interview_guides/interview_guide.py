@@ -21,12 +21,12 @@ from ainterviewer.interview_guides.utils import shuffle_items
 class InterviewGuideBase(BaseModel, Generic[Q]):
     """A guide for the interviewer to follow during the interview."""
 
-    framing: str | None = Field(
-        None,
+    framing: str = Field(
+        "",
         description="A description of the interview and its purpose. Only used by the model.",
     )
-    introduction: str | SkipJsonSchema[InterviewMessage] | None = Field(
-        None,
+    introduction: str | SkipJsonSchema[InterviewMessage] = Field(
+        "",
         description="An introduction to the interview. Displayed to the interviewee as the first message. They whon't be able to respond to this message.",
     )
     question_sections: list[QuestionSection[Q]] = Field(
