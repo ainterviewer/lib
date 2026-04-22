@@ -9,8 +9,11 @@
 # client side:
 # - https://github.com/Ivan-Feofanov/ws-audio-api/tree/master
 
+from typing import TYPE_CHECKING
 from fastapi import APIRouter, FastAPI
-from faster_whisper import WhisperModel
+
+if not TYPE_CHECKING:
+    from faster_whisper import WhisperModel
 from pydantic import BaseModel
 
 # from rich.progress import track, Progress

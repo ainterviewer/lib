@@ -224,18 +224,18 @@ def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
 
     match survey_item:
         case RadioItem():
-            field_type = Literal[tuple(survey_item.options)]
+            field_type = Literal[tuple(survey_item.options)]  # ty:ignore[invalid-type-form]
             if survey_item.with_other:
                 field_type = field_type | str
 
         case CheckboxItem():
-            inner_type = Literal[tuple(survey_item.options)]
+            inner_type = Literal[tuple(survey_item.options)]  # ty:ignore[invalid-type-form]
             if survey_item.with_other:
                 inner_type = inner_type | str
             field_type = list[inner_type]
 
         case LikertItem():
-            field_type = Literal[tuple(survey_item.options)]
+            field_type = Literal[tuple(survey_item.options)]  # ty:ignore[invalid-type-form]
 
         case SliderItem() | NumberItem():
             field_type = int | float
@@ -272,4 +272,4 @@ def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
     return create_model(
         "SurveyAnswer",
         answer=(field_type, Field(**kwargs)),
-    )
+    )  # ty:ignore[invalid-return-type]
