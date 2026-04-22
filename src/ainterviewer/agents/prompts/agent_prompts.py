@@ -30,7 +30,8 @@ class BasePrompts(ABC):
     ):
         if not template_loader:
             template_loader = PackageLoader(
-                "ainterviewer.agents.prompts.templates", lang
+                "ainterviewer.agents.prompts.templates",
+                "EN",  # lang
             )
 
         self.env = Environment(loader=template_loader, undefined=StrictUndefined)
