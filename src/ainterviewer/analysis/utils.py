@@ -1,8 +1,10 @@
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 import polars as pl
 from rich.console import Console
-from user_agents import parse
+
+if not TYPE_CHECKING:
+    from user_agents import parse
 
 from ainterviewer.lpm.types import CustomToken
 
