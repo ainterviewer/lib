@@ -73,7 +73,7 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
                 f"\nIMPORTANT: Follow the following json schema:\n\n```\n{SurveyAnswerModel.model_json_schema()}\n```"
             )
 
-            response = await self.chat_api(messages, response_format=SurveyAnswerModel)
+            response = await self.chat_api(messages, response_format=SurveyAnswerModel)  # ty:ignore[no-matching-overload]
 
             if isinstance(response.answer, str):
                 message = response.answer
