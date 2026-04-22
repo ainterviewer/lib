@@ -1,8 +1,9 @@
-from . import __version__
-
 from typing import Annotated, Optional
-from typer import Typer
+
 import typer
+from typer import Typer
+
+from . import __version__
 
 cli = Typer()
 

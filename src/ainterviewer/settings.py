@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import (

@@ -6,8 +6,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-from ainterviewer.types import LanguageCode
 from ainterviewer.agents.config import AgentConfigs
+from ainterviewer.types import LanguageCode
 
 CONFIG_FOLDER = Path(__file__).parent.parent.parent / "data" / "configs"
 

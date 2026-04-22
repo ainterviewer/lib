@@ -1,8 +1,8 @@
 from typing import Literal
 
-from ainterviewer.lpm.types import Message
 from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.prompts.agent_prompts import ReformulationAgentPrompts
+from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
 from ainterviewer.utils import get_language_dict
 
