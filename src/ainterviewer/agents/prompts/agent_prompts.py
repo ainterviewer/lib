@@ -40,6 +40,8 @@ class BasePrompts(ABC):
         return self.env.get_template(template_name)
 
     def get_source(self, template: Union[str, Template]) -> str:
+        assert self.env.loader
+
         if isinstance(template, str):
             return self.env.loader.get_source(self.env, template)[0]
         elif isinstance(template, Template):
@@ -49,10 +51,6 @@ class BasePrompts(ABC):
             return self.env.loader.get_source(
                 self.env, "/".join(template.filename.split("/")[-2:])
             )[0]
-
-        raise TypeError(
-            f"Expected `template` to be of type `str` or `Template`, but got {type(template)}"
-        )
 
     @abstractmethod
     def generate_system_prompt(self) -> str: ...

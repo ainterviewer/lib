@@ -22,8 +22,8 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
     ):
         super().__init__(
             language=language,
-            *args,
-            **kwargs | {"interview_subject": interview_subject},
+            *args,  # ty:ignore[parameter-already-assigned]
+            **kwargs | {"interview_subject": interview_subject},  # ty:ignore[invalid-argument-type]
         )
         self.interview_subject: InterviewSubject | str = interview_subject
 

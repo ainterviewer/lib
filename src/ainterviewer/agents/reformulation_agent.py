@@ -17,7 +17,7 @@ class ReformulationAgent(BaseAgent[ReformulationAgentPrompts]):
         **kwargs,
     ):
         """An agent that probes an interviewee based on an interview an interview guide and the answers."""
-        super().__init__(language=language, *args, **kwargs)
+        super().__init__(language=language, *args, **kwargs)  # ty:ignore[parameter-already-assigned]
 
         self.messages = [
             {"role": MessageRole.SYSTEM, "content": self.prompts.system_prompt},

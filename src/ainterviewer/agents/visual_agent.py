@@ -35,6 +35,6 @@ class VisualAgent(BaseAgent[VisualAgentPrompts]):
             },
         ]
 
-        text = self.chat_api(messages)
+        text = self.chat_api(messages)  # ty:ignore[invalid-argument-type]
 
         return text
