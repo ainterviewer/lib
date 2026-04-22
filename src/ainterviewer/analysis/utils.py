@@ -4,7 +4,7 @@ import polars as pl
 from rich.console import Console
 from user_agents import parse
 
-from ainterviewer.lpm.types import CustomTokens
+from ainterviewer.lpm.types import CustomToken
 
 
 def get_device(user_agent: str) -> Literal["mobile", "tablet", "pc", "bot"] | None:
@@ -60,7 +60,7 @@ def print_interview(
         role = row["role"]
         role_color = "turquoise4" if role == "ASSISTANT" else "orange_red1"
         content = row["content"]
-        if content.strip() in CustomTokens:
+        if content.strip() in CustomToken:
             interview_transcript += f"\n[purple]{content.strip()}[/purple]\n\n"
         else:
             timestamp = row["created_at"].strftime(timestamp_format)

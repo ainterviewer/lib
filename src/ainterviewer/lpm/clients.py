@@ -10,7 +10,7 @@ from any_llm import acompletion
 from any_llm.types.completion import ChatCompletion
 from pydantic import BaseModel
 
-from ainterviewer.lpm.types import CustomTokens, Message, Temperature
+from ainterviewer.lpm.types import CustomToken, Message, Temperature
 from ainterviewer.lpm.utils import map_system_to_user
 from ainterviewer.lpm.vllm import VLLM_MODEL_CONFIGS
 from ainterviewer.settings import settings
@@ -154,7 +154,7 @@ async def chat(
 
     message = message.encode().decode()
 
-    if message in CustomTokens:
+    if message in CustomToken:
         return message
 
     if sanitize:

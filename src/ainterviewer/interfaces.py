@@ -7,7 +7,7 @@ from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.lpm.types import CustomTokens
+from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import Feedback, InterviewStatus, MessageRole, MessageType
 
 
@@ -20,7 +20,7 @@ class ReceivedData(BaseModel):
     @field_validator("content", mode="before")
     @classmethod
     def escape_html(cls, v: str) -> str:
-        if v and v not in CustomTokens:
+        if v and v not in CustomToken:
             return html.escape(v)
         else:
             return v

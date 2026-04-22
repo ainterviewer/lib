@@ -51,7 +51,7 @@ from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ContextType
-from ainterviewer.lpm.types import CustomTokens
+from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType
 
 
@@ -280,7 +280,7 @@ class AInterviewer:
             project_id=self.project_id,
         )
 
-        if text in CustomTokens:
+        if text in CustomToken:
             data = OutgoingData(content=text)
         else:
             if questions_asked:
@@ -387,7 +387,7 @@ class AInterviewer:
         self.interview_history.is_finished = True
 
         await self.send_data(
-            CustomTokens.end_of_interview,
+            CustomToken.end_of_interview,
             with_interview_structure=False,
             can_answer=False,
         )
@@ -603,7 +603,7 @@ class AInterviewer:
 
             answer = await self.ask_question(question)
 
-            if answer == CustomTokens.skip_question:
+            if answer == CustomToken.skip_question:
                 # TODO:
                 # Should skipping main question reformulate it or send
                 # it to next main question?
@@ -615,9 +615,9 @@ class AInterviewer:
                 )
                 answer = await self.ask_probe(question, reformulated_question)
 
-                if answer == CustomTokens.skip_question:
+                if answer == CustomToken.skip_question:
                     return
-            elif answer == CustomTokens.no_answer:
+            elif answer == CustomToken.no_answer:
                 await asyncio.sleep(2.5)
                 return
 
@@ -730,7 +730,7 @@ class AInterviewer:
 
         if isinstance(question, Question):
             if question.can_answer is False:
-                return CustomTokens.no_answer
+                return CustomToken.no_answer
 
         answer = await self.receive_data(
             message_type_to_receive=MessageType.SURVEY_ITEM
@@ -770,7 +770,7 @@ class AInterviewer:
 
         if isinstance(question, Question):
             if question.can_answer is False:
-                return CustomTokens.no_answer
+                return CustomToken.no_answer
 
         answer = await self.receive_data()
 
@@ -908,12 +908,12 @@ class AInterviewer:
                 transcript=transcript,
             )
 
-            if probe.lower().startswith(CustomTokens.end_of_probe):
+            if probe.lower().startswith(CustomToken.end_of_probe):
                 break
 
             answer = await self.ask_probe(question, probe)
 
-            if answer == CustomTokens.skip_question:
+            if answer == CustomToken.skip_question:
                 # NOTE: skipping a probe skips the main question
                 raise SkipQuestionException
 

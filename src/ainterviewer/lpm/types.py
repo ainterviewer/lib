@@ -7,7 +7,7 @@ from pydantic import Field
 from ainterviewer.types import MessageRole
 
 
-class CustomTokens(StrEnum):
+class CustomToken(StrEnum):
     end_of_probe = "<|endofprobe|>"
     end_of_section = "<|endofsection|>"
     end_of_interview = "<|endofinterview|>"
