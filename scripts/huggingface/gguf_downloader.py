@@ -35,7 +35,7 @@ def get_gguf_model(
     for model in gguf_models:
         metadata = api.get_hf_file_metadata(url=hf_hub_url(repo_id, model))
         file_size = (
-            f"{metadata.size / 1000 ** 3:.2f}GB" if metadata.size else "Unknown Size"
+            f"{metadata.size / 1000**3:.2f}GB" if metadata.size else "Unknown Size"
         )
         gguf_files.append((model, file_size))
 

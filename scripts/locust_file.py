@@ -67,7 +67,7 @@ class InterviewUser(HttpUser, SocketIOUser):
         host = urlparse(self.environment.parsed_options.host)
         ws_path = self.environment.parsed_options.ws_path
         websocket_endpoint = (
-            f"{'wss' if host.scheme=='https' else 'ws'}://{host.netloc}/ws/{ws_path}"
+            f"{'wss' if host.scheme == 'https' else 'ws'}://{host.netloc}/ws/{ws_path}"
         )
         try:
             self.connect(

@@ -923,7 +923,7 @@ class Model:
                     if toktypes[token_id] != SentencePieceTokenTypes.UNUSED:
                         if tokens[token_id] != token.encode("utf-8"):
                             logger.warning(
-                                f'replacing token {token_id}: {tokens[token_id].decode("utf-8")!r} -> {token!r}'
+                                f"replacing token {token_id}: {tokens[token_id].decode('utf-8')!r} -> {token!r}"
                             )
                     if token_data.get("special") or self.does_token_look_special(token):
                         toktypes[token_id] = SentencePieceTokenTypes.CONTROL
@@ -2451,7 +2451,7 @@ class Phi3MiniModel(Model):
                     if toktypes[token_id] != SentencePieceTokenTypes.UNUSED:
                         if tokens[token_id] != token:
                             logger.warning(
-                                f'replacing token {token_id}: {tokens[token_id].decode("utf-8")!r} -> {token.decode("utf-8")!r}'
+                                f"replacing token {token_id}: {tokens[token_id].decode('utf-8')!r} -> {token.decode('utf-8')!r}"
                             )
                     tokens[token_id] = token
                     scores[token_id] = -1000.0
@@ -2470,7 +2470,7 @@ class Phi3MiniModel(Model):
                     if toktypes[token_id] != SentencePieceTokenTypes.UNUSED:
                         if tokens[token_id] != token:
                             logger.warning(
-                                f'replacing token {token_id}: {tokens[token_id].decode("utf-8")!r} -> {token.decode("utf-8")!r}'
+                                f"replacing token {token_id}: {tokens[token_id].decode('utf-8')!r} -> {token.decode('utf-8')!r}"
                             )
                     tokens[token_id] = token
                     scores[token_id] = -1000.0
@@ -2746,7 +2746,7 @@ class InternLM2Model(Model):
                     if toktypes[token_id] != SentencePieceTokenTypes.UNUSED:
                         if tokens[token_id] != token:
                             logger.warning(
-                                f'replacing token {token_id}: {tokens[token_id].decode("utf-8")!r} -> {token.decode("utf-8")!r}'
+                                f"replacing token {token_id}: {tokens[token_id].decode('utf-8')!r} -> {token.decode('utf-8')!r}"
                             )
                     tokens[token_id] = token
                     scores[token_id] = -1000.0
@@ -2768,7 +2768,7 @@ class InternLM2Model(Model):
                     if toktypes[token_id] != SentencePieceTokenTypes.UNUSED:
                         if tokens[token_id] != token:
                             logger.warning(
-                                f'replacing token {token_id}: {tokens[token_id].decode("utf-8")!r} -> {token.decode("utf-8")!r}'
+                                f"replacing token {token_id}: {tokens[token_id].decode('utf-8')!r} -> {token.decode('utf-8')!r}"
                             )
                     tokens[token_id] = token
                     scores[token_id] = -1000.0

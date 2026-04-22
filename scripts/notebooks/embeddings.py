@@ -7,8 +7,6 @@ with app.setup:
     import textwrap
     import marimo as mo
 
-    import numpy as np
-    from rich.progress import track
     import plotly.express as px
     import polars as pl
     from sentence_transformers import SentenceTransformer
