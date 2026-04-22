@@ -3,7 +3,7 @@ import importlib.util
 import warnings
 
 try:
-    import torch
+    import torch  # ty:ignore[unresolved-import]
 except ImportError:
     warnings.warn(
         "Torch not installed. Run `pip install torch` if you need to run a PromptGuard server."

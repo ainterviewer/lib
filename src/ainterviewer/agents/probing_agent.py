@@ -88,7 +88,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         **kwargs,
     ):
         """An agent that probes an interviewee based on an interview an interview guide and the answers."""
-        super().__init__(language=language, *args, **kwargs)
+        super().__init__(language=language, *args, **kwargs)  # ty:ignore[parameter-already-assigned]
 
         self.interview_framing = interview_framing
         self.few_shot_examples = few_shot_examples

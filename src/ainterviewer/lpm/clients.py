@@ -81,13 +81,13 @@ async def chat(
         chat_completion = await chat(
             model=model,
             extra_body={"provider": {"order": ["deepinfra"]}},
-            api_key=settings.secrets.openrouter_api_key.get_secret_value(),
+            api_key=settings.secrets.openrouter_api_key.get_secret_value(),  # ty:ignore[unresolved-attribute]
             reasoning_effort="low",
         )
     elif model.startswith("openai:"):
         chat_completion = await chat(
             model=model,
-            api_key=settings.secrets.openai_api_key.get_secret_value(),
+            api_key=settings.secrets.openai_api_key.get_secret_value(),  # ty:ignore[unresolved-attribute]
             reasoning_effort="none",
         )
     elif model.startswith("gemini:"):
@@ -99,7 +99,7 @@ async def chat(
         chat_completion = await chat(
             messages=messages,
             model=model,
-            api_key=settings.secrets.google_ai_api_key.get_secret_value(),
+            api_key=settings.secrets.google_ai_api_key.get_secret_value(),  # ty:ignore[unresolved-attribute]
         )
     else:
         server_endpoint = f"{settings.llm.llm_endpoint}/v1"
@@ -144,11 +144,15 @@ async def chat(
         )
 
     if response_format:
-        return chat_completion.choices[0].message.parsed
+        return chat_completion.choices[0].message.parsed  # ty:ignore[unresolved-attribute]
 
     # TODO:
     # - Use the returned log probs
     # classification_tokens = get_classification_response_tokens(model)
+
+    if chat_completion.choices[0].message.content is None:
+        # FIXME: This should probably raise an exception
+        return ""
 
     message = chat_completion.choices[0].message.content.strip()
 
@@ -167,6 +171,7 @@ async def chat(
     )
 
 
+# FIXME: This needs a new rewrite
 def visual_chat(
     model: str,
     messages: list[Message],
@@ -175,7 +180,7 @@ def visual_chat(
 ):
     encoded_messages = [
         {
-            k: v if k != "images" else [encode_image(image) for image in v]
+            k: v if k != "images" else [encode_image(image) for image in v]  # ty:ignore[not-iterable]
             for k, v in message.items()
         }
         for message in messages

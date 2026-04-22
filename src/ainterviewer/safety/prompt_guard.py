@@ -1,7 +1,11 @@
 # https://github.com/meta-llama/llama-cookbook/tree/main/getting-started/responsible_ai/prompt_guard
-import torch
-from torch.nn.functional import softmax
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+from typing import TYPE_CHECKING
+
+if not TYPE_CHECKING:
+    import torch
+    from torch.nn.functional import softmax
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 
 class PromptGuard:

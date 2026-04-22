@@ -953,7 +953,7 @@ class AInterviewer:
 
         probe = await self.probing_agent.generate_probe(
             section_description=section_description,
-            question_description=question.description,
+            question_description=question.description,  # ty:ignore[invalid-argument-type]
             main_question=question.main_question,
             transcript=transcript,
             suggested_probes=suggested_probes,
@@ -998,8 +998,8 @@ class AInterviewer:
             project_id=self.project_id,
             task="has_question_been_answered",
             content=question,
-            response=response,
-            time_spend=time_spend,
+            response=str(response),
+            time_spend=int(time_spend),
         )
 
         return response
@@ -1032,7 +1032,7 @@ class AInterviewer:
             project_id=self.project_id,
             task="has_question_been_exhausted",
             content=context,
-            response=response,
+            response=str(response),
             time_spend=int(time_spend),
         )
 
