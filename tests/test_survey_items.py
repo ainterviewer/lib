@@ -59,7 +59,7 @@ class TestCheckboxItem:
 
     def test_ui_field_not_accepted(self):
         with pytest.raises(ValidationError):
-            CheckboxItem(options=["a"], ui="radio")
+            CheckboxItem(options=["a"], ui="radio")  # ty:ignore[unknown-argument]
 
 
 # ── LikertItem ───────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ class TestLikertItem:
 
     def test_ui_invalid_value(self):
         with pytest.raises(ValidationError):
-            LikertItem(options=["low", "high"], ui="dropdown")
+            LikertItem(options=["low", "high"], ui="dropdown")  # ty:ignore[invalid-argument-type]
 
 
 # ── SliderItem ───────────────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ class TestLikertItem:
 class TestSliderItem:
     def test_requires_min_and_max(self):
         with pytest.raises(ValidationError):
-            SliderItem()
+            SliderItem()  # ty:ignore[missing-argument]
 
     def test_min_label_default_none(self):
         item = SliderItem(min=0, max=10)
@@ -251,119 +251,119 @@ class TestCreateSurveyAnswerModel:
     def test_radio_valid(self):
         item = RadioItem(options=["yes", "no"])
         Model = create_survey_answer_model(item)
-        obj = Model(answer="yes")
+        obj = Model(answer="yes")  # ty:ignore[call-non-callable]
         assert obj.answer == "yes"
 
     def test_radio_invalid(self):
         item = RadioItem(options=["yes", "no"])
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
-            Model(answer="maybe")
+            Model(answer="maybe")  # ty:ignore[call-non-callable]
 
     def test_radio_with_other(self):
         item = RadioItem(options=["yes", "no"], with_other=True)
         Model = create_survey_answer_model(item)
-        obj = Model(answer="something else")
+        obj = Model(answer="something else")  # ty:ignore[call-non-callable]
         assert obj.answer == "something else"
 
     def test_checkbox_valid(self):
         item = CheckboxItem(options=["a", "b", "c"])
         Model = create_survey_answer_model(item)
-        obj = Model(answer=["a", "b"])
+        obj = Model(answer=["a", "b"])  # ty:ignore[call-non-callable]
         assert obj.answer == ["a", "b"]
 
     def test_checkbox_invalid(self):
         item = CheckboxItem(options=["a", "b", "c"])
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
-            Model(answer=["a", "d"])
+            Model(answer=["a", "d"])  # ty:ignore[call-non-callable]
 
     def test_checkbox_with_other(self):
         item = CheckboxItem(options=["a", "b"], with_other=True)
         Model = create_survey_answer_model(item)
-        obj = Model(answer=["a", "custom"])
+        obj = Model(answer=["a", "custom"])  # ty:ignore[call-non-callable]
         assert obj.answer == ["a", "custom"]
 
     def test_likert_valid(self):
         item = LikertItem(options=["low", "mid", "high"])
         Model = create_survey_answer_model(item)
-        obj = Model(answer="mid")
+        obj = Model(answer="mid")  # ty:ignore[call-non-callable]
         assert obj.answer == "mid"
 
     def test_likert_invalid(self):
         item = LikertItem(options=["low", "mid", "high"])
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
-            Model(answer="very high")
+            Model(answer="very high")  # ty:ignore[call-non-callable]
 
     def test_number_within_range(self):
         item = NumberItem(min=0, max=100)
         Model = create_survey_answer_model(item)
-        obj = Model(answer=50)
+        obj = Model(answer=50)  # ty:ignore[call-non-callable]
         assert obj.answer == 50
 
     def test_number_below_min(self):
         item = NumberItem(min=0, max=100)
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
-            Model(answer=-1)
+            Model(answer=-1)  # ty:ignore[call-non-callable]
 
     def test_number_above_max(self):
         item = NumberItem(min=0, max=100)
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
-            Model(answer=101)
+            Model(answer=101)  # ty:ignore[call-non-callable]
 
     def test_slider_within_range(self):
         item = SliderItem(min=1, max=10)
         Model = create_survey_answer_model(item)
-        obj = Model(answer=5)
+        obj = Model(answer=5)  # ty:ignore[call-non-callable]
         assert obj.answer == 5
 
     def test_date_valid(self):
         item = DateItem(min="2020-01-01", max="2025-12-31")
         Model = create_survey_answer_model(item)
-        obj = Model(answer=date(2023, 6, 15))
+        obj = Model(answer=date(2023, 6, 15))  # ty:ignore[call-non-callable]
         assert obj.answer == date(2023, 6, 15)
 
     def test_date_out_of_range(self):
         item = DateItem(min="2020-01-01", max="2025-12-31")
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
-            Model(answer=date(2019, 1, 1))
+            Model(answer=date(2019, 1, 1))  # ty:ignore[call-non-callable]
 
     def test_datetime_valid(self):
         item = DatetimeItem(min="2020-01-01T00:00:00", max="2025-12-31T23:59:59")
         Model = create_survey_answer_model(item)
-        obj = Model(answer=datetime(2023, 6, 15, 12, 0, 0))
+        obj = Model(answer=datetime(2023, 6, 15, 12, 0, 0))  # ty:ignore[call-non-callable]
         assert obj.answer == datetime(2023, 6, 15, 12, 0, 0)
 
     def test_time_valid(self):
         item = TimeItem(min="08:00:00", max="17:00:00")
         Model = create_survey_answer_model(item)
-        obj = Model(answer=time(12, 0, 0))
+        obj = Model(answer=time(12, 0, 0))  # ty:ignore[call-non-callable]
         assert obj.answer == time(12, 0, 0)
 
     def test_optional_field_allows_none(self):
         item = RadioItem(options=["yes", "no"], required=False)
         Model = create_survey_answer_model(item)
-        obj = Model(answer=None)
+        obj = Model(answer=None)  # ty:ignore[call-non-callable]
         assert obj.answer is None
 
     def test_optional_field_defaults_to_none(self):
         item = RadioItem(options=["yes", "no"], required=False)
         Model = create_survey_answer_model(item)
-        obj = Model()
+        obj = Model()  # ty:ignore[call-non-callable]
         assert obj.answer is None
 
     def test_optional_field_allows_value(self):
         item = RadioItem(options=["yes", "no"], required=False)
         Model = create_survey_answer_model(item)
-        obj = Model(answer="yes")
+        obj = Model(answer="yes")  # ty:ignore[call-non-callable]
         assert obj.answer == "yes"
 
     def test_required_field_rejects_none(self):
         item = RadioItem(options=["yes", "no"], required=True)
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
-            Model(answer=None)
+            Model(answer=None)  # ty:ignore[call-non-callable]

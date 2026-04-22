@@ -1,3 +1,4 @@
+from typing import Literal
 from unittest.mock import AsyncMock
 
 import pytest
@@ -13,7 +14,6 @@ from ainterviewer.interview_guides.conditions import (
 )
 from ainterviewer.interview_guides.types import ConditionAction, ConditionTrigger
 
-
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 
@@ -24,7 +24,7 @@ def _make_condition(
     question: int = 0,
     negated: bool = False,
     trigger_type: ConditionTrigger = ConditionTrigger.MATCH,
-    combine_next: str | None = None,
+    combine_next: Literal["AND", "OR"] | None = None,
 ) -> Condition:
     return Condition(
         question_context=QuestionContext(section=section, question=question),
@@ -159,16 +159,12 @@ class TestEvaluateCondition:
 
     @pytest.mark.anyio
     async def test_negated_true_becomes_false(self, evaluator):
-        cond = _make_condition(
-            [ConditionEvaluation(trigger_value="yes")], negated=True
-        )
+        cond = _make_condition([ConditionEvaluation(trigger_value="yes")], negated=True)
         assert await evaluator.evaluate_condition("yes", cond) is False
 
     @pytest.mark.anyio
     async def test_negated_false_becomes_true(self, evaluator):
-        cond = _make_condition(
-            [ConditionEvaluation(trigger_value="yes")], negated=True
-        )
+        cond = _make_condition([ConditionEvaluation(trigger_value="yes")], negated=True)
         assert await evaluator.evaluate_condition("no", cond) is True
 
     @pytest.mark.anyio
@@ -194,9 +190,7 @@ class TestEvaluateCondition:
         result = await evaluator.evaluate_condition("I work at a bank", cond)
 
         assert result is True
-        classifier.classify.assert_called_once_with(
-            "I work at a bank", "is employed"
-        )
+        classifier.classify.assert_called_once_with("I work at a bank", "is employed")
 
     @pytest.mark.anyio
     async def test_classification_negated(self):
