@@ -20,15 +20,15 @@ jobs:
         run: uv python install
 
       - name: Sync environment
-        run: uv sync --locked --dev
+        run: uv sync --locked --all-extras --dev
 
       - name: Run pre-commit hooks
-        run: uv run pre-commit run --all-files
+        run: uv run prek run --all-files
 
-      - run: uv run ruff check src
-      - run: uv run ruff format --check src
+      - run: uv run pytest -q
 
-      # - run: uv run pytest -q
+      - name: Minimize uv cache
+        run: uv cache prune --ci
 
   build-artifacts:
     runs-on: ubuntu-latest
