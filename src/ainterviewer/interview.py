@@ -298,6 +298,7 @@ class AInterviewer:
                 role=MessageRole.ASSISTANT,
                 can_answer=can_answer,
                 progress=progress,
+                is_probe=bool(self.interview_history.current_probe_index),
             )
 
         await self.io.send_data(data)

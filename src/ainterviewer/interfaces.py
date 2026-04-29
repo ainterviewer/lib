@@ -60,6 +60,7 @@ class OutgoingMessage(_OutgoingData):
     can_answer: bool = True
     user_image: bool = False
     progress: float | None = Field(default=None, ge=0, le=100)
+    is_probe: bool = False
 
 
 class OutgoingData(BaseModel):
