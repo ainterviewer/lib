@@ -2,19 +2,23 @@ class ConditionalException(Exception):
     pass
 
 
-class SkipSectionException(ConditionalException):
+class SkipSectionCondition(ConditionalException):
     pass
 
 
-class SkipQuestionException(ConditionalException):
+class SkipQuestionCondition(ConditionalException):
     pass
 
 
-class EndInterviewException(ConditionalException):
+class EndInterviewCondition(ConditionalException):
     pass
 
 
-class SkipProbesException(ConditionalException):
+class SkipProbesCondition(ConditionalException):
+    pass
+
+
+class SkipQuestionException(Exception):
     pass
 
 

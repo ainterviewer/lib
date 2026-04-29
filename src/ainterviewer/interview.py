@@ -19,10 +19,11 @@ from ainterviewer.agents import (
 )
 from ainterviewer.config import AgentConfigs, InterviewConfig
 from ainterviewer.exceptions import (
-    EndInterviewException,
-    SkipProbesException,
+    EndInterviewCondition,
+    SkipProbesCondition,
+    SkipQuestionCondition,
+    SkipSectionCondition,
     SkipQuestionException,
-    SkipSectionException,
 )
 from ainterviewer.interfaces import (
     IOProtocol,
@@ -334,7 +335,7 @@ class AInterviewer:
 
         try:
             await self.handle_sections()
-        except EndInterviewException:
+        except EndInterviewCondition:
             # Raised by a condition that ends the interview, i.e. missing
             # consent
 
@@ -424,8 +425,10 @@ class AInterviewer:
             await self.probe(last_question, last_section.description)
 
             self.resume_from_history = True
-        except SkipQuestionException:
+        except SkipQuestionCondition:
             await self.handle_skip_question_exception(last_question)
+        except SkipQuestionException:
+            pass
 
     async def handle_intro(self, intro: str | InterviewMessage):
         if isinstance(intro, InterviewMessage):
@@ -555,7 +558,7 @@ class AInterviewer:
                 )
 
                 await self.handle_question(question, section.description)
-        except SkipSectionException:
+        except SkipSectionCondition:
             # TODO: We need to handle this somehow in the interview history / database ...
             return
 
@@ -627,11 +630,12 @@ class AInterviewer:
             if question.max_probes_n or question.max_probes_time:
                 await self.probe(question, section_description)
 
-        except SkipProbesException:
+        except SkipProbesCondition:
             pass
-
-        except SkipQuestionException:
+        except SkipQuestionCondition:
             await self.handle_skip_question_exception(question)
+        except SkipQuestionException:
+            pass
 
     async def preprocess_answer(self, message: str) -> str:
         # TODO: Add other preprocessing steps, including security measurements
@@ -831,13 +835,13 @@ class AInterviewer:
         if condition_triggered:
             match conditions.action:
                 case ConditionAction.SKIP_PROBES:
-                    raise SkipProbesException
+                    raise SkipProbesCondition
                 case ConditionAction.SKIP_QUESTION:
-                    raise SkipQuestionException
+                    raise SkipQuestionCondition
                 case ConditionAction.SKIP_SECTION:
-                    raise SkipSectionException
+                    raise SkipSectionCondition
                 case ConditionAction.END_INTERVIEW:
-                    raise EndInterviewException
+                    raise EndInterviewCondition
                 case _:
                     raise ValueError("Invalid condition action")
 
