@@ -22,8 +22,8 @@ from ainterviewer.exceptions import (
     EndInterviewCondition,
     SkipProbesCondition,
     SkipQuestionCondition,
-    SkipSectionCondition,
     SkipQuestionException,
+    SkipSectionCondition,
 )
 from ainterviewer.interfaces import (
     IOProtocol,
@@ -574,11 +574,7 @@ class AInterviewer:
                         condition.question_context.section
                         == self.interview_history.current_section_index
                         and condition.question_context.question
-                        == self.interview_history.current_question_index + 1
-                        # NOTE:
-                        # We have to add one to the question index, because it
-                        # is only added when the question is asked, and we want
-                        # to check for the current question
+                        == self.interview_history.current_question_index
                     ):
                         check_condition_after = True
 
@@ -634,7 +630,8 @@ class AInterviewer:
         except SkipProbesCondition:
             pass
         except SkipQuestionCondition:
-            await self.handle_skip_question_exception(question)
+            if not check_condition_after:
+                await self.handle_skip_question_exception(question)
         except SkipQuestionException:
             pass
 
@@ -815,7 +812,7 @@ class AInterviewer:
         # TODO: Move sleep to frontend
         await asyncio.sleep(2.5)
 
-    async def check_conditions(self, conditions: Conditions):
+    async def check_conditions(self, conditions: Conditions) -> None:
         condition_contexts = [
             self.get_condition_context(condition) for condition in conditions.conditions
         ]
