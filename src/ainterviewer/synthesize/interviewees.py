@@ -151,13 +151,49 @@ def generate_synthetic_persons(
     ]
 
 
-with open("data/background_info/en.json") as f:
-    background_info_data = json.load(f)
-
-with open("data/background_info/traits.json") as f:
-    background_info_data["extra_traits"] = json.load(f)
-
-DEFAULT_BACKGROUND_INFO_OPTIONS = BackgroundInfoOptions(**background_info_data)
+DEFAULT_BACKGROUND_INFO_OPTIONS = BackgroundInfoOptions(
+    age_range=(18, 80),
+    names_gender=[
+        ("Bob", "Male"),
+        ("Richard", "Male"),
+        ("Alice", "Female"),
+        ("Emily", "Female"),
+    ],
+    educations=["High School", "College", "Graduate School"],
+    occupations=[
+        "Student",
+        "Engineer",
+        "Researcher",
+        "Teacher",
+        "Farmer",
+        "Mechanic",
+        "Baker",
+        "Mailman",
+        "Policeman",
+    ],
+    locations=["a large city", "a small town", "a rural area"],
+    communication_traits=CommunicationTraits(
+        length=["short", "medium", "long"],
+        style=["concise", "vague", "elaborate", "detailed"],
+        tone=["formal", "casual"],
+    ),
+    personalities=[
+        "confident",
+        "humble",
+        "shy",
+        "analytical",
+        "creative",
+        "emotional",
+        "enthusiastic",
+        "provocative",
+    ],
+    refusal_rate=(0, 0.7),
+    extra_traits=[
+        "You think that all people deserve to be treated with respect and dignity, regardless of their background or situation.",
+        "You think that some people deserve respect and dignity, but it depends on their background or specific situation.",
+        "You think that dignity and respect must be hard earned by long established relationships.",
+    ],
+)
 
 
 def parse_args():
@@ -185,13 +221,13 @@ if __name__ == "__main__":
     args = parse_args()
 
     with open(args.background_info) as f:
-        background_info_data = json.load(f)
+        _background_info_data = json.load(f)
 
     if args.extra_traits:
         with open(args.extra_traits) as f:
-            background_info_data["extra_traits"] = json.load(f)
+            _background_info_data["extra_traits"] = json.load(f)
 
-    background_info = BackgroundInfoOptions(**background_info_data)
+    background_info = BackgroundInfoOptions(**_background_info_data)
 
     synthetic_persons = generate_synthetic_persons(background_info, args.num_agents)
     for person in synthetic_persons:
