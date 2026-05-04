@@ -113,9 +113,9 @@ class LLMSettings(BaseModel):
 
 
 class Secrets(BaseSettings):
-    openai_api_key: SecretStr | None = None
-    google_ai_api_key: SecretStr | None = None
-    openrouter_api_key: SecretStr | None = None
+    openai_api_key: SecretStr = SecretStr("")
+    google_ai_api_key: SecretStr = SecretStr("")
+    openrouter_api_key: SecretStr = SecretStr("")
     vllm_api_key: SecretStr = SecretStr("")
 
     model_config = BaseSettingsConfigDict(env_prefix="")
