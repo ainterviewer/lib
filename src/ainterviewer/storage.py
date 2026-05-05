@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import UUID4, BaseModel, Field, field_validator
 
-MediaType = Literal["images", "audio", "videos", "qr_codes"]
+MediaType = Literal["images", "audio", "videos", "qr_codes", "email_attachments"]
 
 
 class BaseStorage(BaseModel):
@@ -66,6 +66,9 @@ class ProjectStorage(BaseStorage):
         paths = super().get_all_media_paths(entity_id)
         paths["qr_codes"] = self.qr_code_path(entity_id)
         return paths
+
+    def email_attachments_path(self, project_id: UUID4) -> Path:
+        return self._get_media_path(project_id, "email_attachments")
 
 
 class InterviewStorage(BaseStorage):
