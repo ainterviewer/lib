@@ -509,8 +509,15 @@ class AInterviewer:
         ]:
             if self.resume_from_history:
                 initial_question_index = (
-                    self.interview_history.current_question_index + 1
+                    current_question_index + 1
+                    if (
+                        current_question_index
+                        := self.interview_history.current_question_index
+                    )
+                    is not None
+                    else 0
                 )
+
                 self.resume_from_history = False
             else:
                 self.interview_history.add_section(section.description)
@@ -570,18 +577,13 @@ class AInterviewer:
         try:
             if conditions := question.conditions:
                 for condition in conditions.conditions:
-                    if (
-                        condition.question_context.section
-                        == self.interview_history.current_section_index
-                        and condition.question_context.question
-                        == self.interview_history.current_question_index
-                    ):
+                    if self.should_check_condition_after_question(condition):
                         check_condition_after = True
 
                 if not check_condition_after:
                     await self.check_conditions(conditions)
 
-            if self.interview_history.current_question_index > 0:
+            if self.interview_history.current_question_index:
                 if question.check_if_answered:
                     if await self.has_question_been_answered(question.main_question):
                         question.main_question = await self.reformulate_question(
@@ -811,6 +813,24 @@ class AInterviewer:
         )
         # TODO: Move sleep to frontend
         await asyncio.sleep(2.5)
+
+    def should_check_condition_after_question(self, condition: Condition):
+        if (
+            condition.question_context.section
+            == self.interview_history.current_section_index
+        ) and (
+            (
+                condition.question_context.question - 1
+                == self.interview_history.current_question_index
+            )
+            or (
+                condition.question_context.question == 0
+                and self.interview_history.current_question_index is None
+            )
+        ):
+            return True
+
+        return False
 
     async def check_conditions(self, conditions: Conditions) -> None:
         condition_contexts = [

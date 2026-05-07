@@ -47,11 +47,12 @@ class InterviewHistory(BaseModel):
         return max(len(self.sections) - 1, 0)
 
     @property
-    def current_question_index(self) -> int:
+    def current_question_index(self) -> int | None:
         try:
-            return max(len(self.current_section.questions) - 1, 0)
+            questions = self.current_section.questions
         except IndexError:
-            return 0
+            return None
+        return len(questions) - 1 if questions else None
 
     @property
     def current_probe_index(self) -> int:
