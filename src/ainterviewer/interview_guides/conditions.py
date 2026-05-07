@@ -77,7 +77,7 @@ class ConditionEvaluation(BaseModel):
         ConditionEvaluation(trigger_value="18", comparison_operator=">=")
     """
 
-    trigger_value: str = Field(
+    trigger_value: str | int | float = Field(
         description="The pattern to match or value to compare against"
     )
     comparison_operator: Literal["==", "<", "<=", ">", ">="] = Field(
@@ -156,7 +156,7 @@ class ConditionEvaluator:
             )
 
         results = await asyncio.gather(
-            *(self.classifier.classify(context, ev.trigger_value) for ev in evaluations)
+            *(self.classifier.classify(context, str(ev.trigger_value)) for ev in evaluations)
         )
 
         result = results[0]
@@ -215,7 +215,7 @@ def _evaluate_single(context: str, evaluation: ConditionEvaluation) -> bool:
     if evaluation.comparison_operator == "==":
         # Split by '|' for multi-select values, normalize case
         context_values = [v.strip().lower() for v in context.split("|")]
-        trigger = evaluation.trigger_value.strip().lower()
+        trigger = str(evaluation.trigger_value).strip().lower()
 
         return trigger in context_values
 
