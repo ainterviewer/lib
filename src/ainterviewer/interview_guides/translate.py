@@ -235,7 +235,7 @@ async def translate_interview_guide(
 
     Runs one LLM call for top-level messages and one call per section
     (description + all its questions) in parallel. Non-user-facing fields
-    (framing, configs, indices, variables, conditions) are left untouched;
+    (framing, configs, indices, conditions) are left untouched;
     framing is passed as context so translations stay consistent in tone.
     """
     translated = guide.model_copy(deep=True)

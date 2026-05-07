@@ -10,12 +10,16 @@ from __future__ import annotations
 import warnings
 from typing import Generic
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from ainterviewer.interview_guides.questions import Question, QuestionBase
 from ainterviewer.interview_guides.sections import Q, QuestionSection
 from ainterviewer.interview_guides.utils import shuffle_items
+from ainterviewer.interview_guides.variables import (
+    BUILTIN_VARIABLES,
+    extract_placeholders,
+)
 
 
 class InterviewGuideBase(BaseModel, Generic[Q]):
@@ -42,6 +46,59 @@ class InterviewGuideBase(BaseModel, Generic[Q]):
         None,
         description="Used if a condition results in an EndInterview, eg. from missing consent. Displayed to the interviewee as the last message they will see. They will not be able to answer this message.",
     )
+    extra_variables: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Names of variables (beyond the built-in project_id and interview_id) "
+            "that this guide expects to be supplied via referable_values at runtime. "
+            "Every {{ placeholder }} in user-facing templates must appear here or "
+            "be a built-in."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_template_placeholders(self):
+        allowed = BUILTIN_VARIABLES | set(self.extra_variables)
+        errors: list[str] = []
+
+        def check(label: str, text: str | None) -> None:
+            if not text:
+                return
+            unknown = extract_placeholders(text) - allowed
+            if unknown:
+                errors.append(f"{label}: unknown placeholder(s) {sorted(unknown)}")
+
+        intro = self.introduction
+        check(
+            "introduction",
+            intro.message if isinstance(intro, InterviewMessage) else intro,
+        )
+
+        outro = self.outro
+        check(
+            "outro",
+            outro.message if isinstance(outro, InterviewMessage) else outro,
+        )
+
+        check("alt_outro", self.alt_outro)
+
+        for tm in getattr(self, "timed_messages", None) or []:
+            check(f"timed_messages[time={tm.time}]", tm.message)
+
+        for s_idx, section in enumerate(self.question_sections):
+            for q_idx, question in enumerate(section.questions):
+                check(
+                    f"question_sections[{s_idx}].questions[{q_idx}].main_question",
+                    question.main_question,
+                )
+
+        if errors:
+            raise ValueError(
+                "Interview guide references undeclared variables. "
+                "Add them to `extra_variables` or fix the placeholder.\n  - "
+                + "\n  - ".join(errors)
+            )
+        return self
 
 
 class TimedMessage(BaseModel):
@@ -49,10 +106,6 @@ class TimedMessage(BaseModel):
 
     message: str = Field(description="The message to display")
 
-    variables: SkipJsonSchema[list[str] | None] = Field(
-        None,
-        description="Variables that can be used in the message, ie. uuid. In case they are supplied, they will be filled in before the message is displayed. The message should be formatted with Jinja2 style templating.",
-    )
     time: int = Field(
         description="The time in seconds to wait before displaying the message"
     )
@@ -68,12 +121,6 @@ class TimedMessage(BaseModel):
 
 class InterviewMessage(BaseModel):
     message: str
-    variables: SkipJsonSchema[list[str] | None] = Field(
-        None,
-        description="Variables that can be used in the question, ie. uuid",
-        # FIXME: Define a list of viable variables from the AInterviewer
-        # class that the user should be able to reference, i.e. UUID.
-    )
 
 
 class InterviewGuideTemplate(InterviewGuideBase[QuestionBase]):

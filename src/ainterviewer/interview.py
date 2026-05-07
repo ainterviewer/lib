@@ -105,6 +105,15 @@ class AInterviewer:
         self.project_id: UUID4 = project_id
         self.interview_id: UUID4 = interview_id
 
+        missing = set(interview_guide.extra_variables) - set(
+            (referable_values or {}).keys()
+        )
+        if missing:
+            raise ValueError(
+                f"Interview guide declares extra_variables {sorted(missing)} "
+                f"that were not provided in referable_values."
+            )
+
         self.referable_values = (referable_values or {}) | {
             "project_id": project_id,
             "interview_id": interview_id,
@@ -355,14 +364,12 @@ class AInterviewer:
         if self.interview_history.outro is None:
             if outro := self.interview_guide.outro:
                 if isinstance(outro, InterviewMessage):
-                    if outro.variables:
-                        outro.message = fill_variables_in_message(
-                            text=outro.message,
-                            variables=outro.variables,
-                            referable_values=self.referable_values,
-                        )
-
                     outro = outro.message
+
+                outro = fill_variables_in_message(
+                    text=outro,
+                    referable_values=self.referable_values,
+                )
 
                 message = await self.preprocess_message(outro)
 
@@ -433,14 +440,12 @@ class AInterviewer:
 
     async def handle_intro(self, intro: str | InterviewMessage):
         if isinstance(intro, InterviewMessage):
-            if intro.variables:
-                intro.message = fill_variables_in_message(
-                    text=intro.message,
-                    variables=intro.variables,
-                    referable_values=self.referable_values,
-                )
-
             intro = intro.message
+
+        intro = fill_variables_in_message(
+            text=intro,
+            referable_values=self.referable_values,
+        )
 
         message = await self.preprocess_message(intro)
 
@@ -662,12 +667,10 @@ class AInterviewer:
         #         question.alternative_main_questions + [question.main_question]
         #     )
 
-        if question.variables:
-            question.main_question = fill_variables_in_message(
-                text=question.main_question,
-                variables=question.variables,
-                referable_values=self.referable_values,
-            )
+        question.main_question = fill_variables_in_message(
+            text=question.main_question,
+            referable_values=self.referable_values,
+        )
 
         if image := question.image:
             if not image.data:
@@ -791,12 +794,10 @@ class AInterviewer:
         #   last session but this is not bullet proof, so should update to look
         #   for the timed_message in the db.
 
-        if timed_message.variables:
-            timed_message.message = fill_variables_in_message(
-                text=timed_message.message,
-                variables=timed_message.variables,
-                referable_values=self.referable_values,
-            )
+        timed_message.message = fill_variables_in_message(
+            text=timed_message.message,
+            referable_values=self.referable_values,
+        )
 
         timed_message_txt = await self.preprocess_message(timed_message.message)
 

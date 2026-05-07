@@ -73,10 +73,6 @@ class Question(QuestionBaseExtended):
         description="Exclude from the interview history. This means that the model will not use this question or the response as a context when it asks further questions.",
     )
 
-    variables: list[str] | None = Field(
-        None,
-        description="Variables that can be used in the question, ie. uuid. In case they are supplied, they will be filled in before the question is asked. The question should be formatted with Jinja2 style templating.",
-    )
     references: list[Reference] | None = None
     image: Image | None = None
     user_image: bool = Field(
