@@ -156,7 +156,10 @@ class ConditionEvaluator:
             )
 
         results = await asyncio.gather(
-            *(self.classifier.classify(context, str(ev.trigger_value)) for ev in evaluations)
+            *(
+                self.classifier.classify(context, str(ev.trigger_value))
+                for ev in evaluations
+            )
         )
 
         result = results[0]
