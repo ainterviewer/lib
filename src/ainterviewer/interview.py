@@ -105,15 +105,6 @@ class AInterviewer:
         self.project_id: UUID4 = project_id
         self.interview_id: UUID4 = interview_id
 
-        missing = set(interview_guide.extra_variables) - set(
-            (referable_values or {}).keys()
-        )
-        if missing:
-            raise ValueError(
-                f"Interview guide declares extra_variables {sorted(missing)} "
-                f"that were not provided in referable_values."
-            )
-
         self.referable_values = (referable_values or {}) | {
             "project_id": project_id,
             "interview_id": interview_id,
