@@ -10,6 +10,8 @@ Examples:
 [group("Release")]
 bump TYPE RC="": && publish
     #!/usr/bin/env bash
+    uv run prek -a
+
     set -euo pipefail
 
     if [ -z "{{ TYPE }}" ]; then
