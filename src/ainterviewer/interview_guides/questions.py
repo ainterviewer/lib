@@ -21,7 +21,7 @@ class QuestionBase(BaseModel):
         description="A list of possible follow-up questions to ask after the main question. If provided set max_probes_n or max_probes_time to greater than 0.",
     )
     max_probes_n: int | None = Field(
-        default=4, ge=0, description="Max number of probes."
+        default=3, ge=0, description="Max number of probes."
     )
     max_probes_time: float | None = Field(
         None, gt=0, description="Max time to spend on probing, in seconds."
