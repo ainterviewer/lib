@@ -9,6 +9,12 @@ from ainterviewer.interview_guides.questions import QuestionBase, QuestionBaseEx
 Q = TypeVar("Q", bound=QuestionBase)
 
 
+class GeneratedQuestions(BaseModel):
+    n: int = 0
+    max_probes_n: int | None = None
+    max_probes_time: int | None = None
+
+
 class QuestionSectionBase(BaseModel, Generic[Q]):
     description: str = Field(
         description="A description of the section, used as context for the prober to limit its scope."
@@ -23,7 +29,7 @@ class QuestionSection(QuestionSectionBase[Q], Generic[Q]):
         False,
         description="Should the section be included in shuffling?",
     )
-    ai_generated_questions: int = 0
+    ai_generated_questions: GeneratedQuestions = GeneratedQuestions()
 
 
 class QuestionSectionTemplate(QuestionSectionBase[QuestionBase]):

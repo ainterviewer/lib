@@ -545,7 +545,7 @@ class AInterviewer:
             for question in section.questions[initial_question_index:]:
                 await self.handle_question(question, section.description)
 
-            for _ in range(section.ai_generated_questions):
+            for _ in range(section.ai_generated_questions.n):
                 transcript = self.interview_history.get_transcript(
                     with_descriptions=True
                 )
@@ -553,9 +553,11 @@ class AInterviewer:
                 question = await self.guide_agent.generate_main_question(
                     interview_transcript=transcript,
                     interview_guide=self.interview_guide,
+                    max_probes_n=section.ai_generated_questions.max_probes_n,
+                    max_probes_time=section.ai_generated_questions.max_probes_time,
                 )
                 section.questions.append(question)
-                section.ai_generated_questions -= 1
+                section.ai_generated_questions.n -= 1
 
                 self.db.update_interview_guide(
                     self.project_id, self.interview_id, self.interview_guide

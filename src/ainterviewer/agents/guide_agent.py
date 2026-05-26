@@ -27,6 +27,8 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
         self,
         interview_transcript: str,
         interview_guide: InterviewGuide,
+        max_probes_n: int | None = None,
+        max_probes_time: int | None = None,
     ) -> Question:
         translation_lang = (
             get_language_dict(language_code=self.language)["name"]
@@ -48,6 +50,12 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
         self.logger.info(f"Main question generated: {base}")
 
         question = Question.model_validate(base.model_dump())
+
+        if max_probes_n is not None:
+            question.max_probes_n = max_probes_n
+
+        if max_probes_time is not None:
+            question.max_probes_n = max_probes_time
 
         return question
 

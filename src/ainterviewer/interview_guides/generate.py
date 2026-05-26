@@ -57,6 +57,11 @@ async def generate_section(
     guide: InterviewGuide,
 ) -> QuestionSection[Question]:
     """Generate a question section based on the QuestionSectionTemplate structure and an instruction."""
+
+    # TODO:
+    # - It should be possible to provide constraints to i.e. the number of
+    # questions generated and probably also total time spent.
+
     messages = [
         Message(
             role=MessageRole.SYSTEM,
@@ -92,6 +97,8 @@ async def generate_question(
     model: str,
     guide: InterviewGuide,
     section: QuestionSection[Question] | None = None,
+    max_probes_n: int | None = None,
+    max_probes_time: int | None = None,
 ) -> Question:
     """Generate a question based on the QuestionBase structure and an instruction."""
     messages = [
@@ -125,8 +132,10 @@ async def generate_question(
 
     question = Question.model_validate(base.model_dump())
 
+    if max_probes_n is not None:
+        question.max_probes_n = max_probes_n
+
+    if max_probes_time is not None:
+        question.max_probes_n = max_probes_time
+
     return question
-
-
-if __name__ == "__main__":
-    raise NotImplementedError("CLI not implemented because of async")
