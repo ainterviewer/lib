@@ -81,13 +81,13 @@ async def chat(
         chat_completion = await chat(
             model=model,
             extra_body={"provider": {"order": ["deepinfra"]}},
-            api_key=settings.secrets.openrouter_api_key.get_secret_value(),  # ty:ignore[unresolved-attribute]
+            api_key=settings.secrets.openrouter_api_key.get_secret_value(),
             reasoning_effort="low",
         )
     elif model.startswith("openai:"):
         chat_completion = await chat(
             model=model,
-            api_key=settings.secrets.openai_api_key.get_secret_value(),  # ty:ignore[unresolved-attribute]
+            api_key=settings.secrets.openai_api_key.get_secret_value(),
             reasoning_effort="none",
         )
     elif model.startswith("gemini:"):
@@ -99,7 +99,7 @@ async def chat(
         chat_completion = await chat(
             messages=messages,
             model=model,
-            api_key=settings.secrets.google_ai_api_key.get_secret_value(),  # ty:ignore[unresolved-attribute]
+            api_key=settings.secrets.google_ai_api_key.get_secret_value(),
         )
     else:
         server_endpoint = f"{settings.llm.llm_endpoint}/v1"
