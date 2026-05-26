@@ -108,9 +108,9 @@ class Question(QuestionBaseExtended):
     def check_optionals(self):
         # TODO:
         # Add more checks
-        if self.max_probes_n == 0 and self.max_probes_time is not None:
+        if self.max_probes_n == 0 and not self.max_probes_time:
             raise ValueError(
-                "Probing time specified, but max_probes is 0. Set max_probes to None (null) to only have time limit."
+                "Probing time specified, but max_probes_n is 0. Set max_probes_n to None (null) to only have time limit."
             )
 
         # TODO: Handle in frontend
