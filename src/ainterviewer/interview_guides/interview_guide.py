@@ -187,14 +187,3 @@ class InterviewGuide(InterviewGuideBase[Question]):
                 if question.can_answer:
                     question.max_probes_n = 1
                     question.max_probes_time = None
-
-
-if __name__ == "__main__":
-    from pathlib import Path
-
-    interview_guides = Path("data/interview_guides").glob("*.json")
-
-    for interview_guide in interview_guides:
-        print(f"Validating {interview_guide}")
-        with open(interview_guide) as f:
-            interview_guide = InterviewGuide.model_validate_json(f.read())
