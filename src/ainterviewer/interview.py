@@ -17,8 +17,9 @@ from ainterviewer.agents import (
     SecurityAgent,
     VisualAgent,
 )
+from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.agents.types import ProbingStrategy
-from ainterviewer.config import AgentConfigs, InterviewConfig
+from ainterviewer.config import InterviewConfig
 from ainterviewer.exceptions import (
     EndInterviewCondition,
     SkipProbesCondition,

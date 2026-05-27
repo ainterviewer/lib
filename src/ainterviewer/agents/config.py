@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ainterviewer.lpm.types import Temperature
 from ainterviewer.settings import settings
-
-CONFIG_FOLDER = Path(__file__).parent.parent.parent / "data" / "configs"
 
 
 class AgentConfigs(BaseModel):
@@ -58,24 +53,3 @@ class SecurityConfig(AgentConfig):
 class VisualConfig(AgentConfig):
     model: str = "llava"
     include: bool = False
-
-
-def read_agent_configs(path: Path | str) -> AgentConfigs:
-    with open(path) as f:
-        agents_config = yaml.safe_load(f)
-
-    if agents_config.get("base"):
-        base_config = agents_config.pop("base")
-
-        # Apply base config to all agents
-        for agent_name in AgentConfigs.model_fields:
-            if agent_name not in agents_config:
-                agents_config[agent_name] = base_config.copy()
-
-                # Exclude translation and security by default
-                if agent_name in ("translation", "security"):
-                    agents_config[agent_name]["include"] = False
-            else:
-                agents_config[agent_name] = {**base_config, **agents_config[agent_name]}
-
-    return AgentConfigs(**agents_config)
