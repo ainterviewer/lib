@@ -3,7 +3,7 @@ import json
 import re
 import time
 from datetime import datetime
-from typing import Any, Literal, Self
+from typing import Any, Self
 
 from jinja2 import BaseLoader
 from pydantic import UUID4
@@ -18,6 +18,7 @@ from ainterviewer.agents import (
     VisualAgent,
 )
 from ainterviewer.agents.config import AgentConfigs
+from ainterviewer.agents.reformulation_agent import ReformulationReason
 from ainterviewer.agents.types import ProbingStrategy
 from ainterviewer.config import InterviewConfig
 from ainterviewer.exceptions import (
@@ -1082,7 +1083,7 @@ class AInterviewer:
         self,
         question: Question,
         section_description: str,
-        reason: Literal["already_answered", "segue", "skipped"],
+        reason: ReformulationReason,
     ) -> str:
         start_time = time.time()
 
