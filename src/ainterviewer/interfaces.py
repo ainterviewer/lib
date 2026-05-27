@@ -78,12 +78,6 @@ class OutgoingData(BaseModel):
         return super().model_dump(**kwargs)
 
 
-# NOTE:
-# Currently IOProtocol and PersistenceProtocol are separated mainly due to need
-# for insert_task which is done based on logic other than receiving/sending
-# data
-
-
 class IOProtocol(Protocol):
     async def send_data(self, data: OutgoingData | OutgoingMessage) -> None: ...
 

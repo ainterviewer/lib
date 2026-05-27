@@ -654,8 +654,6 @@ class AInterviewer:
     async def ask_question(self, question: Question) -> str:
         """Asks the user a question and returns the answer"""
 
-        # https://s.epinionglobal.com/mrIWeb/mrIWeb.srf?I.Project=P2100211_TEST&i.user2=n&i.user5=complete&id=ID1
-
         # TODO: Reimplement
         # if question.alternative_main_questions:
         #     question.main_question = random.choice(
