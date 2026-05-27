@@ -15,6 +15,9 @@ class Welcome(BaseModel):
 
     @model_validator(mode="after")
     def validate_model(self):
+        # TODO:
+        # We should probably implement optional email so the validation below
+        # is actually correct
         if self.with_id and self.email is None:
             raise ValueError("email is required when with_id is True")
         return self
