@@ -738,7 +738,7 @@ class AInterviewer:
             else None
         )
 
-        # TODO: if the answer is a special token, should it then be added to
+        # TODO: when the answer is a special token, should it then be added to
         # the interview history?
 
         return answer
@@ -774,7 +774,7 @@ class AInterviewer:
 
         answer = await self.receive_data()
 
-        # TODO: if the answer is a special token, should it then be added to
+        # TODO: when the answer is a special token, should it then be added to
         # the interview history?
 
         return answer
@@ -786,6 +786,7 @@ class AInterviewer:
         #   Currently this is being handled by looking at the time spent in
         #   last session but this is not bullet proof, so should update to look
         #   for the timed_message in the db.
+        #   - Maybe give them and ID or index
 
         timed_message.message = fill_variables_in_message(
             text=timed_message.message,
