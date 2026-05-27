@@ -3,10 +3,8 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
 from enum import StrEnum
-from pathlib import Path
 from random import choice, randint, uniform
 from typing import Any, List
 
@@ -202,17 +200,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="This module help create synthetic subjects."
     )
-    parser.add_argument(
-        "--background-info",
-        type=Path,
-        default="data/background_info/en.json",
-        help="Path to the folder or file containing background info. If a folder is specified the language will determine the file, eg. `en.json`",
-    )
 
     parser.add_argument("--num-agents", type=int, default=10)
-    parser.add_argument(
-        "--extra-traits", type=Path, default="data/background_info/traits.json"
-    )
 
     return parser.parse_args()
 
@@ -220,16 +209,10 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    with open(args.background_info) as f:
-        _background_info_data = json.load(f)
+    synthetic_persons = generate_synthetic_persons(
+        DEFAULT_BACKGROUND_INFO_OPTIONS, args.num_agents
+    )
 
-    if args.extra_traits:
-        with open(args.extra_traits) as f:
-            _background_info_data["extra_traits"] = json.load(f)
-
-    background_info = BackgroundInfoOptions(**_background_info_data)
-
-    synthetic_persons = generate_synthetic_persons(background_info, args.num_agents)
     for person in synthetic_persons:
         print(person)
         person_dump = person.model_dump()
