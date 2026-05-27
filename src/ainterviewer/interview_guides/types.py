@@ -13,8 +13,6 @@ class ConditionAction(StrEnum):
     SKIP_PROBES = "skip_probes"
 
 
-class ContextType(StrEnum):
-    """Context to be upsed for probing"""
-
+class ProbingContext(StrEnum):
     SECTION = "section"
     QUESTION = "question"

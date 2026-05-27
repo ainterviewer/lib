@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ainterviewer.interview_guides.types import ProbingContext
 
 from typing import Any
 
@@ -131,6 +132,7 @@ class InterviewHistory(BaseModel):
     def get_transcript(
         self,
         section_range: SectionsRange = None,
+        probing_context: ProbingContext | None = None,
         with_introduction: bool = True,
         with_descriptions: bool = False,
         with_images: bool = True,
@@ -143,15 +145,23 @@ class InterviewHistory(BaseModel):
         if with_introduction and (introduction := self.introduction):
             transcript += "Q: " + introduction.message + "\n\n"
 
-        for section in sections:
-            transcript += (
-                section.transcribe(
-                    with_descriptions=with_descriptions,
-                    with_images=with_images,
-                    with_excludes=with_excludes,
+        if probing_context := probing_context:
+            match probing_context:
+                case ProbingContext.SECTION:
+                    transcript += self.current_section.transcribe() + "\n"
+                case ProbingContext.QUESTION:
+                    transcript += self.current_question.transcribe() + "\n"
+
+        else:
+            for section in sections:
+                transcript += (
+                    section.transcribe(
+                        with_descriptions=with_descriptions,
+                        with_images=with_images,
+                        with_excludes=with_excludes,
+                    )
+                    + "\n"
                 )
-                + "\n"
-            )
 
         if self.outro:
             transcript += self.outro.message + "\n\n"

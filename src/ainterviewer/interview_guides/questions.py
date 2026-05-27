@@ -5,7 +5,7 @@ from ainterviewer.interview_guides.exceptions import OverwriteError
 from ainterviewer.interview_guides.media import Image
 from ainterviewer.interview_guides.references import QuestionIndex, Reference
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.interview_guides.types import ContextType
+from ainterviewer.interview_guides.types import ProbingContext
 
 
 class QuestionBase(BaseModel):
@@ -80,7 +80,7 @@ class Question(QuestionBaseExtended):
         description="Whether the user should be able to upload an image as a response",
     )
     conditions: Conditions | None = None
-    probing_context: ContextType | None = None
+    probing_context: ProbingContext | None = None
 
     # Automatically generated in interview guide generation
     index: QuestionIndex | None = Field(

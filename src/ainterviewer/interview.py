@@ -53,7 +53,6 @@ from ainterviewer.interview_guides.history import (
 from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.interview_guides.types import ContextType
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType
 
@@ -909,15 +908,9 @@ class AInterviewer:
         self.probing_time = time.time()
 
         while await self.can_probe(question):
-            if probing_context := question.probing_context:
-                # TODO: Implement with new interview_history
-                match probing_context:
-                    case ContextType.QUESTION:
-                        ...
-                    case ContextType.SECTION:
-                        ...
-
-            transcript = self.interview_history.get_transcript()
+            transcript = self.interview_history.get_transcript(
+                probing_context=question.probing_context
+            )
 
             probe = await self.generate_probe(
                 section_description=section_description,
