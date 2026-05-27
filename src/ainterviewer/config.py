@@ -7,6 +7,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from ainterviewer.agents.config import AgentConfigs
+from ainterviewer.agents.types import ProbingStrategy
 from ainterviewer.types import LanguageCode
 
 CONFIG_FOLDER = Path(__file__).parent.parent.parent / "data" / "configs"
@@ -28,6 +29,10 @@ class InterviewConfig(BaseModel):
     with_audio: bool = Field(
         True,
         description="Allows the respondents to record their answers as audio messages which are transcribed before send as answers to the AInterviewer.",
+    )
+
+    probing_strategy: set[ProbingStrategy] = Field(
+        default_factory=lambda: {ProbingStrategy.STANDARD}
     )
 
 

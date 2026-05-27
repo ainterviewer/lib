@@ -10,6 +10,7 @@ from typing import Union
 
 from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 
+from ainterviewer.agents.types import DiceStrategy
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.questions import QuestionBase
 from ainterviewer.interview_guides.sections import QuestionSectionTemplate
@@ -132,16 +133,16 @@ class ProbingAgentPrompts(BasePrompts):
             few_shot_examples=few_shot_examples,
         )
 
-    STRATEGY_TEMPLATE_MAP: dict[str, str] = {
-        "descriptive": "probing_agent/descriptive_detail_prompt.jinja",
-        "idiographic": "probing_agent/idiographic_memory_prompt.jinja",
-        "clarifying": "probing_agent/clarifying_prompt.jinja",
-        "explanatory": "probing_agent/explanatory_prompt.jinja",
+    STRATEGY_TEMPLATE_MAP: dict[DiceStrategy, str] = {
+        DiceStrategy.DESCRIPTIVE: "probing_agent/descriptive_detail_prompt.jinja",
+        DiceStrategy.IDIOGRAPHIC: "probing_agent/idiographic_memory_prompt.jinja",
+        DiceStrategy.CLARIFYING: "probing_agent/clarifying_prompt.jinja",
+        DiceStrategy.EXPLANATORY: "probing_agent/explanatory_prompt.jinja",
     }
 
     def generate_specialized_probe_prompt(
         self,
-        strategy_name: str,
+        strategy_name: DiceStrategy,
         interview_framing: str,
         section_description: str,
         question_description: str,

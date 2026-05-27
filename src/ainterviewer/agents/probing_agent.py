@@ -1,10 +1,10 @@
 import asyncio
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
+from ainterviewer.agents.types import DiceStrategy
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
 from ainterviewer.utils import get_language_dict
@@ -13,9 +13,6 @@ from ainterviewer.utils import get_language_dict
 class SpecializedProbeType(BaseModel):
     event: bool = Field()
     emotion: bool = Field()
-
-
-DEFAULT_STRATEGIES = {"descriptive", "idiographic", "clarifying", "explanatory"}
 
 
 class DiceProbes(BaseModel):
@@ -61,21 +58,11 @@ DICE_SHORT_DESCRIPTION = (
 
 
 class DiceProbesSingle(DiceProbes):
-    probing_type: Literal["descriptive", "idiographic", "clarifying", "explanatory"] = (
-        Field(
-            ...,
-            description=DICE_SHORT_DESCRIPTION,
-        )
-    )
+    probing_type: DiceStrategy = Field(..., description=DICE_SHORT_DESCRIPTION)
 
 
 class DiceProbesMultiple(DiceProbes):
-    probing_types: set[
-        Literal["descriptive", "idiographic", "clarifying", "explanatory"]
-    ] = Field(
-        ...,
-        description=DICE_SHORT_DESCRIPTION,
-    )
+    probing_types: set[DiceStrategy] = Field(..., description=DICE_SHORT_DESCRIPTION)
 
 
 class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
@@ -138,7 +125,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
 
     async def _generate_specialized_probe(
         self,
-        strategy_name: str,
+        strategy_name: DiceStrategy,
         section_description: str,
         question_description: str,
         main_question: str,
@@ -225,7 +212,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         main_question: str,
         transcript: str,
         suggested_probes: str | None,
-        strategy_names: set[str] = DEFAULT_STRATEGIES,
+        strategy_names: set[DiceStrategy] | None = None,
     ) -> str:
         """All specialized agents generate probes concurrently, master picks the best.
 
@@ -234,18 +221,21 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             2. Master selects the best candidate.
         """
         # Step 1: All specialized agents generate probes concurrently
+        if strategy_names is None:
+            strategy_names = set(DiceStrategy)
+
         self.logger.info(f"Ensemble generating probes for strategies: {strategy_names}")
         candidate_probes = await asyncio.gather(
             *(
                 self._generate_specialized_probe(
-                    strategy_name=name,
+                    strategy_name=strategy,
                     section_description=section_description,
                     question_description=question_description,
                     main_question=main_question,
                     transcript=transcript,
                     suggested_probes=suggested_probes,
                 )
-                for name in strategy_names
+                for strategy in strategy_names
             )
         )
 
@@ -323,5 +313,5 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             main_question=main_question,
             transcript=transcript,
             suggested_probes=suggested_probes,
-            strategy_names=selected_strategies,  # ty: ignore[invalid-argument-type]
+            strategy_names=selected_strategies,
         )
