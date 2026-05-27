@@ -1,6 +1,3 @@
-# TODO:
-# - Should conditions refactored to be separate from questions?
-
 from __future__ import annotations
 
 import asyncio
