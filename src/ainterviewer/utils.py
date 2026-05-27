@@ -1,18 +1,12 @@
 import base64
-import inspect
-import logging
-import time
-from datetime import datetime, timedelta
-from functools import cache, wraps
+from datetime import datetime
+from functools import cache
 from pathlib import Path
-from typing import Any, Callable
-
-from requests.exceptions import RequestException
 
 from ainterviewer.constants import LANGUAGES
 from ainterviewer.lpm.types import Message
 from ainterviewer.settings import settings
-from ainterviewer.types import LanguageCode, LanguageDict, TimeDelta
+from ainterviewer.types import LanguageCode, LanguageDict
 
 
 def get_language_dict(
@@ -50,10 +44,6 @@ def now() -> datetime:
     return datetime.now(settings.tzinfo)
 
 
-def timedelta_to_dict(value: timedelta) -> dict[str, int]:
-    return TimeDelta.parse_timedelta(value).model_dump()
-
-
 @cache
 def encode_image(image_path: Path | str) -> str:
     """Reads a file and encodes it to Base64."""
@@ -84,36 +74,3 @@ def create_transcript(messages: list[Message], interviewee: bool = False) -> str
         ]
     )
     return transcript
-
-
-def get_function_signature_as_kwargs(
-    func: Callable, local_vars: dict[str, Any]
-) -> dict[str, Any]:
-    params = inspect.signature(func).parameters.keys()
-
-    params = {name: value for name, value in local_vars.items() if name in params}
-
-    return params
-
-
-def retry(max_retries: int = 3):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            for i in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except RequestException as e:
-                    if i < max_retries - 1:
-                        sleep_time = (1 + i) ** 2
-                        logging.warning(
-                            f"Calling {func.__name__} failed. Attempt {i + 1}. Retrying in {sleep_time} seconds..."
-                        )
-                        time.sleep(sleep_time)
-                    else:
-                        logging.error(f"All {max_retries} attempts failed.")
-                        raise e
-
-        return wrapper
-
-    return decorator
