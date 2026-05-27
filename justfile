@@ -50,3 +50,26 @@ publish:
     if [[ ! "$VERSION" =~ rc ]]; then
         git push -f origin latest-stable
     fi
+
+# Manually build artifacts and create the GitHub release (fallback for when CI is down).
+# Uses the gh CLI; run `gh auth status` first to confirm you're logged in.
+[group("Release")]
+publish-artifacts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    VERSION="$(uv version --short)"
+    TAG="v${VERSION}"
+
+    rm -rf dist
+    uv build
+
+    PRERELEASE=()
+    if [[ "$VERSION" =~ rc ]]; then
+        PRERELEASE=(--prerelease)
+    fi
+
+    gh release create "${TAG}" dist/*.whl dist/*.tar.gz \
+        --title "${TAG}" \
+        --generate-notes \
+        "${PRERELEASE[@]}"
