@@ -4,13 +4,19 @@ Please generate a new {{ interview_guide_component }} based on the following con
 
 ## Interview Guide
 {{ interview_guide }}
+{% if current_section %}
+## Current Section
+You are generating a main question for the following section. Make sure the question fits this section's purpose and does not duplicate questions already present in it.
 
+{{ current_section }}
+{% endif %}
 ## Transcript:
 {{ interview_transcript }}
 
 # Question instructions
 - Aim to elicit new information from the interviewee
-- Avoid repeating previous questions or topics already covered
+- Avoid repeating previous questions or topics already covered in previous sections
+- Avoid asking questions about topics that are part of the forthcoming sections
 - Focus on specific actions, events or experiences when relevant
 - Ask the respondent questions that allow them to draw on their expert knowledge
 - Seek enough detail to create a mental image of a moment or an experience

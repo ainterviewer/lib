@@ -27,6 +27,7 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
         self,
         interview_transcript: str,
         interview_guide: InterviewGuide,
+        section: QuestionSection[Question],
         max_probes_n: int | None = None,
         max_probes_time: int | None = None,
     ) -> Question:
@@ -39,6 +40,7 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
         probing_prompt = self.prompts.generate_question_prompt(
             interview_transcript=interview_transcript,
             interview_guide=interview_guide,
+            section=section,
             translation=translation_lang,
         )
 

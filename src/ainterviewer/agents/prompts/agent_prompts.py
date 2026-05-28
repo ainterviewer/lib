@@ -11,7 +11,8 @@ from typing import Union
 from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 
 from ainterviewer.agents.types import DiceStrategy
-from ainterviewer.interview_guides import InterviewGuide
+from ainterviewer.interview_guides import InterviewGuide, Question
+from ainterviewer.interview_guides.interview_guide import QuestionSection
 from ainterviewer.interview_guides.questions import QuestionBase
 from ainterviewer.interview_guides.sections import QuestionSectionTemplate
 from ainterviewer.synthesize.interviewees import (
@@ -249,12 +250,14 @@ class GuideAgentPrompts(BasePrompts):
         self,
         interview_transcript: str,
         interview_guide: InterviewGuide,
+        section: QuestionSection[Question],
         translation: str | None,
     ) -> str:
         return self.get_template("guide_agent/instruction_prompt.jinja").render(
             interview_guide_component="main question",
             interview_transcript=interview_transcript,
             interview_guide=interview_guide,
+            current_section=section,
             translation=translation,
             interview_guide_component_schema=QuestionBase.model_json_schema(),
         )

@@ -555,6 +555,7 @@ class AInterviewer:
                 question = await self.guide_agent.generate_main_question(
                     interview_transcript=transcript,
                     interview_guide=self.interview_guide,
+                    section=section,
                     max_probes_n=section.ai_generated_questions.max_probes_n,
                     max_probes_time=section.ai_generated_questions.max_probes_time,
                 )
