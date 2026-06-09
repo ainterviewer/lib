@@ -101,6 +101,14 @@ async def chat(
             model=model,
             api_key=settings.secrets.google_ai_api_key.get_secret_value(),
         )
+    elif model.startswith("alex:"):
+        chat_completion = await chat(
+            messages=messages,
+            model=model.replace("alex:", "openai:"),
+            api_key=settings.secrets.alex_api_key.get_secret_value(),
+            api_base="https://inference.alexandra.dk/v1",
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+        )
     else:
         server_endpoint = f"{settings.llm.llm_endpoint}/v1"
 

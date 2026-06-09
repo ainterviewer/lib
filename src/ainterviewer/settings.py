@@ -117,6 +117,7 @@ class Secrets(BaseSettings):
     google_ai_api_key: SecretStr = SecretStr("")
     openrouter_api_key: SecretStr = SecretStr("")
     vllm_api_key: SecretStr = SecretStr("")
+    alex_api_key: SecretStr = SecretStr("")
 
     model_config = BaseSettingsConfigDict(env_prefix="")
 
