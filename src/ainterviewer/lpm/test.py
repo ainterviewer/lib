@@ -1,26 +1,26 @@
-from openai import OpenAI
+import os
 
-base_url = "http://13.50.163.140:8880/v1"
+from any_llm import completion
+from dotenv import load_dotenv
 
-client = OpenAI(base_url=base_url, api_key="")
+load_dotenv()
 
-completion = client.chat.completions.create(
-    model="google/gemma-3-27b-it",
+api_key = os.getenv("ALEX_API_KEY")
+
+print(api_key)
+
+response = completion(
+    model="openai:qwen3.5-397b",
+    api_key=api_key,
+    api_base="https://inference.alexandra.dk/v1",
     messages=[
-        {"role": "system", "content": "You are a helpfull assistant."},
+        {"role": "system", "content": "Du er en hjælpsommelig assistent"},
         {
             "role": "user",
-            "content": "respond in 20 words. who are you?",
+            "content": "svar med 20 ord. Hvordan går det?",
         },
     ],
+    extra_body={"chat_template_kwargs": {"enable_thinking": False}},
 )
 
-print(completion.choices[0].message.content)
-
-
-# response = completion(
-#     model="hosted_vllm/google/gemma-3-27b-it",
-#     messages=[{"content": "respond in 20 words. who are you?", "role": "user"}],
-#     api_base=base_url,
-#     n=2,
-# )
+print(response)
