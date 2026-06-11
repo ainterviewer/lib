@@ -12,7 +12,7 @@ MediaType = Literal["audio", "image", "video"]
 class MediaModel(BaseModel):
     type: MediaType
     name: str = Field(description="The filename")
-    data: str | bytes | None = Field(repr=False)
+    data: str | None = Field(repr=False)
 
     def encode(self, project_id: UUID4):
         self.data = encode_image(
