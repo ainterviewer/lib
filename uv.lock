@@ -199,7 +199,7 @@ dev = [
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "pytest", specifier = ">=8.4.0" },
     { name = "ruff", specifier = ">=0.11.12" },
-    { name = "ty", specifier = ">=0.0.32" },
+    { name = "ty", specifier = ">=0.0.41" },
 ]
 
 [[package]]
