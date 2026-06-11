@@ -47,6 +47,7 @@ class TranslationDirection(StrEnum):
 class MessageType(StrEnum):
     TEXT = "text"
     IMAGE = "image"
+    AUDIO = "audio"
     CUSTOM_TOKEN = "custom_token"
     SURVEY_ITEM = "survey_item"
 

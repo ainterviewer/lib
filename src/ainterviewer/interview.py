@@ -206,7 +206,7 @@ class AInterviewer:
     async def receive_data(
         self, message_type_to_receive: MessageType | None = None
     ) -> str:
-        text, message_type_received = await self.io.receive_message(
+        text, message_type_received, audio_file = await self.io.receive_message(
             message_id=self.interview_history.current_message_id + 1,
             message_type=message_type_to_receive,
         )
@@ -224,6 +224,7 @@ class AInterviewer:
             message_id=self.interview_history.current_message_id + 1,
             content=processed_text,
             message_type=message_type_received,
+            audio_file=audio_file,
             role=MessageRole.USER,
             section=self.interview_history.current_section_index,
             main_question=self.interview_history.current_question_index,

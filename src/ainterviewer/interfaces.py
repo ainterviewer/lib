@@ -85,7 +85,11 @@ class IOProtocol(Protocol):
         self,
         message_id: int,
         message_type: MessageType | None = None,
-    ) -> tuple[str, MessageType]: ...
+    ) -> tuple[str, MessageType, str | None]:
+        """Returns the message text, its type, and the filename of the media
+        asset backing it (e.g. the audio recording a transcript came from),
+        if any."""
+        ...
 
 
 class PersistenceProtocol(Protocol):
@@ -115,6 +119,7 @@ class PersistenceProtocol(Protocol):
         can_answer: bool = True,
         include_in_history: bool = True,
         attachment: Path | None = None,
+        audio_file: str | None = None,
         survey_item: SurveyItem | None = None,
         image: Image | list[Image] | None = None,
         section: int | None = None,
