@@ -608,19 +608,7 @@ class AInterviewer:
             answer = await self.ask_question(question)
 
             if answer == CustomToken.skip_question:
-                # TODO:
-                # Should skipping main question reformulate it or send
-                # it to next main question?
-
-                reformulated_question = await self.reformulate_question(
-                    question=question,
-                    section_description=section_description,
-                    reason="skipped",
-                )
-                answer = await self.ask_probe(question, reformulated_question)
-
-                if answer == CustomToken.skip_question:
-                    return
+                return
             elif answer == CustomToken.no_answer:
                 await asyncio.sleep(2.5)
                 return
