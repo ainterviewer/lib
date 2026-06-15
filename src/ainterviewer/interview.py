@@ -915,7 +915,8 @@ class AInterviewer:
             answer = await self.ask_probe(question, probe)
 
             if answer == CustomToken.skip_question:
-                # NOTE: skipping a probe skips the main question
+                # NOTE: skipping a probe moves the interview to the next main
+                # question
                 raise SkipQuestionException
 
     async def generate_probe(
