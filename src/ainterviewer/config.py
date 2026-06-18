@@ -20,7 +20,7 @@ class InterviewConfig(BaseModel):
         description="Whether to show a welcome message before starting the interview",
     )
     with_audio: bool = Field(
-        True,
+        False,
         description="Allows the respondents to record their answers as audio messages which are transcribed before send as answers to the AInterviewer.",
     )
 
