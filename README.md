@@ -1,3 +1,3 @@
 # AInterviewer
 
-Core library for conducting **semi-structured AI-led interviews**.
+Core python library for conducting **AI-led interviews**.
