@@ -5,6 +5,8 @@ description = "Python framework for creating automated interviews with the use o
 readme = "README.md"
 authors = [{ name = "Tobias Gårdhus", email = "tpg@sodas.ku.dk" }]
 requires-python = ">=3.12.0"
+license = "AGPL-3.0-only"
+license_files = ["LICENSE"]
 
 dependencies = [
   "any-llm-sdk[gemini,openai,openrouter,vllm]>=1.13.0",
