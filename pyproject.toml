@@ -81,16 +81,6 @@ known-third-party = ["alembic"]
 [tool.marimo.runtime]
 watcher_on_save = "autorun"
 
-[tool.setuptools]
-package-dir = { "" = "src" }
-include-package-data = true
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-"ainterviewer" = ["agents/prompts/templates/**/*.jinja"]
-
 [build-system]
-requires = ["setuptools>=75", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
