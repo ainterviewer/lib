@@ -55,8 +55,6 @@ dev = [
   "djlint>=1.36.4",
   "inquirer>=3.4.0",
   "ipykernel>=6.29.5",
-  "locust>=2.37.7",
-  "locust-plugins[websocket]>=4.7.0",
   "playwright>=1.52.0",
   "prek>=0.4.4",
   "psycopg2-binary>=2.9.10",
@@ -64,10 +62,6 @@ dev = [
   "ruff>=0.15",
   "ty>=0.0.41",
 ]
-
-[tool.locust]
-locustfile = "scripts/locust_file.py"
-host = "http://localhost:8666"
 
 [tool.djlint]
 profile = "jinja"
