@@ -3,6 +3,7 @@ import asyncio
 from pydantic import BaseModel, Field
 
 from ainterviewer.agents.base import BaseAgent
+from ainterviewer.agents.config import ProbingPromptSlots
 from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
 from ainterviewer.agents.types import DiceStrategy
 from ainterviewer.lpm.types import Message
@@ -71,11 +72,14 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         language: LanguageCode,
         interview_framing: str,
         few_shot_examples: list[str] | None = None,
+        prompt_slots: ProbingPromptSlots | None = None,
         *args,
         **kwargs,
     ):
         """An agent that probes an interviewee based on an interview an interview guide and the answers."""
-        super().__init__(language=language, *args, **kwargs)  # ty:ignore[parameter-already-assigned]
+        # prompt_slots is forwarded through BaseAgent to ProbingAgentPrompts, which
+        # uses it to render the (customizable) system and instruction prompts.
+        super().__init__(language=language, prompt_slots=prompt_slots, *args, **kwargs)  # ty:ignore[parameter-already-assigned]
 
         self.interview_framing = interview_framing
         self.few_shot_examples = few_shot_examples

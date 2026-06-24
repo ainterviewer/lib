@@ -10,6 +10,7 @@ from typing import Union
 
 from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 
+from ainterviewer.agents.config import ProbingPromptSlots
 from ainterviewer.agents.types import DiceStrategy
 from ainterviewer.interview_guides import InterviewGuide, Question
 from ainterviewer.interview_guides.interview_guide import QuestionSection
@@ -106,11 +107,23 @@ class AnsweringAgentPrompts(BasePrompts):
 
 
 class ProbingAgentPrompts(BasePrompts):
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        *args,
+        prompt_slots: ProbingPromptSlots | None = None,
+        **kwargs,
+    ):
+        # Resolve before super().__init__, since BasePrompts.__init__ renders the
+        # system prompt (which reads these slots) during construction.
+        self.prompt_slots = (prompt_slots or ProbingPromptSlots()).resolved()
         super().__init__(*args, **kwargs)
 
     def generate_system_prompt(self) -> str:
-        return self.get_template("probing_agent/system_prompt.jinja").render()
+        return self.get_template("probing_agent/system_prompt.jinja").render(
+            persona=self.prompt_slots.persona,
+            question_qualities=self.prompt_slots.question_qualities,
+            guidelines=self.prompt_slots.guidelines,
+        )
 
     def generate_probing_prompt(
         self,
@@ -132,6 +145,7 @@ class ProbingAgentPrompts(BasePrompts):
             suggested_probes=suggested_probes,
             translation=translation,
             few_shot_examples=few_shot_examples,
+            instructions=self.prompt_slots.instructions,
         )
 
     STRATEGY_TEMPLATE_MAP: dict[DiceStrategy, str] = {

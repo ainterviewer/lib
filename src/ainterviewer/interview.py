@@ -119,6 +119,7 @@ class AInterviewer:
         self.probing_agent: ProbingAgent = ProbingAgent(
             interview_framing=interview_guide.framing,
             few_shot_examples=agent_configs.probing.few_shot_examples,
+            prompt_slots=agent_configs.probing.prompt_slots,
             template_loader=template_loader,
             model=agent_configs.probing.model,
             language=language,
