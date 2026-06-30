@@ -10,6 +10,7 @@ from ainterviewer.interview_guides.interview_guide import (
 )
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.questions import Question
+from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import (
     CheckboxItem,
     DateItem,
@@ -35,6 +36,7 @@ __all__ = [
     "InterviewMessage",
     "NumberItem",
     "Question",
+    "QuestionSection",
     "RadioItem",
     "SliderItem",
     "SurveyItem",
