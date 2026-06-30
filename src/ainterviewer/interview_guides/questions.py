@@ -34,6 +34,8 @@ class QuestionBaseExtended(QuestionBase):
     # NOTE: We currently avoid doing this during the interview so the
     # interviewee doesn't get stuck because the last message has
     # can_answer=False
+    # WARNING: The above concern should probably be validated when the
+    # interview guide is saved
     # TODO: Consider flipping to cant_answer instead
     can_answer: bool = Field(
         True,
@@ -50,7 +52,7 @@ class Question(QuestionBaseExtended):
     )
 
     check_if_answered: bool = Field(
-        True,
+        False,
         description="Check if the question has already been answered under a previous question",
     )
     check_if_exhausted: bool = Field(
@@ -61,11 +63,11 @@ class Question(QuestionBaseExtended):
         True, description="Should the user be able to skip the question?"
     )
     shuffle: bool = Field(
-        True,
+        False,
         description="Should the question be shuffled?",
     )
     create_segue: bool = Field(
-        True,
+        False,
         description="Create a segue from the previous question, to possibly improve the flow of the interview.",
     )
     exclude_from_history: bool = Field(
