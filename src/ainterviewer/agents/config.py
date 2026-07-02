@@ -16,9 +16,9 @@ class AgentConfigs(BaseModel):
     guide: AgentConfig = Field(default_factory=lambda: AgentConfig())
     history: AgentConfig = Field(default_factory=lambda: AgentConfig())
     security: SecurityConfig = Field(default_factory=lambda: SecurityConfig())
-    visual: VisualConfig = Field(default_factory=lambda: VisualConfig())
     answering: AgentConfig = Field(default_factory=lambda: AgentConfig())
     reformulation: AgentConfig = Field(default_factory=lambda: AgentConfig())
+    visual: VisualConfig = Field(default_factory=lambda: VisualConfig())
 
 
 class AgentConfig(BaseModel):
