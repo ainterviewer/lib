@@ -37,11 +37,23 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Full history + tags: git-cliff diffs this tag against the previous one.
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v7
       - run: uv build
+
+      - name: Generate release notes
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          version: v2.13.1
+          args: --latest --strip header
+
       - uses: softprops/action-gh-release@v3
         with:
+          body_path: ${{ steps.cliff.outputs.changelog }}
           files: |
             dist/*.whl
             dist/*.tar.gz

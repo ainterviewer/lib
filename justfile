@@ -27,6 +27,11 @@ bump TYPE RC="": && publish
         uv version --bump {{ TYPE }}
     fi
 
+# Install this clone's git hooks (pre-commit + commit-msg).
+[group("Release")]
+install-hooks:
+    uv run prek install
+
 [private]
 publish:
     #!/usr/bin/env bash
@@ -35,9 +40,12 @@ publish:
     VERSION="$(uv version --short)"
 
     uv sync
+    # Prepend this release's section; --prepend needs the file to exist.
+    touch CHANGELOG.md
+    uvx git-cliff@2.13.1 --unreleased --tag "v${VERSION}" --prepend CHANGELOG.md
     git add .
-    git commit -m "Release v${VERSION}"
-    git tag -a "v${VERSION}" -m "Release v${VERSION}"
+    git commit -m "chore(release): v${VERSION}"
+    git tag -a "v${VERSION}" -m "v${VERSION}"
 
     # If VERSION does NOT end with "rc"
     if [[ ! "$VERSION" =~ rc ]]; then
@@ -69,7 +77,12 @@ publish-artifacts:
         PRERELEASE=(--prerelease)
     fi
 
+    # Same notes CI would have produced, so the release body is identical either way.
+    NOTES="$(mktemp)"
+    trap 'rm -f "${NOTES}"' EXIT
+    uvx git-cliff@2.13.1 --latest --strip header > "${NOTES}"
+
     gh release create "${TAG}" dist/*.whl dist/*.tar.gz \
         --title "${TAG}" \
-        --generate-notes \
+        --notes-file "${NOTES}" \
         "${PRERELEASE[@]}"
