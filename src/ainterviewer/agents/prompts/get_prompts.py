@@ -13,6 +13,10 @@ from ainterviewer.types import LanguageCode
 # of supported interview languages: the agents always render the English templates and
 # are told which language to speak through the `translation` prompt variable
 # (see `BasePrompts.translation`), so any code in `LANGUAGE_CODES` works.
+#
+# Nothing reads this today. It is kept for a future reintroduction of per-language
+# template directories, which would need to fall back to `EN` for any language without
+# its own directory.
 PROMPT_LANGS = [path.name for path in Path(__file__).parent.glob("templates/*/")]
 
 
