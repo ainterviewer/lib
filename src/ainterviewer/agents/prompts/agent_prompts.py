@@ -296,6 +296,10 @@ class GuideAgentPrompts(BasePrompts):
             interview_guide_component="question section",
             interview_transcript=interview_transcript,
             interview_guide=interview_guide,
+            # A whole section is being generated, so there is no current one. The
+            # template is shared with `generate_question_prompt` and renders under
+            # StrictUndefined, so this must be passed explicitly.
+            current_section=None,
             translation=translation,
             interview_guide_component_schema=QuestionSectionTemplate.model_json_schema(),
         )
