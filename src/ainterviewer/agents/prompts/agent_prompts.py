@@ -21,6 +21,7 @@ from ainterviewer.synthesize.interviewees import (
     InterviewSubject,
 )
 from ainterviewer.types import LanguageCode
+from ainterviewer.utils import get_language_dict
 
 
 class BasePrompts(ABC):
@@ -36,6 +37,13 @@ class BasePrompts(ABC):
                 "ainterviewer.agents.prompts.templates",
                 "EN",  # lang
             )
+
+        self.lang: LanguageCode = lang
+        # The templates are written in English, so `translation` is the name of the
+        # language the agent must actually speak -- `None` when that is English.
+        self.translation: str | None = (
+            get_language_dict(language_code=lang)["name"] if lang != "EN" else None
+        )
 
         self.env = Environment(loader=template_loader, undefined=StrictUndefined)
         self.system_prompt = self.generate_system_prompt()
@@ -84,14 +92,15 @@ class AnsweringAgentPrompts(BasePrompts):
         system_prompt_template = self.get_template(
             "answering_agent/system_prompt.jinja"
         )
-        return system_prompt_template.render()
+        return system_prompt_template.render(translation=self.translation)
 
     def generate_answering_prompt(
         self,
         transcript,
         question,
         additional_instructions: str | None = None,
-        translation: LanguageCode | None = None,
+        translation: str | None = None,
+        response_schema: dict | None = None,
     ) -> str:
         answering_prompt_template = self.get_template(
             "answering_agent/instruction_prompt.jinja"
@@ -103,6 +112,7 @@ class AnsweringAgentPrompts(BasePrompts):
             question=question,
             additional_instructions=additional_instructions,
             translation=translation,
+            response_schema=response_schema,
         )
 
 

@@ -1,4 +1,4 @@
-# Interviewee information 
+# Interviewee information
 {{ interviewee_information }}
 
 # Transcript:
@@ -13,8 +13,18 @@ Question: {{ question }}
 - The answer should be formulated in a way that fits your description.
 - Answers should be in the style of an interview
 - Reply only with your answer to the question
-{% if translation %}
-The interview will be conducted in {{ translation }}. Please ensure that your answers are translated into the appropriate language.
+{% if additional_instructions %}
+{{ additional_instructions }}
+{% endif %}
+{% if response_schema %}
+IMPORTANT: Follow the following json schema:
 
-You should only respond with the translated answer without any commentary.
+```
+{{ response_schema }}
+```
+{% endif %}
+{% if translation %}
+IMPORTANT: This interview is conducted in {{ translation }}. You are a native {{ translation }} speaker and you must write your answer entirely in {{ translation }}, no matter which language these instructions, the question, or the transcript are written in. Do not answer in English and do not mix languages.
+
+Respond only with your answer in {{ translation }}, without any commentary or translation of it.
 {% endif %}

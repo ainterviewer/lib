@@ -188,3 +188,5 @@ LANGUAGES: list[LanguageDict] = [
 ]
 
 LANGUAGES = sorted(LANGUAGES, key=lambda x: x["name"])
+
+LANGUAGE_CODES: frozenset[str] = frozenset(language["code"] for language in LANGUAGES)

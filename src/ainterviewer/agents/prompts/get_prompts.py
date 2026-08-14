@@ -5,9 +5,14 @@ from jinja2 import BaseLoader, Environment, PackageLoader, select_autoescape
 
 from ainterviewer.agents.prompts import agent_prompts
 from ainterviewer.agents.prompts.agent_prompts import BasePrompts
+from ainterviewer.constants import LANGUAGE_CODES
 from ainterviewer.exceptions import LanguageNotSupportedError
 from ainterviewer.types import LanguageCode
 
+# The languages that have their own prompt template directory. This is *not* the set
+# of supported interview languages: the agents always render the English templates and
+# are told which language to speak through the `translation` prompt variable
+# (see `BasePrompts.translation`), so any code in `LANGUAGE_CODES` works.
 PROMPT_LANGS = [path.name for path in Path(__file__).parent.glob("templates/*/")]
 
 
@@ -40,7 +45,9 @@ def get_agent_prompts(
     template_loader: BaseLoader | None = None,
     **kwargs,
 ) -> T:
-    if lang not in PROMPT_LANGS:
+    lang = lang.upper()
+
+    if lang not in LANGUAGE_CODES:
         raise LanguageNotSupportedError(f"Language {lang} not supported.")
 
     # Dynamically access the correct class from the module

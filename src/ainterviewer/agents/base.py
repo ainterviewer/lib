@@ -27,6 +27,10 @@ class BaseAgent(ABC, Generic[PromptT]):
         *args,
         **kwargs,
     ):
+        # Normalise up front so that `self.language` and the prompts agree, and so
+        # that a lowercase code (e.g. straight off a cookie) still resolves.
+        language = language.upper()
+
         self.prompts: PromptT = get_agent_prompts(
             self.__class__.__name__,
             lang=language,

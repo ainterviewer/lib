@@ -4,6 +4,7 @@ from functools import cache
 from pathlib import Path
 
 from ainterviewer.constants import LANGUAGES
+from ainterviewer.exceptions import LanguageNotSupportedError
 from ainterviewer.lpm.types import Message
 from ainterviewer.settings import settings
 from ainterviewer.types import LanguageCode, LanguageDict
@@ -13,9 +14,16 @@ def get_language_dict(
     language_code: LanguageCode | None, name: str | None = None
 ) -> LanguageDict:
     if language_code is not None:
-        return next(filter(lambda lang: lang["code"] == language_code, LANGUAGES))
+        code = language_code.upper()
+        try:
+            return next(filter(lambda lang: lang["code"] == code, LANGUAGES))
+        except StopIteration:
+            raise LanguageNotSupportedError(f"Language {language_code} not supported.")
     if name is not None:
-        return next(filter(lambda lang: lang["name"] == name, LANGUAGES))
+        try:
+            return next(filter(lambda lang: lang["name"] == name, LANGUAGES))
+        except StopIteration:
+            raise LanguageNotSupportedError(f"Language {name} not supported.")
 
     raise ValueError("Either language_code or name must be provided.")
 

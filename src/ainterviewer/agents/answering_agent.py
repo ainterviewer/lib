@@ -52,11 +52,18 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
                 else:
                     additional_instructions = refusal_instruction
 
+        SurveyAnswerModel = (
+            create_survey_answer_model(survey_item) if survey_item else None
+        )
+
         answering_prompt = self.prompts.generate_answering_prompt(
             transcript=transcript,
             question=question,
             additional_instructions=additional_instructions,
-            translation=self.language if self.language != "EN" else None,
+            translation=self.prompts.translation,
+            response_schema=(
+                SurveyAnswerModel.model_json_schema() if SurveyAnswerModel else None
+            ),
         )
 
         messages: list[Message] = [
@@ -64,15 +71,7 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
             {"role": MessageRole.USER, "content": answering_prompt},
         ]
 
-        if survey_item:
-            SurveyAnswerModel = create_survey_answer_model(survey_item)
-
-            # Providing the json schema as a part of the message
-            # greatly improves compliance/performance
-            messages[-1]["content"] += (
-                f"\nIMPORTANT: Follow the following json schema:\n\n```\n{SurveyAnswerModel.model_json_schema()}\n```"
-            )
-
+        if SurveyAnswerModel:
             response = await self.chat_api(messages, response_format=SurveyAnswerModel)  # ty:ignore[no-matching-overload]
 
             if isinstance(response.answer, str):
