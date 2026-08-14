@@ -5,6 +5,7 @@ They are not supposed to be imported directly,
     but through the `ainterviewer.agents.prompts.get_prompts` module.
 """
 
+import json
 from abc import ABC, abstractmethod
 from typing import Union
 
@@ -46,6 +47,9 @@ class BasePrompts(ABC):
         )
 
         self.env = Environment(loader=template_loader, undefined=StrictUndefined)
+        # Jinja's built-in `tojson` escapes `<`, `>`, `&` and `'` for HTML safety, which
+        # mangles schema descriptions; these prompts are never HTML, so dump plainly.
+        self.env.filters["json"] = lambda value: json.dumps(value, indent=2)
         self.system_prompt = self.generate_system_prompt()
 
     def get_template(self, template_name: str) -> Template:

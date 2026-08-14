@@ -20,7 +20,7 @@ Question: {{ question }}
 IMPORTANT: Follow the following json schema:
 
 ```
-{{ response_schema }}
+{{ response_schema | json }}
 ```
 {% endif %}
 {% if translation %}
