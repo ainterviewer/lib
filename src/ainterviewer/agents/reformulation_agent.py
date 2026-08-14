@@ -4,7 +4,6 @@ from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.prompts.agent_prompts import ReformulationAgentPrompts
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
-from ainterviewer.utils import get_language_dict
 
 ReformulationReason = Literal["already_answered", "segue", "skipped"]
 
@@ -39,18 +38,11 @@ class ReformulationAgent(BaseAgent[ReformulationAgentPrompts]):
         if additional_guidelines is None:
             additional_guidelines = []
 
-        translation_lang = (
-            get_language_dict(language_code=self.language)["name"]
-            if self.language != "EN"
-            else None
-        )
-
         reformulation_prompt = self.prompts.generate_reformulation_prompt(
             interview_transcript=interview_transcript,
             probing_context=probing_context,
             question=question,
             reason=self.reformulation_reasons[reason],
-            translation=translation_lang,
             additional_guidelines=additional_guidelines,
         )
 

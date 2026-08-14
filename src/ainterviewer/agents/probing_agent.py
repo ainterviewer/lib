@@ -8,7 +8,6 @@ from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
 from ainterviewer.agents.types import DiceStrategy
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
-from ainterviewer.utils import get_language_dict
 
 
 class SpecializedProbeType(BaseModel):
@@ -98,12 +97,6 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         transcript: str,
         suggested_probes: str | None,
     ) -> str:
-        translation_lang = (
-            get_language_dict(language_code=self.language)["name"]
-            if self.language != "EN"
-            else None
-        )
-
         probing_prompt = self.prompts.generate_probing_prompt(
             interview_framing=self.interview_framing,
             section_description=section_description,
@@ -111,7 +104,6 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             main_question=main_question,
             interview_transcript=transcript,
             suggested_probes=suggested_probes,
-            translation=translation_lang,
             few_shot_examples=self.few_shot_examples,
         )
 
@@ -140,12 +132,6 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
 
         Returns a dict with 'strategy' and 'question' keys.
         """
-        translation_lang = (
-            get_language_dict(language_code=self.language)["name"]
-            if self.language != "EN"
-            else None
-        )
-
         probing_prompt = self.prompts.generate_specialized_probe_prompt(
             strategy_name=strategy_name,
             interview_framing=self.interview_framing,
@@ -154,7 +140,6 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             main_question=main_question,
             interview_transcript=transcript,
             suggested_probes=suggested_probes,
-            translation=translation_lang,
             few_shot_examples=self.few_shot_examples,
         )
 
@@ -244,12 +229,6 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         )
 
         # Step 2: Master selects the best candidate
-        translation_lang = (
-            get_language_dict(language_code=self.language)["name"]
-            if self.language != "EN"
-            else None
-        )
-
         master_prompt = self.prompts.generate_ensemble_to_master_prompt(
             interview_framing=self.interview_framing,
             section_description=section_description,
@@ -258,7 +237,6 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             interview_transcript=transcript,
             suggested_probes=suggested_probes,
             candidate_probes=list(candidate_probes),
-            translation=translation_lang,
             few_shot_examples=self.few_shot_examples,
         )
 

@@ -60,7 +60,6 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
             transcript=transcript,
             question=question,
             additional_instructions=additional_instructions,
-            translation=self.prompts.translation,
             response_schema=(
                 SurveyAnswerModel.model_json_schema() if SurveyAnswerModel else None
             ),

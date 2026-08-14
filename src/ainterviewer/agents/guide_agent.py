@@ -6,7 +6,6 @@ from ainterviewer.interview_guides.questions import QuestionBase
 from ainterviewer.interview_guides.sections import QuestionSectionTemplate
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
-from ainterviewer.utils import get_language_dict
 
 
 class GuideAgent(BaseAgent[GuideAgentPrompts]):
@@ -31,17 +30,10 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
         max_probes_n: int | None = None,
         max_probes_time: int | None = None,
     ) -> Question:
-        translation_lang = (
-            get_language_dict(language_code=self.language)["name"]
-            if self.language != "EN"
-            else None
-        )
-
         probing_prompt = self.prompts.generate_question_prompt(
             interview_transcript=interview_transcript,
             interview_guide=interview_guide,
             section=section,
-            translation=translation_lang,
         )
 
         messages: list[Message] = self.messages + [
@@ -66,16 +58,9 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
         interview_transcript: str,
         interview_guide: InterviewGuide,
     ) -> QuestionSection[Question]:
-        translation_lang = (
-            get_language_dict(language_code=self.language)["name"]
-            if self.language != "EN"
-            else None
-        )
-
         probing_prompt = self.prompts.generate_section_prompt(
             interview_transcript=interview_transcript,
             interview_guide=interview_guide,
-            translation=translation_lang,
         )
 
         messages: list[Message] = self.messages + [

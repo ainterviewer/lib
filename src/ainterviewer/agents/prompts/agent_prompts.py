@@ -99,7 +99,6 @@ class AnsweringAgentPrompts(BasePrompts):
         transcript,
         question,
         additional_instructions: str | None = None,
-        translation: str | None = None,
         response_schema: dict | None = None,
     ) -> str:
         answering_prompt_template = self.get_template(
@@ -111,7 +110,7 @@ class AnsweringAgentPrompts(BasePrompts):
             transcript=transcript,
             question=question,
             additional_instructions=additional_instructions,
-            translation=translation,
+            translation=self.translation,
             response_schema=response_schema,
         )
 
@@ -143,7 +142,6 @@ class ProbingAgentPrompts(BasePrompts):
         main_question: str,
         interview_transcript: str,
         suggested_probes: str | None,
-        translation: str | None,
         few_shot_examples: list[str] | None = None,
     ) -> str:
         return self.get_template("probing_agent/instruction_prompt.jinja").render(
@@ -153,7 +151,7 @@ class ProbingAgentPrompts(BasePrompts):
             main_question=main_question,
             interview_transcript=interview_transcript,
             suggested_probes=suggested_probes,
-            translation=translation,
+            translation=self.translation,
             few_shot_examples=few_shot_examples,
             instructions=self.prompt_slots.instructions,
         )
@@ -174,7 +172,6 @@ class ProbingAgentPrompts(BasePrompts):
         main_question: str,
         interview_transcript: str,
         suggested_probes: str | None,
-        translation: str | None,
         few_shot_examples: list[str] | None = None,
     ) -> str:
         template_name = self.STRATEGY_TEMPLATE_MAP.get(strategy_name)
@@ -190,7 +187,7 @@ class ProbingAgentPrompts(BasePrompts):
             main_question=main_question,
             interview_transcript=interview_transcript,
             suggested_probes=suggested_probes,
-            translation=translation,
+            translation=self.translation,
             few_shot_examples=few_shot_examples,
         )
 
@@ -223,7 +220,6 @@ class ProbingAgentPrompts(BasePrompts):
         interview_transcript: str,
         suggested_probes: str | None,
         candidate_probes: list[dict[str, str]],
-        translation: str | None,
         few_shot_examples: list[str] | None = None,
     ) -> str:
         return self.get_template(
@@ -236,7 +232,7 @@ class ProbingAgentPrompts(BasePrompts):
             interview_transcript=interview_transcript,
             suggested_probes=suggested_probes,
             candidate_probes=candidate_probes,
-            translation=translation,
+            translation=self.translation,
             few_shot_examples=few_shot_examples,
         )
 
@@ -275,14 +271,13 @@ class GuideAgentPrompts(BasePrompts):
         interview_transcript: str,
         interview_guide: InterviewGuide,
         section: QuestionSection[Question],
-        translation: str | None,
     ) -> str:
         return self.get_template("guide_agent/instruction_prompt.jinja").render(
             interview_guide_component="main question",
             interview_transcript=interview_transcript,
             interview_guide=interview_guide,
             current_section=section,
-            translation=translation,
+            translation=self.translation,
             interview_guide_component_schema=QuestionBase.model_json_schema(),
         )
 
@@ -290,7 +285,6 @@ class GuideAgentPrompts(BasePrompts):
         self,
         interview_transcript: str,
         interview_guide: InterviewGuide,
-        translation: str | None,
     ) -> str:
         return self.get_template("guide_agent/instruction_prompt.jinja").render(
             interview_guide_component="question section",
@@ -300,7 +294,7 @@ class GuideAgentPrompts(BasePrompts):
             # template is shared with `generate_question_prompt` and renders under
             # StrictUndefined, so this must be passed explicitly.
             current_section=None,
-            translation=translation,
+            translation=self.translation,
             interview_guide_component_schema=QuestionSectionTemplate.model_json_schema(),
         )
 
@@ -373,7 +367,6 @@ class ReformulationAgentPrompts(BasePrompts):
         question: str,
         reason: str,
         additional_guidelines: list[str] | None = None,
-        translation: LanguageCode | None = None,
     ) -> str:
         return self.get_template("reformulation_agent/instruction_prompt.jinja").render(
             interview_transcript=interview_transcript,
@@ -381,5 +374,5 @@ class ReformulationAgentPrompts(BasePrompts):
             question=question,
             reason=reason,
             additional_guidelines=additional_guidelines,
-            translation=translation,
+            translation=self.translation,
         )
