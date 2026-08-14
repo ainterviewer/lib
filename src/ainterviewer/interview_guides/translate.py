@@ -226,6 +226,51 @@ def _apply_section_strings(
             ]
 
 
+def _survey_options(
+    guide: InterviewGuide, section: int, question: int
+) -> list[str] | None:
+    try:
+        q = guide.question_sections[section].questions[question]
+    except IndexError:
+        return None
+    if isinstance(q.survey_item, (RadioItem, CheckboxItem, LikertItem)):
+        return list(q.survey_item.options)
+    return None
+
+
+def _apply_condition_triggers(
+    original: InterviewGuide, translated: InterviewGuide
+) -> None:
+    """Remap condition trigger values onto the translated answer options.
+
+    A trigger value references an option of another question verbatim, so it is
+    remapped by option index rather than translated on its own: that keeps it
+    exactly equal to the translated option it has to match. Trigger values that
+    are not options (numeric comparisons, classification criteria) are left
+    untouched.
+    """
+    for section in translated.question_sections:
+        for q in section.questions:
+            if not q.conditions:
+                continue
+            for condition in q.conditions.conditions:
+                ctx = condition.question_context
+                source_options = _survey_options(original, ctx.section, ctx.question)
+                target_options = _survey_options(translated, ctx.section, ctx.question)
+                if not source_options or not target_options:
+                    continue
+                lookup = {
+                    source.strip().casefold(): target
+                    for source, target in zip(source_options, target_options)
+                }
+                for evaluation in condition.evaluation:
+                    if not isinstance(evaluation.trigger_value, str):
+                        continue
+                    option = lookup.get(evaluation.trigger_value.strip().casefold())
+                    if option is not None:
+                        evaluation.trigger_value = option
+
+
 async def translate_interview_guide(
     guide: InterviewGuide,
     target_language: str,
@@ -235,8 +280,9 @@ async def translate_interview_guide(
 
     Runs one LLM call for top-level messages and one call per section
     (description + all its questions) in parallel. Non-user-facing fields
-    (framing, configs, indices, conditions) are left untouched;
-    framing is passed as context so translations stay consistent in tone.
+    (framing, configs, indices) are left untouched; framing is passed as
+    context so translations stay consistent in tone. Condition trigger values
+    are remapped onto the translated answer options afterwards.
     """
     translated = guide.model_copy(deep=True)
 
@@ -284,6 +330,8 @@ async def translate_interview_guide(
     results = await asyncio.gather(*tasks)
     for applier, result in zip(appliers, results):
         applier(result)
+
+    _apply_condition_triggers(guide, translated)
 
     return translated
 
