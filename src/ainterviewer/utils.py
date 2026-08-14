@@ -18,12 +18,17 @@ def get_language_dict(
         try:
             return next(filter(lambda lang: lang["code"] == code, LANGUAGES))
         except StopIteration:
-            raise LanguageNotSupportedError(f"Language {language_code} not supported.")
+            raise LanguageNotSupportedError(
+                f"Language {language_code} not supported."
+            ) from None
     if name is not None:
+        lowered = name.casefold()
         try:
-            return next(filter(lambda lang: lang["name"] == name, LANGUAGES))
+            return next(
+                filter(lambda lang: lang["name"].casefold() == lowered, LANGUAGES)
+            )
         except StopIteration:
-            raise LanguageNotSupportedError(f"Language {name} not supported.")
+            raise LanguageNotSupportedError(f"Language {name} not supported.") from None
 
     raise ValueError("Either language_code or name must be provided.")
 
