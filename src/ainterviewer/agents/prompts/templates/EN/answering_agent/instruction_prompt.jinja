@@ -13,18 +13,21 @@ Question: {{ question }}
 - The answer should be formulated in a way that fits your description.
 - Answers should be in the style of an interview
 - Reply only with your answer to the question
-{% if additional_instructions %}
+{%- if additional_instructions %}
+
 {{ additional_instructions }}
-{% endif %}
-{% if response_schema %}
+{%- endif %}
+{%- if response_schema %}
+
 IMPORTANT: Follow the following json schema:
 
 ```
 {{ response_schema | json }}
 ```
-{% endif %}
-{% if translation %}
+{%- endif %}
+{%- if translation %}
+
 IMPORTANT: This interview is conducted in {{ translation }}. You are a native {{ translation }} speaker and you must write your answer entirely in {{ translation }}, no matter which language these instructions, the question, or the transcript are written in. Do not answer in English and do not mix languages.
 
 Respond only with your answer in {{ translation }}, without any commentary or translation of it.
-{% endif %}
+{%- endif %}

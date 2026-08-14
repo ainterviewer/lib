@@ -44,11 +44,11 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
         if isinstance(self.interview_subject, InterviewSubject):
             if uniform(0, 1) < self.interview_subject.refusal_rate:
                 refusal_instruction = (
-                    "\nIMPORTANT: You must refuse to answer the question."
+                    "IMPORTANT: You must refuse to answer the question."
                 )
 
                 if additional_instructions:
-                    additional_instructions += refusal_instruction
+                    additional_instructions += f"\n{refusal_instruction}"
                 else:
                     additional_instructions = refusal_instruction
 
