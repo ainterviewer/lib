@@ -3,13 +3,10 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from ainterviewer.agents.types import ProbingStrategy
-from ainterviewer.types import LanguageCode
 
 
 class InterviewConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
-
-    default_language: LanguageCode = "EN"
 
     with_consent: bool = Field(
         True,
