@@ -10,9 +10,7 @@ license_files = ["LICENSE"]
 
 dependencies = [
   "any-llm-sdk[gemini,openai,openrouter,vllm]>=1.13.0",
-  "fastapi[standard]>=0.128.7",
   "jinja2>=3.1.6",
-  "openai>=2.9.0",
   "polars>=1.35.2",
   "pyarrow>=22.0.0",
   "pydantic-extra-types>=2.10.4",
@@ -21,34 +19,18 @@ dependencies = [
   "pyyaml>=6.0.2",
   "requests>=2.32.5",
   "structlog>=25.3.0",
-  "uvicorn[standard]>=0.38.0",
-  "websockets>=15.0.1",
+  "typer>=0.20.0",
 ]
 
 [project.optional-dependencies]
-local = [
-  "accelerate>=1.7.0",
-  "faster-whisper>=1.1.1",
-  "gguf>=0.17.0",
-  "protobuf>=5.29.5",
-  "sentencepiece>=0.2.0",
-  "torch>=2.7.0",
-  "transformers>=4.52.4",
-]
 analysis = [
   "adbc-driver-sqlite>=1.6.0",
   "ipykernel>=6.29.5",
-  "marimo[recommended]>=0.13.2",
-  "matplotlib>=3.10.3",
-  "pandas>=2.2.3",
-  "plotly>=6.3.0",
   "pyarrow>=20.0.0",
   "rich>=14.0.0",
-  "sentence-transformers>=4.1.0",
   "ua-parser[regex]>=1.0.1",
   "umap-learn>=0.5.9.post2",
   "user-agents>=2.2.0",
-  "watchdog>=6.0.0",
 ]
 
 [dependency-groups]
@@ -57,7 +39,6 @@ dev = [
   "djlint>=1.36.4",
   "inquirer>=3.4.0",
   "ipykernel>=6.29.5",
-  "playwright>=1.52.0",
   "prek>=0.4.4",
   "psycopg2-binary>=2.9.10",
   "pytest>=8.4.0",
@@ -77,9 +58,6 @@ extend-select = ["RUF022"]
 
 [tool.ruff.lint.isort]
 known-third-party = ["alembic"]
-
-[tool.marimo.runtime]
-watcher_on_save = "autorun"
 
 [build-system]
 requires = ["hatchling"]

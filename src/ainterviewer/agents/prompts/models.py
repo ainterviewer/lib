@@ -81,4 +81,4 @@ def get_default_prompts() -> tuple[dict[str, dict[str, str]], dict[str, str]]:
 
 
 _agent_prompts, _extra_prompts = get_default_prompts()
-DEFAULT_PROMPTS = Prompts(**_agent_prompts, extra_prompts=_extra_prompts)  # ty: ignore[invalid-argument-type]
+DEFAULT_PROMPTS = Prompts(**_agent_prompts, extra_prompts=_extra_prompts)
