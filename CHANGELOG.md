@@ -4,6 +4,12 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.3.3] - 2026-08-19
+
+### Internal
+
+- Remove old unused safety module
+
 ## [0.3.2] - 2026-08-19
 
 ### Internal
