@@ -185,11 +185,7 @@ class AInterviewer:
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        # TODO:
-        # - Log exceptions
-        # - Store reason
-
-        if exc_type is not None:
+        if not self.interview_history.is_finished:
             self.db.update_interview_status(
                 self.project_id,
                 self.interview_id,
