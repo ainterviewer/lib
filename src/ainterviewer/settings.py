@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from pydantic import (
@@ -68,8 +68,6 @@ def BaseSettingsConfigDict(**kwargs) -> SettingsConfigDict:
 class LLMSettings(BaseModel):
     llm_host: str = "0.0.0.0"
     llm_port: int = 8880
-
-    model_storage: Literal["local", "s3_bucket"] = "local"
 
     available_models: list[str] = Field(default_factory=lambda: ["gpt-5-mini"])
     default_model: str = "gpt-5-mini"

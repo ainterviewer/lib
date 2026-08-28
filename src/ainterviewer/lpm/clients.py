@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from ainterviewer.lpm.types import CustomToken, Message, Temperature
 from ainterviewer.lpm.utils import map_system_to_user
-from ainterviewer.lpm.vllm import VLLM_MODEL_CONFIGS
 from ainterviewer.settings import settings
 from ainterviewer.types import MessageRole
 from ainterviewer.utils import encode_image
@@ -113,40 +112,11 @@ async def chat(
     else:
         server_endpoint = f"{settings.llm.llm_endpoint}/v1"
 
-        extra_model_kwargs = {}
-
-        model = "vllm:" + (
-            served_model_name
-            if (served_model_name := VLLM_MODEL_CONFIGS[model].served_model_name)
-            else model
-        )
-
-        if model in ("gpt-oss-120b"):
-            extra_model_kwargs["reasoning_effort"] = "low"
-            extra_model_kwargs["extra_body"] = {"top_k": 3}
-
-            if response_format is None:
-                # TODO:
-                # - this should be model based and maybe also question based.
-                # - maybe they should be words, and tokens fetched and cached from the api.
-                # - how to implement in interface.
-                print("Applying logit bias")
-                extra_model_kwargs["logit_bias"] = {
-                    # Negative
-                    "4157": -3,  #  kun
-                    "65512": -7,  # Kan
-                    "98936": -5,  # Kunne
-                    "11": -7,  # ,
-                    "80750": -15,  # konkre
-                    "102719": -15,  #  konkret
-                    "12855": -15,  #  specif
-                    # Positive
-                    "73760": 5,  # Tak
-                    "30": 7,  # ?
-                }
+        # TODO: re-enable once logit bias is validated against gpt-oss-120b in staging
+        extra_model_kwargs = {}  # get_extra_model_kwargs(model, response_format is not None)
 
         chat_completion = await chat(
-            model=model,
+            model="vllm:" + model,
             api_base=server_endpoint,
             api_key=settings.secrets.vllm_api_key.get_secret_value(),
             **extra_model_kwargs,
@@ -225,6 +195,6 @@ if __name__ == "__main__":
     # model = "openrouter:openai/gpt-oss-120b"
     # model = "openrouter:openai/gpt-oss-120b"
     # model = "openai:gpt-5.2"
-    model = "gpt-oss-120b"
+    model = "openai/gpt-oss-120b"
 
     asyncio.run(main(model=model))
