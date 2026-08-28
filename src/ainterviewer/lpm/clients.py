@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from functools import partial
 from types import CoroutineType
-from typing import Any, Callable, TypeVar, overload
+from typing import Any, TypeVar, overload
 
 import requests
 from any_llm import acompletion
