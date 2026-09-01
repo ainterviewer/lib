@@ -4,6 +4,24 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.4.0] - 2026-09-01
+
+### Breaking Changes
+
+- Move vLLM model configuration to proxy repository
+
+### Features
+
+- Move vLLM model configuration to proxy repository [**breaking**]
+- Add message embedding components and fix linting
+
+### Internal
+
+- Add citation information
+- Fix broken url in readme
+- Fix imports
+- Update dev deps
+
 ## [0.3.5] - 2026-08-21
 
 ### Bug Fixes
