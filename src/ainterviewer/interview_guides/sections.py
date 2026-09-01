@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar
-
 from pydantic import BaseModel, Field, field_validator
 
 from ainterviewer.interview_guides.questions import QuestionBase, QuestionBaseExtended
-
-Q = TypeVar("Q", bound=QuestionBase)
 
 
 class GeneratedQuestions(BaseModel):
@@ -15,14 +11,14 @@ class GeneratedQuestions(BaseModel):
     max_probes_time: int | None = None
 
 
-class QuestionSectionBase(BaseModel, Generic[Q]):
+class QuestionSectionBase[Q: QuestionBase](BaseModel):
     description: str = Field(
         description="A description of the section, used as context for the prober to limit its scope."
     )
     questions: list[Q]
 
 
-class QuestionSection(QuestionSectionBase[Q], Generic[Q]):
+class QuestionSection[Q: QuestionBase](QuestionSectionBase[Q]):
     """A section of questions that all revolve around the same topic"""
 
     shuffle: bool = Field(

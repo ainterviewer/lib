@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 
 import pytest
 from pydantic import ValidationError
@@ -14,7 +14,6 @@ from ainterviewer.interview_guides.survey_items import (
     TimeItem,
     create_survey_answer_model,
 )
-
 
 # ── RadioItem ────────────────────────────────────────────────────────────────
 
@@ -333,10 +332,12 @@ class TestCreateSurveyAnswerModel:
             Model(answer=date(2019, 1, 1))  # ty:ignore[call-non-callable]
 
     def test_datetime_valid(self):
-        item = DatetimeItem(min="2020-01-01T00:00:00", max="2025-12-31T23:59:59")
+        item = DatetimeItem(
+            min="2020-01-01T00:00:00+00:00", max="2025-12-31T23:59:59+00:00"
+        )
         Model = create_survey_answer_model(item)
-        obj = Model(answer=datetime(2023, 6, 15, 12, 0, 0))  # ty:ignore[call-non-callable]
-        assert obj.answer == datetime(2023, 6, 15, 12, 0, 0)
+        obj = Model(answer=datetime(2023, 6, 15, 12, 0, 0, tzinfo=UTC))  # ty:ignore[call-non-callable]
+        assert obj.answer == datetime(2023, 6, 15, 12, 0, 0, tzinfo=UTC)
 
     def test_time_valid(self):
         item = TimeItem(min="08:00:00", max="17:00:00")

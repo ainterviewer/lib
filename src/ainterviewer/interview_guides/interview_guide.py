@@ -8,13 +8,12 @@
 from __future__ import annotations
 
 import warnings
-from typing import Generic
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from ainterviewer.interview_guides.questions import Question, QuestionBase
-from ainterviewer.interview_guides.sections import Q, QuestionSection
+from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.utils import shuffle_items
 from ainterviewer.interview_guides.variables import (
     BUILTIN_VARIABLES,
@@ -22,7 +21,7 @@ from ainterviewer.interview_guides.variables import (
 )
 
 
-class InterviewGuideBase(BaseModel, Generic[Q]):
+class InterviewGuideBase[Q: QuestionBase](BaseModel):
     """A guide for the interviewer to follow during the interview."""
 
     framing: str = Field(

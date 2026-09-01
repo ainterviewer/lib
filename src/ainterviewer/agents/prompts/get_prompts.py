@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Type, TypeVar
+from typing import TypeVar
 
 from jinja2 import BaseLoader, Environment, PackageLoader, select_autoescape
 
@@ -55,7 +55,7 @@ def get_agent_prompts(
         raise LanguageNotSupportedError(f"Language {lang} not supported.")
 
     # Dynamically access the correct class from the module
-    AgentPrompts: Type[T] = getattr(agent_prompts, f"{agent_name}Prompts")
+    AgentPrompts: type[T] = getattr(agent_prompts, f"{agent_name}Prompts")
 
     prompt_instance: T = AgentPrompts(
         template_loader=template_loader,

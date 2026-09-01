@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable
 from functools import partial
 from types import CoroutineType
-from typing import Any, TypeVar, overload
+from typing import Any, overload
 
 import requests
 from any_llm import acompletion
@@ -19,11 +19,9 @@ from ainterviewer.utils import encode_image
 
 _DUMMY_MESSAGES: list[Message] = [{"role": MessageRole.USER, "content": "Hello"}]
 
-T = TypeVar("T", bound=BaseModel)
-
 
 @overload
-async def chat(
+async def chat[T: BaseModel](
     messages: list[Message],
     model: str,
     response_format: type[T],
@@ -50,7 +48,7 @@ async def chat(
 ) -> str: ...
 
 
-async def chat(
+async def chat[T: BaseModel](
     messages: list[Message],
     model: str,
     temperature: Temperature = 0.7,
@@ -61,9 +59,8 @@ async def chat(
     response_format: type[T] | None = None,
     **model_kwargs,
 ) -> str | T:
-    if stop_tokens:
-        if isinstance(stop_tokens, str):
-            stop_tokens = [stop_tokens]
+    if stop_tokens and isinstance(stop_tokens, str):
+        stop_tokens = [stop_tokens]
 
     chat: Callable[..., CoroutineType[Any, Any, ChatCompletion]] = partial(  # ty: ignore[invalid-assignment]
         acompletion,
@@ -155,8 +152,10 @@ def visual_chat(
     model: str,
     messages: list[Message],
     stream=False,
-    session=requests.Session(),
+    session: requests.Session | None = None,
 ):
+    session = session or requests.Session()
+
     encoded_messages = [
         {
             k: v if k != "images" else [encode_image(image) for image in v]  # ty:ignore[not-iterable]

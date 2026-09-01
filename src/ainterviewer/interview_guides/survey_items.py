@@ -80,7 +80,7 @@ class SliderItem(SurveyItemBase):
     step: int | float | None = 1
 
     @validate_strict
-    def validate_answer(self, answer: int | float):
+    def validate_answer(self, answer: float):
         valid = True
 
         if self.min is not None and answer <= self.min:
@@ -110,7 +110,7 @@ class NumberItem(SurveyItemBase):
     step: int | float | None = 1
 
     @validate_strict
-    def validate_answer(self, answer: int | float):
+    def validate_answer(self, answer: float):
         valid = True
 
         if self.min is not None and answer <= self.min:

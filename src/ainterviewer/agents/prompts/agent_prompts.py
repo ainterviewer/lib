@@ -7,7 +7,7 @@ They are not supposed to be imported directly,
 
 import json
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import ClassVar
 
 from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
 
@@ -55,7 +55,7 @@ class BasePrompts(ABC):
     def get_template(self, template_name: str) -> Template:
         return self.env.get_template(template_name)
 
-    def get_source(self, template: Union[str, Template]) -> str:
+    def get_source(self, template: str | Template) -> str:
         assert self.env.loader
 
         if isinstance(template, str):
@@ -160,7 +160,7 @@ class ProbingAgentPrompts(BasePrompts):
             instructions=self.prompt_slots.instructions,
         )
 
-    STRATEGY_TEMPLATE_MAP: dict[DiceStrategy, str] = {
+    STRATEGY_TEMPLATE_MAP: ClassVar[dict[DiceStrategy, str]] = {
         DiceStrategy.DESCRIPTIVE: "probing_agent/descriptive_detail_prompt.jinja",
         DiceStrategy.IDIOGRAPHIC: "probing_agent/idiographic_memory_prompt.jinja",
         DiceStrategy.CLARIFYING: "probing_agent/clarifying_prompt.jinja",

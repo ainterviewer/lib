@@ -95,3 +95,19 @@ class InterviewStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     COMPLETED = "completed"
+
+
+class EmbeddingKind(StrEnum):
+    """The unit of text an embedding vector represents.
+
+    ``QA_PAIR`` is the primary analytic unit: a main question, its answer, and
+    every probe that followed it, rendered as one small transcript. Respondent
+    answers on their own are frequently too short to carry meaning out of
+    context -- the median one in a real interview is barely a sentence -- which
+    is why ``MESSAGE`` alone is not enough.
+    """
+
+    MESSAGE = "message"
+    QA_PAIR = "qa_pair"
+    SECTION = "section"
+    INTERVIEW = "interview"

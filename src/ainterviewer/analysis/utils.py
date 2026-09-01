@@ -1,4 +1,4 @@
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 from rich.console import Console
@@ -25,7 +25,7 @@ def get_device(user_agent: str) -> Literal["mobile", "tablet", "pc", "bot"] | No
 
 def calculate_response_times(
     messages: pl.DataFrame,
-    who: Literal["interviewer"] | Literal["user"] = "interviewer",
+    who: Literal["interviewer", "user"] = "interviewer",
 ) -> list[pl.Datetime]:
     response_times: list[pl.Datetime] = []
     for row in messages.filter(role="USER").iter_rows(named=True):

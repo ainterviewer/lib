@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from functools import partial
-from typing import Callable
 
 from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.prompts.agent_prompts import VisualAgentPrompts

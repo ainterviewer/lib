@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, TypeVar, overload
+from typing import Any, TypeVar, overload
 
 from jinja2 import BaseLoader
 from pydantic import BaseModel
@@ -10,12 +10,10 @@ from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode
 
-PromptT = TypeVar("PromptT", bound="BasePrompts")
-
 T = TypeVar("T", bound=BaseModel)
 
 
-class BaseAgent(ABC, Generic[PromptT]):
+class BaseAgent[PromptT: "BasePrompts"](ABC):
     messages: list[Message]
 
     def __init__(
@@ -33,9 +31,9 @@ class BaseAgent(ABC, Generic[PromptT]):
 
         self.prompts: PromptT = get_agent_prompts(
             self.__class__.__name__,
+            *args,
             lang=language,
             template_loader=template_loader,
-            *args,
             **kwargs,
         )
         self.messages = []

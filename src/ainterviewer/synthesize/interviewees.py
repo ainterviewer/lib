@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from enum import StrEnum
 from random import choice, randint, uniform
-from typing import Any, List
+from typing import Any
 
 from jinja2 import Template
 from pydantic import BaseModel, Field, computed_field
@@ -97,9 +97,9 @@ class CommunicationTrait(BaseModel):
 
 
 class CommunicationTraits(BaseModel):
-    length: List[AnswerLength | str]
-    style: List[str]
-    tone: List[str]
+    length: list[AnswerLength | str]
+    style: list[str]
+    tone: list[str]
 
     def __iter__(self) -> Iterator[tuple[str, Any]]:  # ty:ignore[invalid-method-override]
         yield from self.__dict__.items()

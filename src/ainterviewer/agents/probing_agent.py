@@ -78,7 +78,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         """An agent that probes an interviewee based on an interview an interview guide and the answers."""
         # prompt_slots is forwarded through BaseAgent to ProbingAgentPrompts, which
         # uses it to render the (customizable) system and instruction prompts.
-        super().__init__(language=language, prompt_slots=prompt_slots, *args, **kwargs)  # ty:ignore[parameter-already-assigned]
+        super().__init__(*args, language=language, prompt_slots=prompt_slots, **kwargs)  # ty:ignore[parameter-already-assigned]
 
         self.interview_framing = interview_framing
         self.few_shot_examples = few_shot_examples

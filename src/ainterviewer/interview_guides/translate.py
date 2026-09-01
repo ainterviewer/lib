@@ -202,14 +202,11 @@ def _apply_section_strings(
             q.description = t[k]
         if q.probes:
             q.probes = [
-                t[f"{base}.probes[{pi}]"] if f"{base}.probes[{pi}]" in t else p
-                for pi, p in enumerate(q.probes)
+                t.get(f"{base}.probes[{pi}]", p) for pi, p in enumerate(q.probes)
             ]
         if isinstance(q.survey_item, (RadioItem, CheckboxItem, LikertItem)):
             q.survey_item.options = [
-                t[f"{base}.survey_item.options[{oi}]"]
-                if f"{base}.survey_item.options[{oi}]" in t
-                else option
+                t.get(f"{base}.survey_item.options[{oi}]", option)
                 for oi, option in enumerate(q.survey_item.options)
             ]
         elif isinstance(q.survey_item, SliderItem):
@@ -219,9 +216,7 @@ def _apply_section_strings(
                 q.survey_item.max_label = t[k]
         if q.alternative_main_questions:
             q.alternative_main_questions = [
-                t[f"{base}.alternative_main_questions[{ai}]"]
-                if f"{base}.alternative_main_questions[{ai}]" in t
-                else a
+                t.get(f"{base}.alternative_main_questions[{ai}]", a)
                 for ai, a in enumerate(q.alternative_main_questions)
             ]
 

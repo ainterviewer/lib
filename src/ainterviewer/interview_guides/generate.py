@@ -1,4 +1,6 @@
+import asyncio
 import json
+from pathlib import Path
 
 from ainterviewer.interview_guides.interview_guide import (
     InterviewGuide,
@@ -45,8 +47,10 @@ async def generate_interview_guide(
     interview_guide = InterviewGuide.model_validate(template.model_dump())
 
     if output_path:
-        with open(output_path, "w") as f:
-            json.dump(interview_guide.model_dump(), f, indent=4)
+        await asyncio.to_thread(
+            Path(output_path).write_text,
+            json.dumps(interview_guide.model_dump(), indent=4),
+        )
 
     return interview_guide
 

@@ -21,8 +21,8 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
         **kwargs,
     ):
         super().__init__(
-            language=language,
-            *args,  # ty:ignore[parameter-already-assigned]
+            *args,
+            language=language,  # ty:ignore[parameter-already-assigned]
             **kwargs | {"interview_subject": interview_subject},  # ty:ignore[invalid-argument-type]
         )
         self.interview_subject: InterviewSubject | str = interview_subject
@@ -41,16 +41,16 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
 
         self.messages.append({"role": MessageRole.USER, "content": question})
 
-        if isinstance(self.interview_subject, InterviewSubject):
-            if uniform(0, 1) < self.interview_subject.refusal_rate:
-                refusal_instruction = (
-                    "IMPORTANT: You must refuse to answer the question."
-                )
+        if (
+            isinstance(self.interview_subject, InterviewSubject)
+            and uniform(0, 1) < self.interview_subject.refusal_rate
+        ):
+            refusal_instruction = "IMPORTANT: You must refuse to answer the question."
 
-                if additional_instructions:
-                    additional_instructions += f"\n{refusal_instruction}"
-                else:
-                    additional_instructions = refusal_instruction
+            if additional_instructions:
+                additional_instructions += f"\n{refusal_instruction}"
+            else:
+                additional_instructions = refusal_instruction
 
         SurveyAnswerModel = (
             create_survey_answer_model(survey_item) if survey_item else None

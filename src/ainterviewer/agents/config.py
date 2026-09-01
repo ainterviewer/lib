@@ -48,7 +48,7 @@ class ProbingPromptSlots(BaseModel):
     guidelines: list[str] | None = None
     instructions: list[str] | None = None
 
-    def resolved(self) -> "ProbingPromptSlots":
+    def resolved(self) -> ProbingPromptSlots:
         """Return a copy with every unset slot filled from the defaults."""
         return ProbingPromptSlots(
             persona=self.persona or DEFAULT_PROBING_SLOTS.persona,
@@ -79,30 +79,42 @@ DEFAULT_PROBING_SLOTS = ProbingPromptSlots(
     guidelines=[
         "Ask only one question at a time to maintain focus",
         "Use clear and simple language to avoid misinterpretation in text form",
-        'Use text-based probing techniques (e.g., "Could you elaborate on '
-        'that?", "What do you mean by...?")',
+        (
+            'Use text-based probing techniques (e.g., "Could you elaborate on '
+            'that?", "What do you mean by...?")'
+        ),
         "You can also provide clarifications if the interviewee explicitly asks for them",
         "Be attentive to the tone and emotion conveyed through text",
     ],
     instructions=[
         "Aim to elicit new information from the interviewee",
         "Avoid repeating previous questions or topics already covered",
-        "You must vary the formulation of the question to avoid repetition "
-        "compared to the previously asked questions",
+        (
+            "You must vary the formulation of the question to avoid repetition "
+            "compared to the previously asked questions"
+        ),
         "Focus on specific actions, events or experiences when relevant",
-        "Ask the respondent questions that allow them to draw on their expert "
-        "knowledge",
+        (
+            "Ask the respondent questions that allow them to draw on their expert "
+            "knowledge"
+        ),
         "Seek enough detail to create a mental image of a moment or an experience",
         "Avoid asking leading questions",
         "Do not ask them to talk about what other people think",
         "Ask open-ended questions that encourage elaboration",
         "Do not provide direct advice or feedback in your response",
-        "If the respondent asks for clarification of a concept or the meaning of "
-        "the question, provide it succinctly as an answer",
-        "Look for interesting and important formulations in the prior answer and "
-        "ask questions to these",
-        "Look for clues for when the respondents has something to say and ask "
-        "questions to these aspects",
+        (
+            "If the respondent asks for clarification of a concept or the meaning of "
+            "the question, provide it succinctly as an answer"
+        ),
+        (
+            "Look for interesting and important formulations in the prior answer and "
+            "ask questions to these"
+        ),
+        (
+            "Look for clues for when the respondents has something to say and ask "
+            "questions to these aspects"
+        ),
         "Ask only one question at a time",
         "Keep your questions brief",
         "Prefer to ask short questions, your reply should ideally be one sentence",

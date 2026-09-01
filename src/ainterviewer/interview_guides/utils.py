@@ -1,15 +1,12 @@
 import random
-from typing import Protocol, TypeVar
+from typing import Protocol
 
 
 class Shuffleable(Protocol):
     shuffle: bool
 
 
-T = TypeVar("T", bound=Shuffleable)
-
-
-def shuffle_items(items: list[T]) -> list[T]:
+def shuffle_items[T: Shuffleable](items: list[T]) -> list[T]:
     """Shuffle a list of items, keeping the order of items that have shuffle=False"""
 
     # Get indices and items where shuffle is True

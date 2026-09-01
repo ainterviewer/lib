@@ -1,8 +1,9 @@
 import asyncio
 import json
+import logging
 import re
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Self
 
 from jinja2 import BaseLoader
@@ -21,6 +22,13 @@ from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.agents.reformulation_agent import ReformulationReason
 from ainterviewer.agents.types import ProbingStrategy
 from ainterviewer.config import InterviewConfig
+from ainterviewer.embedding import (
+    DEFAULT_POLICY,
+    ChunkPolicy,
+    interview_chunk,
+    message_chunk,
+    qa_pair_chunk,
+)
 from ainterviewer.exceptions import (
     EndInterviewCondition,
     SkipProbesCondition,
@@ -29,6 +37,8 @@ from ainterviewer.exceptions import (
     SkipSectionCondition,
 )
 from ainterviewer.interfaces import (
+    EmbeddingChunk,
+    EmbeddingProtocol,
     IOProtocol,
     OutgoingData,
     OutgoingMessage,
@@ -57,6 +67,8 @@ from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType
 
+logger = logging.getLogger(__name__)
+
 
 class AInterviewer:
     def __init__(
@@ -73,8 +85,10 @@ class AInterviewer:
         template_loader: BaseLoader | None = None,
         language: LanguageCode = "EN",
         referable_values: dict[str, Any] | None = None,
+        embedder: EmbeddingProtocol | None = None,
+        chunk_policy: ChunkPolicy = DEFAULT_POLICY,
     ):
-        self.interview_started = datetime.now()
+        self.interview_started = datetime.now(UTC)
 
         # NOTE:
         # If previous time spent is larger than timed_message.time, the timed
@@ -102,7 +116,16 @@ class AInterviewer:
 
         self.interview_history: InterviewHistory = InterviewHistory()
 
+        self.language: LanguageCode = language
         self.translation = language if language != "EN" else None
+
+        # Optional: when left unset the interview emits no embedding chunks at
+        # all, which is how the synthetic test runner opts out.
+        self.embedder: EmbeddingProtocol | None = embedder
+        # Decides which text is embeddable and how it is rendered. Whatever a
+        # consumer passes here must be the same policy its backfill uses, or the
+        # two paths produce different text for the same chunk.
+        self.chunk_policy: ChunkPolicy = chunk_policy
 
         self.project_id: UUID4 = project_id
         self.interview_id: UUID4 = interview_id
@@ -197,8 +220,58 @@ class AInterviewer:
 
     @property
     def time_spent(self) -> int:
-        time_spent = (datetime.now() - self.interview_started).seconds
+        time_spent = (datetime.now(UTC) - self.interview_started).seconds
         return time_spent
+
+    async def _emit_chunk(self, chunk: EmbeddingChunk | None) -> None:
+        """Hand a chunk to the embedder, if there is one and there is a chunk.
+
+        Never raises: this sits on the interview's critical path, and an
+        unreachable embedding backend must cost the respondent nothing. What is
+        dropped here is recoverable by re-deriving the chunks from the stored
+        messages later, which is the reason the chunk rules live in
+        `ainterviewer.embedding` rather than in either caller.
+        """
+        if self.embedder is None or chunk is None:
+            return
+
+        try:
+            await self.embedder.embed_chunk(chunk)
+        except Exception:
+            logger.warning(
+                "Failed to emit %s embedding chunk for interview %s",
+                chunk.kind,
+                self.interview_id,
+                exc_info=True,
+            )
+
+    async def _emit_qa_pair(self) -> None:
+        """Emit the question group the interview just finished with."""
+        if self.embedder is None:
+            return
+
+        section_index = self.interview_history.current_section_index
+        question_index = self.interview_history.current_question_index
+
+        if question_index is None:
+            return
+
+        try:
+            question = self.interview_history.current_question
+        except IndexError:
+            return
+
+        await self._emit_chunk(
+            qa_pair_chunk(
+                question,
+                project_id=self.project_id,
+                interview_id=self.interview_id,
+                section=section_index,
+                main_question=question_index,
+                language=self.language,
+                policy=self.chunk_policy,
+            )
+        )
 
     async def receive_data(
         self, message_type_to_receive: MessageType | None = None
@@ -217,20 +290,42 @@ class AInterviewer:
         #     message = "I'm sorry, but your last message is not within the scope of this interview. Please try again."
         #     await self.send_data(message)
 
+        # Read before the answer is added to the history, which advances them.
+        message_id = self.interview_history.current_message_id + 1
+        section = self.interview_history.current_section_index
+        main_question = self.interview_history.current_question_index
+        sub_question = self.interview_history.current_probe_index
+
         self.db.insert_message(
-            message_id=self.interview_history.current_message_id + 1,
+            message_id=message_id,
             content=processed_text,
             message_type=message_type_received,
             audio_file=audio_file,
             role=MessageRole.USER,
-            section=self.interview_history.current_section_index,
-            main_question=self.interview_history.current_question_index,
-            sub_question=self.interview_history.current_probe_index,
+            section=section,
+            main_question=main_question,
+            sub_question=sub_question,
             interview_id=self.interview_id,
             project_id=self.project_id,
         )
 
         self.interview_history.add_answer(HistoryMessage(message=processed_text))
+
+        await self._emit_chunk(
+            message_chunk(
+                project_id=self.project_id,
+                interview_id=self.interview_id,
+                message_id=message_id,
+                content=processed_text,
+                role=MessageRole.USER,
+                message_type=message_type_received,
+                language=self.language,
+                section=section,
+                main_question=main_question,
+                sub_question=sub_question,
+                policy=self.chunk_policy,
+            )
+        )
 
         return processed_text
 
@@ -352,28 +447,29 @@ class AInterviewer:
                     outro=True,
                 )
 
-        if self.interview_history.outro is None:
-            if outro := self.interview_guide.outro:
-                if isinstance(outro, InterviewMessage):
-                    outro = outro.message
+        if self.interview_history.outro is None and (
+            outro := self.interview_guide.outro
+        ):
+            if isinstance(outro, InterviewMessage):
+                outro = outro.message
 
-                outro = fill_variables_in_message(
-                    text=outro,
-                    referable_values=self.referable_values,
-                )
+            outro = fill_variables_in_message(
+                text=outro,
+                referable_values=self.referable_values,
+            )
 
-                message = await self.preprocess_message(outro)
+            message = await self.preprocess_message(outro)
 
-                self.interview_history.outro = HistoryMessage(message=message)
+            self.interview_history.outro = HistoryMessage(message=message)
 
-                await asyncio.sleep(2)
+            await asyncio.sleep(2)
 
-                await self.send_data(
-                    message,
-                    with_interview_structure=False,
-                    can_answer=False,
-                    outro=True,
-                )
+            await self.send_data(
+                message,
+                with_interview_structure=False,
+                can_answer=False,
+                outro=True,
+            )
 
         await self.send_progress(None, finished=True)
 
@@ -390,6 +486,16 @@ class AInterviewer:
             CustomToken.end_of_interview,
             with_interview_structure=False,
             can_answer=False,
+        )
+
+        await self._emit_chunk(
+            interview_chunk(
+                self.interview_history,
+                project_id=self.project_id,
+                interview_id=self.interview_id,
+                language=self.language,
+                policy=self.chunk_policy,
+            )
         )
 
     async def process_history(self, interview_history: list):
@@ -464,7 +570,10 @@ class AInterviewer:
 
         self.interview_history.add_question(
             question_description=question.description,
-            main_question=Turn(question=history_message),
+            main_question=Turn(
+                question=history_message,
+                survey_item=question.survey_item,
+            ),
             exclude_from_history=question.exclude_from_history,
             image=ImageHistory(
                 primer=HistoryMessage(message=primer)
@@ -582,15 +691,17 @@ class AInterviewer:
                 if not check_condition_after:
                     await self.check_conditions(conditions)
 
-            if self.interview_history.current_question_index:
-                if question.check_if_answered:
-                    if await self.has_question_been_answered(question.main_question):
-                        question.main_question = await self.reformulate_question(
-                            question=question,
-                            section_description=section_description,
-                            reason="already_answered",
-                        )
-                        question_reformulated = True
+            if (
+                self.interview_history.current_question_index
+                and question.check_if_answered
+                and await self.has_question_been_answered(question.main_question)
+            ):
+                question.main_question = await self.reformulate_question(
+                    question=question,
+                    section_description=section_description,
+                    reason="already_answered",
+                )
+                question_reformulated = True
 
             if question.create_segue and not question_reformulated:
                 question.main_question = await self.reformulate_question(
@@ -624,6 +735,12 @@ class AInterviewer:
         except SkipQuestionException:
             pass
 
+        # The question group is complete here -- main question, answer, and
+        # every probe that followed -- which is the point at which it can be
+        # embedded as one unit. Groups that were skipped by a condition, or
+        # that drew no free-text answer, produce no chunk.
+        await self._emit_qa_pair()
+
     async def preprocess_answer(self, message: str) -> str:
         # TODO: Add other preprocessing steps, including security measurements
         message = message.strip()
@@ -652,9 +769,8 @@ class AInterviewer:
             referable_values=self.referable_values,
         )
 
-        if image := question.image:
-            if not image.data:
-                image.encode(self.project_id)
+        if (image := question.image) and not image.data:
+            image.encode(self.project_id)
 
             # FIXME: Having and image and segue at the same time does not
             # currently perform very well.
@@ -693,7 +809,10 @@ class AInterviewer:
 
         self.interview_history.add_question(
             question_description=question.description,
-            main_question=Turn(question=history_message),
+            main_question=Turn(
+                question=history_message,
+                survey_item=question.survey_item,
+            ),
             exclude_from_history=question.exclude_from_history,
             image=ImageHistory(
                 primer=HistoryMessage(message=primer)
@@ -715,9 +834,8 @@ class AInterviewer:
             image=image,
         )
 
-        if isinstance(question, Question):
-            if question.can_answer is False:
-                return CustomToken.no_answer
+        if isinstance(question, Question) and question.can_answer is False:
+            return CustomToken.no_answer
 
         answer = await self.receive_data(
             message_type_to_receive=MessageType.SURVEY_ITEM
@@ -755,9 +873,8 @@ class AInterviewer:
             include_in_history=not question.exclude_from_history,
         )
 
-        if isinstance(question, Question):
-            if question.can_answer is False:
-                return CustomToken.no_answer
+        if isinstance(question, Question) and question.can_answer is False:
+            return CustomToken.no_answer
 
         answer = await self.receive_data()
 
@@ -797,22 +914,16 @@ class AInterviewer:
         await asyncio.sleep(2.5)
 
     def should_check_condition_after_question(self, condition: Condition):
-        if (
+        return bool(
             condition.question_context.section
             == self.interview_history.current_section_index
-        ) and (
-            (
+            and (
                 condition.question_context.question - 1
                 == self.interview_history.current_question_index
-            )
-            or (
-                condition.question_context.question == 0
+                or condition.question_context.question == 0
                 and self.interview_history.current_question_index is None
             )
-        ):
-            return True
-
-        return False
+        )
 
     async def check_conditions(self, conditions: Conditions) -> None:
         condition_contexts = [
@@ -968,22 +1079,28 @@ class AInterviewer:
         return probe
 
     async def can_probe(self, question: Question) -> bool:
-        if question.max_probes_n is not None:
-            if self.interview_history.current_probe_index >= question.max_probes_n:
-                return False
+        if (
+            question.max_probes_n is not None
+            and self.interview_history.current_probe_index >= question.max_probes_n
+        ):
+            return False
 
-        if question.max_probes_time is not None:
-            if question.max_probes_time <= time.time() - self.probing_time:
-                return False
+        if (
+            question.max_probes_time is not None
+            and question.max_probes_time <= time.time() - self.probing_time
+        ):
+            return False
 
         if self.interview_history.current_probe_index > 0:
             contains_refusal = await self.contains_refusal()
             if contains_refusal:
                 return False
 
-            if question.check_if_exhausted:
-                if await self.has_main_question_been_exhausted(question):
-                    return False
+            if (
+                question.check_if_exhausted
+                and await self.has_main_question_been_exhausted(question)
+            ):
+                return False
 
         return True
 

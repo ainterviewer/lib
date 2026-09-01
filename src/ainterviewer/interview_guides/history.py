@@ -1,11 +1,13 @@
 from __future__ import annotations
-from ainterviewer.interview_guides.types import ProbingContext
 
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from ainterviewer.interview_guides import InterviewGuide
+from ainterviewer.interview_guides.survey_items import SurveyItem
+from ainterviewer.interview_guides.types import ProbingContext
+from ainterviewer.lpm.types import CustomToken
 
 type SectionsRange = int | slice | list[int] | None
 
@@ -26,6 +28,27 @@ class HistoryMessage(BaseModel):
 class Turn(BaseModel):
     question: HistoryMessage
     answer: HistoryMessage | None = None
+    # The survey item presented with the question, when there was one. Carried
+    # here so a turn can be told apart from a free-text one after the fact --
+    # `HistoryMessage` holds only text, and a closed-ended answer ("Agree", "4")
+    # is worth very little on its own to anything reading the history back.
+    survey_item: SurveyItem | None = None
+
+    @property
+    def is_free_text(self) -> bool:
+        """True when this turn elicited free text from the respondent.
+
+        A control token ("skip this question") is an instruction to the
+        interview loop, not an answer, so it does not count.
+        """
+        if self.answer is None or self.survey_item is not None:
+            return False
+        return self.answer.message.strip() not in CustomToken
+
+    def answer_label(self, with_survey_type: bool = False) -> str:
+        if with_survey_type and self.survey_item is not None:
+            return f"A ({self.survey_item.type})"
+        return "A"
 
 
 class InterviewHistory(BaseModel):
@@ -203,6 +226,16 @@ class InterviewHistory(BaseModel):
                     self.outro = history_message
                 elif message.timed:
                     self.timed_messages.append(history_message)
+                elif message.section is None or message.main_question is None:
+                    # Sent outside the interview structure
+                    # (`with_interview_structure=False`), so it belongs to no
+                    # question group: the end-of-interview control token, and
+                    # anything else without coordinates that is not the
+                    # introduction, the outro, or a timed message. Indexing the
+                    # sections with None raised a TypeError here, which made
+                    # every *completed* interview impossible to reconstruct --
+                    # invisible on the resume path, which never replays one.
+                    continue
                 else:
                     try:
                         section = self[message.section]
@@ -221,7 +254,10 @@ class InterviewHistory(BaseModel):
                         )
                         section.add_question(
                             question_description,
-                            main_question=Turn(question=history_message),
+                            main_question=Turn(
+                                question=history_message,
+                                survey_item=message.survey_item,
+                            ),
                             exclude_from_history=not message.include_in_history,
                             image=ImageHistory(
                                 primer=HistoryMessage(message=message.image.primer),
@@ -234,9 +270,16 @@ class InterviewHistory(BaseModel):
                         )
                     else:
                         question = section[message.main_question]
-                        question.add_probe(Turn(question=history_message))
+                        question.add_probe(
+                            Turn(
+                                question=history_message,
+                                survey_item=message.survey_item,
+                            )
+                        )
 
             if message.role == "user":
+                if message.sub_question is None or not self.sections:
+                    continue
                 if message.sub_question == 0:
                     self.current_question.main_question.answer = history_message
                 else:
@@ -330,6 +373,16 @@ class QuestionHistory(BaseModel):
     def turns(self) -> list[Turn]:
         return [self.main_question] + self.probes
 
+    @property
+    def has_free_text_answer(self) -> bool:
+        """True when any turn in this question group carries a free-text answer.
+
+        A group with none of them is pure survey scaffolding -- a closed item
+        and its option value -- and embedding it produces near-duplicate
+        vectors that crowd out real answers in nearest-neighbour results.
+        """
+        return any(turn.is_free_text for turn in self.turns)
+
     def __getitem__(self, key: int) -> Turn:
         return self.probes[key]
 
@@ -340,7 +393,16 @@ class QuestionHistory(BaseModel):
         self,
         with_descriptions: bool = False,
         with_image: bool = True,
+        with_survey_labels: bool = False,
     ) -> str:
+        """Render this question group as a small Q/A transcript.
+
+        `with_survey_labels` marks closed-ended answers with the survey item
+        type that produced them (``A (likert): Agree``). It defaults off so the
+        text handed to the agents is unchanged; the embedding path turns it on,
+        where the distinction between a chosen option and a written answer is
+        worth spending tokens on.
+        """
         transcript = ""
 
         if with_descriptions and self.description:
@@ -356,14 +418,16 @@ class QuestionHistory(BaseModel):
 
         transcript += "Q: " + self.main_question.question.message + "\n"
         if answer := self.main_question.answer:
-            transcript += "A: " + answer.message + "\n"
+            label = self.main_question.answer_label(with_survey_labels)
+            transcript += f"{label}: " + answer.message + "\n"
         else:
             transcript += "\n"
 
         for probe in self.probes:
             transcript += "Q: " + probe.question.message + "\n"
             if answer := probe.answer:
-                transcript += "A: " + answer.message + "\n"
+                label = probe.answer_label(with_survey_labels)
+                transcript += f"{label}: " + answer.message + "\n"
             transcript += "\n"
 
         return transcript.strip()

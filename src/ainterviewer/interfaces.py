@@ -8,7 +8,14 @@ from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.lpm.types import CustomToken
-from ainterviewer.types import Feedback, InterviewStatus, MessageRole, MessageType
+from ainterviewer.types import (
+    EmbeddingKind,
+    Feedback,
+    InterviewStatus,
+    LanguageCode,
+    MessageRole,
+    MessageType,
+)
 
 
 class ReceivedData(BaseModel):
@@ -146,3 +153,44 @@ class PersistenceProtocol(Protocol):
     ): ...
 
     async def save_media(self, image: Image | Audio | Video): ...
+
+
+class EmbeddingChunk(BaseModel):
+    """One unit of interview text handed to an embedding backend.
+
+    The chunk identifies itself *structurally* -- by interview plus the
+    ``(section, main_question, sub_question)`` coordinates the interview loop
+    already tracks -- rather than by a database row id. `InterviewHistory` holds
+    no row ids, so a QA pair assembled from it has none to give; and a
+    consumer that stores messages can resolve the coordinates back to its own
+    rows unambiguously, since a turn has exactly one respondent answer.
+
+    ``message_id`` is the per-interview counter also passed to
+    ``PersistenceProtocol.insert_message``, set only for ``MESSAGE`` chunks.
+    """
+
+    kind: EmbeddingKind
+    text: str
+    # The `ChunkPolicy.format_version` that produced `text`. Stored with the
+    # vector so a consumer can tell a corpus built under changed inclusion or
+    # rendering rules from one that is current, instead of discovering the
+    # mismatch through search results that quietly got worse.
+    format_version: str = "1"
+    project_id: UUID4
+    interview_id: UUID4
+    language: LanguageCode = "EN"
+    message_id: int | None = None
+    section: int | None = None
+    main_question: int | None = None
+    sub_question: int | None = None
+
+
+class EmbeddingProtocol(Protocol):
+    """Sink for embeddable chunks produced during an interview.
+
+    Implementations must be cheap and must not raise: `AInterviewer` calls this
+    on the interview's critical path, and an interview must never fail because
+    an embedding backend is unreachable. Queue the chunk and return.
+    """
+
+    async def embed_chunk(self, chunk: EmbeddingChunk) -> None: ...
