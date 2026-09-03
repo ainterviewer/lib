@@ -1,13 +1,11 @@
-import html
 from pathlib import Path
 from typing import Literal, Protocol, Self
 
-from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
+from pydantic import UUID4, BaseModel, Field, model_validator
 
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import (
     EmbeddingKind,
     Feedback,
@@ -23,14 +21,6 @@ class ReceivedData(BaseModel):
     message_type: MessageType | None = None
     content: str
     filename: str | None = Field(None, description="filename for media asset")
-
-    @field_validator("content", mode="before")
-    @classmethod
-    def escape_html(cls, v: str) -> str:
-        if v and v not in CustomToken:
-            return html.escape(v)
-        else:
-            return v
 
     @model_validator(mode="after")
     def validate_model(self) -> Self:
