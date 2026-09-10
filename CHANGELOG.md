@@ -4,6 +4,17 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.4.1] - 2026-09-10
+
+### Features
+
+- Move html escaping to frontend rendering, so raw text is stored. This makes downstream text analysis tasks easier.
+- Add sections as embedding chunks
+
+### Bug Fixes
+
+- (build) Commit only release files in publish recipe
+
 ## [0.4.0] - 2026-09-01
 
 ### Breaking Changes
