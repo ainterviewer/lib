@@ -29,7 +29,11 @@ from typing import Protocol, runtime_checkable
 from pydantic import UUID4
 
 from ainterviewer.interfaces import EmbeddingChunk
-from ainterviewer.interview_guides.history import InterviewHistory, QuestionHistory
+from ainterviewer.interview_guides.history import (
+    InterviewHistory,
+    QuestionHistory,
+    SectionHistory,
+)
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import EmbeddingKind, LanguageCode, MessageRole, MessageType
 
@@ -60,11 +64,15 @@ class ChunkPolicy(Protocol):
 
     def should_embed_question(self, question: QuestionHistory) -> bool: ...
 
+    def should_embed_section(self, section: SectionHistory) -> bool: ...
+
     def should_embed_interview(self, history: InterviewHistory) -> bool: ...
 
     def render_message(self, content: str) -> str: ...
 
     def render_question(self, question: QuestionHistory) -> str: ...
+
+    def render_section(self, section: SectionHistory) -> str: ...
 
     def render_interview(self, history: InterviewHistory) -> str: ...
 
@@ -107,6 +115,22 @@ class DefaultChunkPolicy:
             return False
         return question.has_free_text_answer
 
+    def should_embed_section(self, section: SectionHistory) -> bool:
+        """Only sections that drew free text somewhere.
+
+        The same rule as a question group, one level up, and it is what keeps a
+        section from being the place the excluded closed answers come back in:
+        a background block of nothing but survey items is structured data, and
+        a vector over it represents the guide's own wording. Where the section
+        *did* draw free text, its closed answers ride along inside -- which is
+        the point of the unit, since a guide that opens a section with a Likert
+        item and then asks about it has put the context in one question and the
+        answer in the next.
+        """
+        return any(
+            self.should_embed_question(question) for question in section.questions
+        )
+
     def should_embed_interview(self, history: InterviewHistory) -> bool:
         """Only interviews that drew free text somewhere.
 
@@ -126,6 +150,14 @@ class DefaultChunkPolicy:
         return question.transcribe(
             with_descriptions=False,
             with_image=True,
+            with_survey_labels=True,
+        ).strip()
+
+    def render_section(self, section: SectionHistory) -> str:
+        return section.transcribe(
+            with_descriptions=False,
+            with_images=True,
+            with_excludes=True,
             with_survey_labels=True,
         ).strip()
 
@@ -227,6 +259,45 @@ def qa_pair_chunk(
     )
 
 
+def section_chunk(
+    section: SectionHistory,
+    *,
+    project_id: UUID4,
+    interview_id: UUID4,
+    section_index: int,
+    language: LanguageCode = "EN",
+    policy: ChunkPolicy = DEFAULT_POLICY,
+) -> EmbeddingChunk | None:
+    """A chunk for one section: every question group in it, in order.
+
+    Between a question group and the whole interview, and it exists because
+    neither of those can hold a common guide shape: a section that opens with a
+    closed question -- "how often were you stressed?" -- and then asks the open
+    ones about it. The closed answer is a question group of its own, so at
+    QA-pair level it is either dropped as survey scaffolding or sits in a card
+    of its own where nothing refers to it. A section is the smallest unit that
+    keeps the two together.
+
+    Carries `section` and no `main_question`, which is what says it spans them.
+    """
+    if not policy.should_embed_section(section):
+        return None
+
+    text = policy.render_section(section)
+    if not text:
+        return None
+
+    return EmbeddingChunk(
+        kind=EmbeddingKind.SECTION,
+        text=text,
+        format_version=policy.format_version,
+        project_id=project_id,
+        interview_id=interview_id,
+        language=language,
+        section=section_index,
+    )
+
+
 def interview_chunk(
     history: InterviewHistory,
     *,
@@ -262,10 +333,10 @@ def chunks_from_history(
     with_interview_chunk: bool = True,
     policy: ChunkPolicy = DEFAULT_POLICY,
 ) -> list[EmbeddingChunk]:
-    """Every QA-pair chunk in a reconstructed history, plus the interview-level
-    one. Message-level chunks are not produced here: `InterviewHistory` holds no
-    message ids, so callers that have the stored rows build those with
-    `message_chunk` instead.
+    """Every QA-pair and section chunk in a reconstructed history, plus the
+    interview-level one. Message-level chunks are not produced here:
+    `InterviewHistory` holds no message ids, so callers that have the stored
+    rows build those with `message_chunk` instead.
     """
     chunks: list[EmbeddingChunk] = []
 
@@ -282,6 +353,18 @@ def chunks_from_history(
             )
             if chunk is not None:
                 chunks.append(chunk)
+
+        if (
+            chunk := section_chunk(
+                section,
+                project_id=project_id,
+                interview_id=interview_id,
+                section_index=section_index,
+                language=language,
+                policy=policy,
+            )
+        ) is not None:
+            chunks.append(chunk)
 
     if with_interview_chunk and (
         chunk := interview_chunk(

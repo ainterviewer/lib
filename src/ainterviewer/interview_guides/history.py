@@ -321,7 +321,16 @@ class SectionHistory(BaseModel):
         with_descriptions: bool = False,
         with_images: bool = True,
         with_excludes: bool = False,
+        with_survey_labels: bool = False,
     ) -> str:
+        """Render the section as a transcript of its question groups.
+
+        `with_survey_labels` is passed straight through to each group -- see
+        `QuestionHistory.transcribe`. Off by default so what the agents read is
+        unchanged; the embedding path turns it on, because a section is where a
+        closed answer and the open questions that follow it sit together, and a
+        vector should not read a click as a sentence.
+        """
         transcript = ""
 
         if with_descriptions:
@@ -342,6 +351,7 @@ class SectionHistory(BaseModel):
                     question.transcribe(
                         with_descriptions=with_descriptions,
                         with_image=with_images,
+                        with_survey_labels=with_survey_labels,
                     )
                     + "\n"
                 )

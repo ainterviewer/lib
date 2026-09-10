@@ -12,6 +12,7 @@ from ainterviewer.embedding import (
     interview_chunk,
     message_chunk,
     qa_pair_chunk,
+    section_chunk,
     should_embed_message,
 )
 from ainterviewer.interview_guides.history import (
@@ -206,6 +207,69 @@ class TestTranscribeStaysStableForAgents:
 # ── whole-history assembly ───────────────────────────────────────────────────
 
 
+class TestSectionChunk:
+    """The unit between a question group and a whole interview.
+
+    It exists for one guide shape: a section that opens with a closed question
+    and then asks the open ones about it. At QA-pair level the closed answer is
+    either dropped as scaffolding or stranded in a card of its own; a section
+    is the smallest unit that keeps it beside the answers it is context for.
+    """
+
+    def make(self, *questions, index=0):
+        section = SectionHistory(description="s")
+        section.questions.extend(questions)
+        return section_chunk(
+            section,
+            project_id=PROJECT_ID,
+            interview_id=INTERVIEW_ID,
+            section_index=index,
+        )
+
+    def test_it_spans_the_question_groups(self):
+        chunk = self.make(
+            question("How is work?", "Busy but good."),
+            question("Anything else?", "Not really, no."),
+        )
+        assert chunk is not None
+        assert chunk.kind == EmbeddingKind.SECTION
+        assert "A: Busy but good." in chunk.text
+        assert "A: Not really, no." in chunk.text
+
+    def test_it_carries_the_section_and_no_question(self):
+        """What says it spans them: a coordinate one level shorter than a QA
+        pair's, which is also what the browse path groups on."""
+        chunk = self.make(question("How is work?", "Busy but good."), index=2)
+        assert chunk is not None
+        assert (chunk.section, chunk.main_question, chunk.message_id) == (2, None, None)
+
+    def test_a_closed_answer_rides_along_when_the_section_drew_free_text(self, likert):
+        """The whole point of the unit. The Likert group is not a chunk of its
+        own -- `test_survey_only_group_excluded` -- but here it is context."""
+        chunk = self.make(
+            question("I feel supported.", "Neutral", likert),
+            question("What would help?", "Clearer priorities."),
+        )
+        assert chunk is not None
+        assert "A (likert): Neutral" in chunk.text
+        assert "A: Clearer priorities." in chunk.text
+
+    def test_a_section_of_only_closed_answers_is_not_a_chunk(self, likert):
+        """Otherwise a section is the door the excluded survey answers walk
+        back in through, and a background block gets a vector of the guide's
+        own wording."""
+        assert (
+            self.make(
+                question("I like my job.", "Agree", likert),
+                question("I am paid fairly.", "Disagree", likert),
+            )
+            is None
+        )
+
+    def test_an_unanswered_section_is_not_a_chunk(self):
+        assert self.make(question("How is work?")) is None
+
+
 class TestChunksFromHistory:
     def test_only_qualifying_groups(self, likert):
         chunks = chunks_from_history(
@@ -220,6 +284,9 @@ class TestChunksFromHistory:
         pairs = [c for c in chunks if c.kind == EmbeddingKind.QA_PAIR]
         assert [c.main_question for c in pairs] == [0, 2]
         assert sum(c.kind == EmbeddingKind.INTERVIEW for c in chunks) == 1
+        # One per section, alongside the groups rather than instead of them.
+        sections = [c for c in chunks if c.kind == EmbeddingKind.SECTION]
+        assert [c.section for c in sections] == [0]
 
     def test_survey_only_interview_produces_nothing(self, likert):
         assert (
