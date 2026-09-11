@@ -4,6 +4,16 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.4.2] - 2026-09-11
+
+### Breaking Changes
+
+- Make interview_history the source of truth as to what message type is received
+
+### Bug Fixes
+
+- Make interview_history the source of truth as to what message type is received [**breaking**]
+
 ## [0.4.1] - 2026-09-10
 
 ### Features
