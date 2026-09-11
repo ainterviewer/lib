@@ -67,6 +67,24 @@ class InterviewHistory(BaseModel):
         return self.current_section.questions[-1]
 
     @property
+    def current_turn(self) -> Turn | None:
+        """The turn the next answer belongs to, or None before the first question.
+
+        The mirror of `add_answer`: probes are answered last-first, and a
+        question with no probes is answered on its main turn. Anything that
+        needs to know what kind of answer is coming -- a survey item was
+        presented, or free text was invited -- reads it off the turn here
+        rather than rediscovering it from the guide, which cannot tell a probe
+        on a survey question apart from the survey question itself.
+        """
+        try:
+            question = self.current_question
+        except IndexError:
+            return None
+
+        return question.probes[-1] if question.probes else question.main_question
+
+    @property
     def current_section_index(self) -> int:
         return max(len(self.sections) - 1, 0)
 

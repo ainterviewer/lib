@@ -273,9 +273,19 @@ class AInterviewer:
             )
         )
 
-    async def receive_data(
-        self, message_type_to_receive: MessageType | None = None
-    ) -> str:
+    async def receive_data(self) -> str:
+        # The IO layer cannot work out what kind of answer it is receiving --
+        # the respondent's client submits a closed answer in the same frame as
+        # free text -- so the type is declared here, from the turn the answer
+        # lands on.
+        turn = self.interview_history.current_turn
+
+        message_type_to_receive = (
+            MessageType.SURVEY_ITEM
+            if turn is not None and turn.survey_item is not None
+            else None
+        )
+
         text, message_type_received, audio_file = await self.io.receive_message(
             message_id=self.interview_history.current_message_id + 1,
             message_type=message_type_to_receive,
@@ -837,11 +847,7 @@ class AInterviewer:
         if isinstance(question, Question) and question.can_answer is False:
             return CustomToken.no_answer
 
-        answer = await self.receive_data(
-            message_type_to_receive=MessageType.SURVEY_ITEM
-            if question.survey_item
-            else None
-        )
+        answer = await self.receive_data()
 
         # TODO: when the answer is a special token, should it then be added to
         # the interview history?
