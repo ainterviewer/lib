@@ -661,8 +661,12 @@ class AInterviewer:
         self, section: QuestionSection[Question], initial_question_index: int = 0
     ):
         try:
-            for question in section.questions[initial_question_index:]:
-                await self.handle_question(question, section.description)
+            for question_index, question in enumerate(
+                section.questions[initial_question_index:], start=initial_question_index
+            ):
+                await self.handle_question(
+                    question, section.description, question_index=question_index
+                )
 
             for _ in range(section.ai_generated_questions.n):
                 transcript = self.interview_history.get_transcript(
@@ -683,14 +687,32 @@ class AInterviewer:
                     self.project_id, self.interview_id, self.interview_guide
                 )
 
-                await self.handle_question(question, section.description)
+                # Appended, so its index is the position it just took.
+                await self.handle_question(
+                    question,
+                    section.description,
+                    question_index=len(section.questions) - 1,
+                )
         except SkipSectionCondition:
             # TODO: We need to handle this somehow in the interview history / database ...
             return
 
-    async def handle_question(self, question: Question, section_description: str):
+    async def handle_question(
+        self,
+        question: Question,
+        section_description: str,
+        question_index: int | None = None,
+    ):
         question_reformulated = False
         check_condition_after = False
+        # Which question the rule hangs off, as opposed to the ones it reads.
+        # Only the guide records that, so it has to travel with the check or it
+        # is lost by the time the evaluation is written down.
+        condition_carrier = (
+            (self.interview_history.current_section_index, question_index)
+            if question_index is not None
+            else None
+        )
 
         try:
             if conditions := question.conditions:
@@ -699,7 +721,7 @@ class AInterviewer:
                         check_condition_after = True
 
                 if not check_condition_after:
-                    await self.check_conditions(conditions)
+                    await self.check_conditions(conditions, carrier=condition_carrier)
 
             if (
                 self.interview_history.current_question_index
@@ -732,7 +754,7 @@ class AInterviewer:
                 return
 
             if conditions is not None and check_condition_after:
-                await self.check_conditions(conditions)
+                await self.check_conditions(conditions, carrier=condition_carrier)
 
             if question.max_probes_n or question.max_probes_time:
                 await self.probe(question, section_description)
@@ -931,7 +953,9 @@ class AInterviewer:
             )
         )
 
-    async def check_conditions(self, conditions: Conditions) -> None:
+    async def check_conditions(
+        self, conditions: Conditions, carrier: tuple[int, int] | None = None
+    ) -> None:
         condition_contexts = [
             self.get_condition_context(condition) for condition in conditions.conditions
         ]
@@ -947,6 +971,10 @@ class AInterviewer:
             task="evaulate_condition",
             content=conditions.model_dump_json(),
             response=str(condition_triggered),
+            # "<section>:<question>", both zero-based, matching the indices on a
+            # message. A rule checked before its question is asked is written
+            # against the *previous* question's last message.
+            context=f"{carrier[0]}:{carrier[1]}" if carrier else None,
         )
 
         if condition_triggered:
