@@ -4,6 +4,9 @@ on:
     tags:
       - "v*.*.*"
       - "v*.*.*rc*"
+  # Pull requests run the test job only: the docker and github-release jobs
+  # below require a version tag ref, which a PR event never has.
+  pull_request:
 
 jobs:
   test:
