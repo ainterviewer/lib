@@ -99,12 +99,25 @@ async def chat[T: BaseModel](
             api_key=settings.secrets.google_ai_api_key.get_secret_value(),
         )
     elif model.startswith("alex:"):
+        extra_model_kwargs = {}
+
+        match model:
+            case "glm-5.3-flash":
+                extra_model_kwargs["reasoning_effort"] = "low"
+                extra_model_kwargs["extra_body"] = {
+                    "chat_template_kwargs": {"clear_thinking": True}
+                }
+            case "qwen3.8-flash-next":
+                extra_model_kwargs["extra_body"] = {
+                    "chat_template_kwargs": {"enable_thinking": False}
+                }
+
         chat_completion = await chat(
             messages=messages,
             model=model.replace("alex:", "openai:"),
             api_key=settings.secrets.alex_api_key.get_secret_value(),
             api_base="https://inference.alexandra.dk/v1",
-            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+            **extra_model_kwargs,
         )
     else:
         server_endpoint = f"{settings.llm.llm_endpoint}/v1"
