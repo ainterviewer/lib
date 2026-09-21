@@ -186,11 +186,6 @@ DEFAULT_BACKGROUND_INFO_OPTIONS = BackgroundInfoOptions(
         "provocative",
     ],
     refusal_rate=(0, 0.7),
-    extra_traits=[
-        "You think that all people deserve to be treated with respect and dignity, regardless of their background or situation.",
-        "You think that some people deserve respect and dignity, but it depends on their background or specific situation.",
-        "You think that dignity and respect must be hard earned by long established relationships.",
-    ],
 )
 
 
