@@ -4,6 +4,17 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.4.4] - 2026-09-21
+
+### Features
+
+- Update models and implement per model configuration for alex endpoint
+- Remove default extra traits from interviewees
+
+### Internal
+
+- Run test job on pull requests
+
 ## [0.4.3] - 2026-09-14
 
 ### Features
