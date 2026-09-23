@@ -47,7 +47,6 @@ from ainterviewer.interfaces import (
 )
 from ainterviewer.interview_guides import (
     Condition,
-    ConditionAction,
     Image,
     InterviewGuide,
     InterviewMessage,
@@ -55,7 +54,11 @@ from ainterviewer.interview_guides import (
     TimedMessage,
     fill_variables_in_message,
 )
-from ainterviewer.interview_guides.conditions import ConditionEvaluator, Conditions
+from ainterviewer.interview_guides.conditions import (
+    ConditionEvaluator,
+    Conditions,
+    raise_condition,
+)
 from ainterviewer.interview_guides.history import (
     HistoryMessage,
     ImageHistory,
@@ -982,17 +985,7 @@ class AInterviewer:
         )
 
         if condition_triggered:
-            match conditions.action:
-                case ConditionAction.SKIP_PROBES:
-                    raise SkipProbesCondition
-                case ConditionAction.SKIP_QUESTION:
-                    raise SkipQuestionCondition
-                case ConditionAction.SKIP_SECTION:
-                    raise SkipSectionCondition
-                case ConditionAction.END_INTERVIEW:
-                    raise EndInterviewCondition
-                case _:
-                    raise ValueError("Invalid condition action")
+            raise_condition(conditions.action)
 
     def get_condition_context(self, condition: Condition) -> str:
         section, question = condition.question_context.question_index

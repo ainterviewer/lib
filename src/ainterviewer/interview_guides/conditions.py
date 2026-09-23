@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import operator
-from typing import Literal, Protocol
+from typing import Literal, NoReturn, Protocol, assert_never
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from ainterviewer.exceptions import (
+    EndInterviewCondition,
+    SkipProbesCondition,
+    SkipQuestionCondition,
+    SkipSectionCondition,
+)
 from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.types import ConditionAction, ConditionTrigger
 
@@ -17,6 +23,21 @@ comparison_operators = {
     ">": operator.gt,
     ">=": operator.ge,
 }
+
+
+def raise_condition(action: ConditionAction) -> NoReturn:
+    """Raises the appropriate exception based on the condition action"""
+    match action:
+        case ConditionAction.SKIP_PROBES:
+            raise SkipProbesCondition
+        case ConditionAction.SKIP_QUESTION:
+            raise SkipQuestionCondition
+        case ConditionAction.SKIP_SECTION:
+            raise SkipSectionCondition
+        case ConditionAction.END_INTERVIEW:
+            raise EndInterviewCondition
+        case _:
+            assert_never(action)
 
 
 class Classifier(Protocol):
