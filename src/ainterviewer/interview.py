@@ -968,7 +968,7 @@ class AInterviewer:
             message_id=self.interview_history.current_message_id,
             interview_id=self.interview_id,
             project_id=self.project_id,
-            task="evaulate_condition",
+            task="evaluate_condition",
             content=conditions.model_dump_json(),
             response=str(condition_triggered),
             # "<section>:<question>", both zero-based, matching the indices on a
