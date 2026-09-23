@@ -2,7 +2,7 @@ class ConditionalException(Exception):
     pass
 
 
-class SkipSectionCondition(ConditionalException):
+class SkipProbesCondition(ConditionalException):
     pass
 
 
@@ -10,12 +10,20 @@ class SkipQuestionCondition(ConditionalException):
     pass
 
 
+class SkipSectionCondition(ConditionalException):
+    pass
+
+
 class EndInterviewCondition(ConditionalException):
     pass
 
 
-class SkipProbesCondition(ConditionalException):
-    pass
+type InterviewControlCondition = type[
+    SkipProbesCondition
+    | SkipQuestionCondition
+    | SkipSectionCondition
+    | EndInterviewCondition
+]
 
 
 class SkipQuestionException(Exception):
