@@ -1,10 +1,26 @@
-# Context
-Here is the last part of the interview.
+Assess the following transcript of a qualitative interview conducted by an AI with a real human as respondent.
 
-Question: "{{ question }}"
-Answer: "{{ answer }}"
+# Context
+
+## Interview framing
+{{ interview_framing }}
+
+## Section description
+{{ section_description }}
+
+## Question description
+{{ question_description }}
+
+## Transcript
+{{ interview_transcript }}
 
 # Task
-Does the interviewee's response fit into the context of an interview?
+Assess what the respondent has written in the transcript. Base your assessment on the respondent's messages - particularly the last one - using the interviewer's messages only as context.
 
-Please answer only with either `yes` or `no` and nothing else.
+For each item in the response schema below, answer the question in its description by giving a very short reasoning and the probability (between 0 and 1) that the answer is yes.
+
+# Response schema
+Respond in the following format:
+```
+{{ assessment_schema }}
+```

@@ -318,9 +318,20 @@ class SecurityAgentPrompts(BasePrompts):
     def generate_system_prompt(self) -> str:
         return self.get_template("security_agent/system_prompt.jinja").render()
 
-    def generate_security_prompt(self, question: str, answer: str) -> str:
+    def generate_security_prompt(
+        self,
+        interview_framing: str,
+        section_description: str,
+        question_description: str,
+        transcript: str,
+        security_assessment: str,
+    ) -> str:
         return self.get_template("security_agent/instruction_prompt.jinja").render(
-            question=question, answer=answer
+            interview_framing=interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            interview_transcript=transcript,
+            assessment_schema=security_assessment,
         )
 
 
