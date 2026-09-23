@@ -1,12 +1,28 @@
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, create_model, field_validator
 
 from ainterviewer.interview_guides.types import ConditionAction
 
 ACTION_TEXT_DEFAULT = "Our automated safety system has triggered an intervention."
+
+# An assessment only happens once an answer has been given, so the question
+# can no longer be skipped -- skipping its remaining probes is the same thing.
+type SecurityAction = Literal[
+    ConditionAction.SKIP_PROBES,
+    ConditionAction.SKIP_SECTION,
+    ConditionAction.END_INTERVIEW,
+]
+
+# Least to most severe. Only one action can be taken per assessment, so when
+# several decisions trigger, the most severe one wins.
+ACTION_SEVERITY: list[SecurityAction] = [
+    ConditionAction.SKIP_PROBES,
+    ConditionAction.SKIP_SECTION,
+    ConditionAction.END_INTERVIEW,
+]
 
 
 class SecurityEvaluation(BaseModel):
@@ -24,7 +40,7 @@ class SecurityDecision(BaseModel):
     threshold: float = Field(
         ge=0, le=1, description="The threshold which triggers the action"
     )
-    action: ConditionAction
+    action: SecurityAction
     action_text: str = Field(
         default=ACTION_TEXT_DEFAULT,
         description="Text displayed to the user when the condition has triggered",
@@ -74,6 +90,17 @@ class SecurityAssessmentResult:
     """The full response, including decisions below their threshold"""
     triggered: list[TriggeredDecision]
 
+    @property
+    def most_severe(self) -> TriggeredDecision | None:
+        """The triggered decision to act on, the first in the policy on ties"""
+        if not self.triggered:
+            return None
+
+        return max(
+            self.triggered,
+            key=lambda triggered: ACTION_SEVERITY.index(triggered.decision.action),
+        )
+
 
 def generate_assessment_model(
     security_decisions: list[SecurityDecision],
@@ -115,7 +142,7 @@ def default_security_policy() -> SecurityPolicy:
                 name="uncomfortable",
                 description="Does the transcript in any way indicate that the respondent is uncomfortable answering the question?",
                 threshold=0.5,
-                action=ConditionAction.SKIP_QUESTION,
+                action=ConditionAction.SKIP_PROBES,
                 respondent_override=True,
             ),
         ]

@@ -20,6 +20,7 @@ from ainterviewer.agents import (
 )
 from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.agents.reformulation_agent import ReformulationReason
+from ainterviewer.agents.security_policy import TriggeredDecision
 from ainterviewer.agents.types import ProbingStrategy
 from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import (
@@ -67,6 +68,7 @@ from ainterviewer.interview_guides.history import (
 from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import SurveyItem
+from ainterviewer.interview_guides.types import ConditionAction, ProbingContext
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType
 
@@ -141,6 +143,10 @@ class AInterviewer:
         self.resume_from_history: bool = False
 
         self._evaluated_conditions: dict[QuestionIndex, str] = {}
+
+        # An assessment of the latest answer, running alongside whatever is
+        # generated next.
+        self._security_check: asyncio.Task[TriggeredDecision | None] | None = None
 
         self.probing_agent: ProbingAgent = ProbingAgent(
             interview_framing=interview_guide.framing,
@@ -297,13 +303,6 @@ class AInterviewer:
 
         processed_text = await self.preprocess_answer(text)
 
-        # TODO:
-        # Implement and updated version of the SafetyAgent
-        #
-        # if self.security_agent and not self.security_agent.is_safe(processed_text):
-        #     message = "I'm sorry, but your last message is not within the scope of this interview. Please try again."
-        #     await self.send_data(message)
-
         # Read before the answer is added to the history, which advances them.
         message_id = self.interview_history.current_message_id + 1
         section = self.interview_history.current_section_index
@@ -451,7 +450,9 @@ class AInterviewer:
 
             # TODO:
             # - Make more fine-grained an configurable.
-            if outro := self.interview_guide.alt_outro:
+            if self.interview_history.outro is None and (
+                outro := self.interview_guide.alt_outro
+            ):
                 message = await self.preprocess_message(outro)
                 self.interview_history.outro = HistoryMessage(message=message)
                 await self.send_data(
@@ -757,11 +758,19 @@ class AInterviewer:
                 await asyncio.sleep(2.5)
                 return
 
+            if question.survey_item is None:
+                self.start_security_check(question, section_description)
+
             if conditions is not None and check_condition_after:
+                # A security intervention takes precedence over the guide's
+                # conditions.
+                await self.resolve_security_check()
                 await self.check_conditions(conditions, carrier=condition_carrier)
 
             if question.max_probes_n or question.max_probes_time:
                 await self.probe(question, section_description)
+
+            await self.resolve_security_check()
 
         except SkipProbesCondition:
             pass
@@ -770,6 +779,9 @@ class AInterviewer:
                 await self.handle_skip_question_exception(question)
         except SkipQuestionException:
             pass
+        finally:
+            # Only left pending when something failed before it was resolved.
+            self.cancel_security_check()
 
         # The question group is complete here -- main question, answer, and
         # every probe that followed -- which is the point at which it can be
@@ -984,6 +996,107 @@ class AInterviewer:
         if condition_triggered:
             raise_condition(conditions.action)
 
+    def start_security_check(
+        self, question: Question, section_description: str
+    ) -> None:
+        """Starts assessing the latest answer in the background, so that it runs
+        alongside whatever is generated next.
+
+        `resolve_security_check` must be awaited before the respondent is sent
+        another message.
+        """
+        if self.security_agent is None:
+            return
+
+        assert self._security_check is None, "A security check is already pending"
+
+        self._security_check = asyncio.create_task(
+            self._assess_security(
+                security_agent=self.security_agent,
+                interview_framing=self.interview_guide.framing,
+                section_description=section_description,
+                question_description=question.description or "",
+                # Read now, as the history moves on while the check runs.
+                transcript=self.interview_history.get_transcript(
+                    probing_context=ProbingContext.QUESTION
+                ),
+                message_id=self.interview_history.current_message_id,
+            )
+        )
+
+    async def _assess_security(
+        self,
+        security_agent: SecurityAgent,
+        interview_framing: str,
+        section_description: str,
+        question_description: str,
+        transcript: str,
+        message_id: int,
+    ) -> TriggeredDecision | None:
+        start_time = time.time()
+
+        result = await security_agent.assess(
+            interview_framing=interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            transcript=transcript,
+        )
+        triggered = result.most_severe
+
+        self.db.insert_task(
+            message_id=message_id,
+            interview_id=self.interview_id,
+            project_id=self.project_id,
+            task="assess_security",
+            reason=triggered.decision.name if triggered else None,
+            response=result.assessment.model_dump_json(),
+            model=security_agent.model,
+            time_spend=int(time.time() - start_time),
+        )
+
+        return triggered
+
+    async def resolve_security_check(self) -> None:
+        """Waits for the pending security check, if any, and acts on the
+        decision it triggered."""
+        if (security_check := self._security_check) is None:
+            return
+
+        self._security_check = None
+
+        if (triggered := await security_check) is None:
+            return
+
+        # TODO: Let the respondent confirm before acting when
+        # `triggered.decision.respondent_override` is set.
+
+        action = triggered.decision.action
+        # Not run through `preprocess_message`, which may cut it at the first
+        # question mark.
+        message = triggered.decision.action_text.strip()
+
+        if action == ConditionAction.END_INTERVIEW:
+            self.interview_history.outro = HistoryMessage(message=message)
+            await self.send_data(
+                message,
+                with_interview_structure=False,
+                can_answer=False,
+                outro=True,
+            )
+        else:
+            await self.send_data(
+                message,
+                can_answer=False,
+                with_interview_structure=False,
+            )
+
+        raise_condition(action)
+
+    def cancel_security_check(self) -> None:
+        if (security_check := self._security_check) is not None:
+            security_check.cancel()
+            self._security_check = None
+
     def get_condition_context(self, condition: Condition) -> str:
         section_context = self.interview_history[condition.question_context.section]
 
@@ -1048,12 +1161,18 @@ class AInterviewer:
             if probe.lower().startswith(CustomToken.end_of_probe):
                 break
 
+            # The last answer has to be acted on before the next probe is asked.
+            await self.resolve_security_check()
+
             answer = await self.ask_probe(question, probe)
 
             if answer == CustomToken.skip_question:
                 # NOTE: skipping a probe moves the interview to the next main
                 # question
                 raise SkipQuestionException
+
+            if answer != CustomToken.no_answer:
+                self.start_security_check(question, section_description)
 
     async def generate_probe(
         self,
