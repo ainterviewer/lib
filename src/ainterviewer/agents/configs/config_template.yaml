@@ -23,7 +23,6 @@ agents:
     include: false
     lan: en
     model: gpt-4o
-    sensitive_subjects: null
     temperature: 0.2
   translation:
     agent: null

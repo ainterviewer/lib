@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
+from ainterviewer.agents.security_policy import SecurityPolicy, default_security_policy
 from ainterviewer.lpm.types import Temperature
 from ainterviewer.settings import settings
 
@@ -129,16 +130,8 @@ class ProbingAgentConfig(AgentConfig):
 
 
 class SecurityConfig(AgentConfig):
-    sensitive_subjects: list | None = None
     include: bool = False
-
-    @model_validator(mode="after")
-    def check_sensitive_subjects(self):
-        if self.include and not self.sensitive_subjects:
-            raise ValueError(
-                "'sensitive_subjects' must be provided when include is True"
-            )
-        return self
+    policy: SecurityPolicy = Field(default_factory=default_security_policy)
 
 
 class VisualConfig(AgentConfig):

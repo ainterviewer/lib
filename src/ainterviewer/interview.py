@@ -187,6 +187,7 @@ class AInterviewer:
 
         if agent_configs.security.include:
             self.security_agent: SecurityAgent | None = SecurityAgent(
+                policy=agent_configs.security.policy,
                 template_loader=template_loader,
                 model=agent_configs.security.model,
                 language=language,
