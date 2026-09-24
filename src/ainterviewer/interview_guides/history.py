@@ -8,6 +8,7 @@ from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ProbingContext
 from ainterviewer.lpm.types import CustomToken
+from ainterviewer.types import MessageType
 
 type SectionsRange = int | slice | list[int] | None
 
@@ -56,6 +57,9 @@ class InterviewHistory(BaseModel):
     sections: list[SectionHistory] = Field(default_factory=list)
     outro: HistoryMessage | None = None
     timed_messages: list[HistoryMessage] = Field(default_factory=list)
+    # Security interventions and the respondent's answers to them. Kept out of
+    # the transcript, but counted like every other message.
+    security_messages: list[HistoryMessage] = Field(default_factory=list)
     is_finished: bool = False
 
     @property
@@ -115,6 +119,7 @@ class InterviewHistory(BaseModel):
             count += 1
 
         count += len(self.timed_messages)
+        count += len(self.security_messages)
 
         for section in self.sections:
             for question in section.questions:
@@ -235,6 +240,13 @@ class InterviewHistory(BaseModel):
                 message=message.content,
                 skipped_by_condition=message.skipped_by_condition,
             )
+
+            if (
+                message.security_intervention is not None
+                or message.message_type == MessageType.SECURITY_OVERRIDE
+            ):
+                self.security_messages.append(history_message)
+                continue
 
             # TODO: Fix for surveys
             if message.role.value == "assistant":
