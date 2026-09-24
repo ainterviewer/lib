@@ -4,7 +4,7 @@ import logging
 import re
 import time
 from datetime import UTC, datetime
-from typing import Any, Self
+from typing import Any, NoReturn, Self
 
 from jinja2 import BaseLoader
 from pydantic import UUID4
@@ -44,6 +44,8 @@ from ainterviewer.interfaces import (
     OutgoingData,
     OutgoingMessage,
     PersistenceProtocol,
+    SecurityIntervention,
+    SecurityOverride,
 )
 from ainterviewer.interview_guides import (
     Condition,
@@ -68,7 +70,11 @@ from ainterviewer.interview_guides.history import (
 from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.interview_guides.types import ConditionAction, ProbingContext
+from ainterviewer.interview_guides.types import (
+    ConditionAction,
+    ProbingContext,
+    SecurityAction,
+)
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType
 
@@ -147,6 +153,10 @@ class AInterviewer:
         # An assessment of the latest answer, running alongside whatever is
         # generated next.
         self._security_check: asyncio.Task[TriggeredDecision | None] | None = None
+        # The intervention's own message takes the place of the outro.
+        self.ended_by_security_check: bool = False
+        # Set when a resumed interview has to move on to the next section.
+        self.skip_resumed_section: bool = False
 
         self.probing_agent: ProbingAgent = ProbingAgent(
             interview_framing=interview_guide.framing,
@@ -355,6 +365,7 @@ class AInterviewer:
         is_introduction: bool = False,
         outro: bool = False,
         timed: bool = False,
+        security_intervention: SecurityIntervention | None = None,
     ) -> None:
         message_id = self.db.insert_message(
             message_id=self.interview_history.current_message_id,
@@ -385,6 +396,7 @@ class AInterviewer:
             is_introduction=is_introduction,
             outro=outro,
             timed=timed,
+            security_intervention=security_intervention,
             interview_id=self.interview_id,
             project_id=self.project_id,
         )
@@ -407,6 +419,7 @@ class AInterviewer:
                 can_answer=can_answer,
                 progress=progress,
                 is_probe=bool(self.interview_history.current_probe_index),
+                security_intervention=security_intervention,
             )
 
         await self.io.send_data(data)
@@ -437,12 +450,14 @@ class AInterviewer:
         Main entry point for the interview process
         """
 
-        if interview_history:
-            await self.process_history(interview_history)
-        elif intro := self.interview_guide.introduction:
+        if not interview_history and (intro := self.interview_guide.introduction):
             await self.handle_intro(intro)
 
         try:
+            if interview_history:
+                # Inside the try, as resuming may act on a security intervention.
+                await self.process_history(interview_history)
+
             await self.handle_sections()
         except EndInterviewCondition:
             # Raised by a condition that ends the interview, i.e. missing
@@ -450,7 +465,7 @@ class AInterviewer:
 
             # TODO:
             # - Make more fine-grained an configurable.
-            if self.interview_history.outro is None and (
+            if not self.ended_by_security_check and (
                 outro := self.interview_guide.alt_outro
             ):
                 message = await self.preprocess_message(outro)
@@ -462,8 +477,10 @@ class AInterviewer:
                     outro=True,
                 )
 
-        if self.interview_history.outro is None and (
-            outro := self.interview_guide.outro
+        if (
+            self.interview_history.outro is None
+            and not self.ended_by_security_check
+            and (outro := self.interview_guide.outro)
         ):
             if isinstance(outro, InterviewMessage):
                 outro = outro.message
@@ -535,20 +552,73 @@ class AInterviewer:
 
         await self.send_progress(questions_asked=self.interview_history.n_questions - 1)
 
-        last_section = self.interview_guide.question_sections[message.section]
-        last_question = last_section.questions[message.main_question]
+        intervention = self.last_security_intervention(interview_history)
+
+        if intervention is not None:
+            # Sent outside the interview structure, so the question it
+            # interrupted is the last one in the history.
+            section_index = self.interview_history.current_section_index
+            question_index = self.interview_history.current_question_index
+            if question_index is None:
+                raise ValueError("Security intervention before any question")
+        else:
+            section_index = message.section
+            question_index = message.main_question
+
+        last_section = self.interview_guide.question_sections[section_index]
+        last_question = last_section.questions[question_index]
 
         try:
-            if message.role == "assistant" and message.can_answer:
+            if intervention is not None:
+                security_intervention, override = intervention
+
+                if override is None:
+                    override = (
+                        await self.receive_security_override()
+                        if security_intervention.respondent_override
+                        else SecurityOverride.ACCEPT
+                    )
+
+                if override == SecurityOverride.ACCEPT:
+                    self.apply_security_action(security_intervention.action)
+
+            elif message.role == "assistant" and message.can_answer:
                 await self.receive_data()
 
             await self.probe(last_question, last_section.description)
+            await self.resolve_security_check()
 
             self.resume_from_history = True
+        except SkipProbesCondition:
+            self.resume_from_history = True
+        except SkipSectionCondition:
+            self.resume_from_history = True
+            self.skip_resumed_section = True
         except SkipQuestionCondition:
             await self.handle_skip_question_exception(last_question)
         except SkipQuestionException:
             pass
+        finally:
+            self.cancel_security_check()
+
+    @staticmethod
+    def last_security_intervention(
+        interview_history: list,
+    ) -> tuple[SecurityIntervention, SecurityOverride | None] | None:
+        """The security intervention the interview stopped at, if any, with the
+        respondent's answer to it if they gave one."""
+        last = interview_history[-1]
+
+        if last.message_type == MessageType.SECURITY_OVERRIDE:
+            intervention = interview_history[-2].security_intervention
+            if intervention is None:
+                raise ValueError("Security override answer without an intervention")
+            return intervention, SecurityOverride(last.content)
+
+        if last.security_intervention is not None:
+            return last.security_intervention, None
+
+        return None
 
     async def handle_intro(self, intro: str | InterviewMessage):
         if isinstance(intro, InterviewMessage):
@@ -627,6 +697,11 @@ class AInterviewer:
         for section in self.interview_guide.question_sections[
             self.interview_history.current_section_index :
         ]:
+            if self.resume_from_history and self.skip_resumed_section:
+                self.resume_from_history = False
+                self.skip_resumed_section = False
+                continue
+
             if self.resume_from_history:
                 initial_question_index = (
                     current_question_index + 1
@@ -1067,28 +1142,62 @@ class AInterviewer:
         if (triggered := await security_check) is None:
             return
 
-        # TODO: Let the respondent confirm before acting when
-        # `triggered.decision.respondent_override` is set.
-
-        action = triggered.decision.action
+        decision = triggered.decision
         # Not run through `preprocess_message`, which may cut it at the first
         # question mark.
-        message = triggered.decision.action_text.strip()
+        message = decision.action_text.strip()
 
+        self.interview_history.security_messages.append(HistoryMessage(message=message))
+
+        # Shown in a modal rather than in the chat, so the chat itself is never
+        # answered -- an override is answered in the modal.
+        await self.send_data(
+            message,
+            can_answer=False,
+            with_interview_structure=False,
+            security_intervention=SecurityIntervention(
+                action=decision.action,
+                respondent_override=decision.respondent_override,
+            ),
+        )
+
+        if (
+            decision.respondent_override
+            and await self.receive_security_override() == SecurityOverride.OVERRIDE
+        ):
+            return
+
+        self.apply_security_action(decision.action)
+
+    async def receive_security_override(self) -> SecurityOverride:
+        """Waits for the respondent's answer to the intervention they were just
+        shown."""
+        message_id = self.interview_history.current_message_id + 1
+
+        text, _, _ = await self.io.receive_message(
+            message_id=message_id,
+            message_type=MessageType.SECURITY_OVERRIDE,
+        )
+        override = SecurityOverride(text)
+
+        self.db.insert_message(
+            message_id=message_id,
+            content=override,
+            message_type=MessageType.SECURITY_OVERRIDE,
+            role=MessageRole.USER,
+            include_in_history=False,
+            interview_id=self.interview_id,
+            project_id=self.project_id,
+        )
+        self.interview_history.security_messages.append(
+            HistoryMessage(message=override)
+        )
+
+        return override
+
+    def apply_security_action(self, action: SecurityAction) -> NoReturn:
         if action == ConditionAction.END_INTERVIEW:
-            self.interview_history.outro = HistoryMessage(message=message)
-            await self.send_data(
-                message,
-                with_interview_structure=False,
-                can_answer=False,
-                outro=True,
-            )
-        else:
-            await self.send_data(
-                message,
-                can_answer=False,
-                with_interview_structure=False,
-            )
+            self.ended_by_security_check = True
 
         raise_condition(action)
 

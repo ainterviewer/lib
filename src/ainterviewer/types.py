@@ -50,6 +50,8 @@ class MessageType(StrEnum):
     AUDIO = "audio"
     CUSTOM_TOKEN = "custom_token"
     SURVEY_ITEM = "survey_item"
+    # The respondent's answer to a security intervention they may override.
+    SECURITY_OVERRIDE = "security_override"
 
 
 class InterviewRole(StrEnum):

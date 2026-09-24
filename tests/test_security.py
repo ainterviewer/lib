@@ -1,6 +1,9 @@
 import asyncio
 import uuid
-from unittest.mock import MagicMock
+from dataclasses import dataclass
+from functools import partial
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -8,7 +11,6 @@ from pydantic import ValidationError
 from ainterviewer.agents import SecurityAgent
 from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.agents.security_policy import (
-    SecurityAction,
     SecurityAssessmentResult,
     SecurityDecision,
     SecurityPolicy,
@@ -17,10 +19,16 @@ from ainterviewer.agents.security_policy import (
 )
 from ainterviewer.config import InterviewConfig
 from ainterviewer.exceptions import EndInterviewCondition, SkipSectionCondition
+from ainterviewer.interfaces import (
+    OutgoingMessage,
+    SecurityIntervention,
+    SecurityOverride,
+)
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide, Question
 from ainterviewer.interview_guides.history import HistoryMessage, Turn
-from ainterviewer.interview_guides.types import ConditionAction
+from ainterviewer.interview_guides.types import ConditionAction, SecurityAction
+from ainterviewer.types import MessageRole, MessageType
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -71,7 +79,8 @@ class Harness:
     replaced, running a single question with up to two probes.
 
     `assessments` gives the probabilities the security agent returns, one
-    entry per answer in the order they are given.
+    entry per answer in the order they are given, and `override_answers` what
+    the respondent answers each intervention they may override.
     """
 
     def __init__(
@@ -79,11 +88,14 @@ class Harness:
         assessments: list[dict[str, float]] | None = None,
         probe_answers: tuple[str, ...] = ("probe answer 1", "probe answer 2"),
         guide_kwargs: dict | None = None,
+        override_answers: tuple[str, ...] = (),
     ):
         self.assessments = list(assessments or [])
         self.probe_answers = list(probe_answers)
+        self.override_answers = list(override_answers)
         self.events: list[str] = []
         self.sent: list[tuple[str, bool]] = []
+        self.sent_kwargs: list[dict] = []
 
         guide = InterviewGuide.model_validate(
             {
@@ -98,8 +110,12 @@ class Harness:
             }
         )
         self.db = MagicMock()
+        self.io = MagicMock(
+            send_data=AsyncMock(),
+            receive_message=AsyncMock(side_effect=self.receive_message),
+        )
         self.interviewer = iv = AInterviewer(
-            io=MagicMock(),
+            io=self.io,
             db=self.db,
             interview_guide=guide,
             config=InterviewConfig.model_validate({}),
@@ -134,8 +150,16 @@ class Harness:
         self.events.append("assess")
         return _result(self.policy, self.assessments.pop(0) if self.assessments else {})
 
+    async def receive_message(self, message_id: int, message_type=None):
+        # Only the override answer is read from the respondent directly.
+        assert message_type == MessageType.SECURITY_OVERRIDE
+        assert self.override_answers, "Waited for an unexpected override answer"
+        self.events.append("receive_override")
+        return self.override_answers.pop(0), message_type, None
+
     async def send_data(self, text: str, **kwargs):
         self.sent.append((text, kwargs.get("outro", False)))
+        self.sent_kwargs.append(kwargs)
 
     async def ask_question(self, question: Question) -> str:
         self.events.append("ask_question")
@@ -173,6 +197,14 @@ class Harness:
         iv.interview_history.add_section("Section")
         question = question or iv.interview_guide.question_sections[0].questions[0]
         await iv.handle_question(question, "Section", question_index=0)
+
+    @property
+    def stored_overrides(self) -> list[dict]:
+        return [
+            call.kwargs
+            for call in self.db.insert_message.call_args_list
+            if call.kwargs["message_type"] == MessageType.SECURITY_OVERRIDE
+        ]
 
     @property
     def logged_assessments(self) -> list:
@@ -340,7 +372,9 @@ class TestInterviewSecurity:
 
     @pytest.mark.anyio
     async def test_skip_probes_on_main_answer(self):
-        harness = Harness(assessments=[{"uncomfortable": 0.9}])
+        harness = Harness(
+            assessments=[{"uncomfortable": 0.9}], override_answers=("accept",)
+        )
 
         await harness.handle_question()
 
@@ -351,8 +385,47 @@ class TestInterviewSecurity:
         assert harness.logged_assessments[0]["reason"] == "uncomfortable"
 
     @pytest.mark.anyio
+    async def test_intervention_is_sent_for_a_modal(self):
+        harness = Harness(
+            assessments=[{"uncomfortable": 0.9}], override_answers=("accept",)
+        )
+
+        await harness.handle_question()
+
+        (kwargs,) = harness.sent_kwargs
+        assert kwargs["security_intervention"] == SecurityIntervention(
+            action=ConditionAction.SKIP_PROBES, respondent_override=True
+        )
+        # Answered in the modal, never in the chat.
+        assert kwargs["can_answer"] is False
+
+    @pytest.mark.anyio
+    async def test_intervention_is_stored_and_sent_without_decision(self):
+        harness = Harness(
+            assessments=[{"uncomfortable": 0.9}], override_answers=("accept",)
+        )
+        iv = harness.interviewer
+        harness.db.insert_message.return_value = 1
+        harness.patch("send_data", partial(AInterviewer.send_data, iv))
+
+        await harness.handle_question()
+
+        (payload,) = [call.args[0] for call in harness.io.send_data.call_args_list]
+        assert isinstance(payload, OutgoingMessage)
+        assert payload.model_dump()["security_intervention"] == {
+            "action": "skip_probes",
+            "respondent_override": True,
+        }
+        assert "uncomfortable" not in payload.model_dump_json()
+        # Stored, so a resumed interview replays it in a modal too.
+        stored = harness.db.insert_message.call_args_list[0].kwargs
+        assert stored["security_intervention"] == payload.security_intervention
+
+    @pytest.mark.anyio
     async def test_skip_probes_on_probe_answer(self):
-        harness = Harness(assessments=[{}, {"uncomfortable": 0.9}])
+        harness = Harness(
+            assessments=[{}, {"uncomfortable": 0.9}], override_answers=("accept",)
+        )
 
         await harness.handle_question()
 
@@ -366,7 +439,7 @@ class TestInterviewSecurity:
         with pytest.raises(EndInterviewCondition):
             await harness.handle_question()
 
-        assert harness.sent == [(harness.policy.decisions[0].action_text, True)]
+        assert harness.sent == [(harness.policy.decisions[0].action_text, False)]
         assert harness.logged_assessments[0]["reason"] == "self_harm"
 
     @pytest.mark.anyio
@@ -427,12 +500,19 @@ class TestInterviewSecurity:
 
     @pytest.mark.anyio
     async def test_probe_is_not_asked_before_check_resolves(self):
-        harness = Harness(assessments=[{"uncomfortable": 0.9}])
+        harness = Harness(
+            assessments=[{"uncomfortable": 0.9}], override_answers=("accept",)
+        )
 
         await harness.handle_question()
 
         # Generated alongside the check, but never sent.
-        assert harness.events == ["ask_question", "generate_probe", "assess"]
+        assert harness.events == [
+            "ask_question",
+            "generate_probe",
+            "assess",
+            "receive_override",
+        ]
 
     @pytest.mark.anyio
     async def test_pending_check_is_cancelled_on_failure(self):
@@ -462,7 +542,7 @@ class TestInterviewSecurity:
         await asyncio.wait_for(cancelled.wait(), timeout=1)
 
     @pytest.mark.anyio
-    async def test_end_interview_replaces_outro(self):
+    async def test_end_interview_replaces_outros(self):
         harness = Harness(
             assessments=[{"self_harm": 0.9}],
             guide_kwargs={"alt_outro": "Alternative outro", "outro": "Outro"},
@@ -472,9 +552,242 @@ class TestInterviewSecurity:
         await harness.interviewer.interview()
 
         action_text = harness.policy.decisions[0].action_text
-        assert [text for text, _ in harness.sent][:1] == [action_text]
-        assert "Alternative outro" not in [text for text, _ in harness.sent]
-        assert "Outro" not in [text for text, _ in harness.sent]
-        assert harness.interviewer.interview_history.outro == HistoryMessage(
-            message=action_text
+        sent = [text for text, _ in harness.sent]
+        # The intervention is the last thing the respondent reads.
+        assert sent[:1] == [action_text]
+        assert "Alternative outro" not in sent
+        assert "Outro" not in sent
+        assert harness.interviewer.ended_by_security_check
+
+
+# ── Respondent override ────────────────────────────────────────────────────
+
+
+class TestRespondentOverride:
+    @pytest.mark.anyio
+    async def test_override_carries_on_probing(self):
+        harness = Harness(
+            assessments=[{"uncomfortable": 0.9}], override_answers=("override",)
         )
+
+        await harness.handle_question()
+
+        assert harness.events.count("ask_probe") == 2
+        (stored,) = harness.stored_overrides
+        assert stored["content"] == SecurityOverride.OVERRIDE
+        assert stored["role"] == MessageRole.USER
+        # Never part of the transcript the agents read.
+        assert stored["include_in_history"] is False
+
+    @pytest.mark.anyio
+    async def test_accepted_termination_ends_interview(self):
+        harness = Harness(
+            assessments=[{"termination": 0.9}], override_answers=("accept",)
+        )
+
+        with pytest.raises(EndInterviewCondition):
+            await harness.handle_question()
+
+        assert harness.interviewer.ended_by_security_check
+
+    @pytest.mark.anyio
+    async def test_overridden_termination_carries_on(self):
+        harness = Harness(
+            assessments=[{"termination": 0.9}], override_answers=("override",)
+        )
+
+        await harness.handle_question()
+
+        assert not harness.interviewer.ended_by_security_check
+        assert harness.events.count("ask_probe") == 2
+
+    @pytest.mark.anyio
+    async def test_no_answer_awaited_without_override(self):
+        # The harness fails on any wait it has no answer queued for.
+        harness = Harness(assessments=[{"self_harm": 0.9}])
+
+        with pytest.raises(EndInterviewCondition):
+            await harness.handle_question()
+
+        assert "receive_override" not in harness.events
+
+    @pytest.mark.anyio
+    async def test_unknown_answer_is_rejected(self):
+        harness = Harness(
+            assessments=[{"uncomfortable": 0.9}], override_answers=("maybe",)
+        )
+
+        with pytest.raises(ValueError):
+            await harness.handle_question()
+
+    @pytest.mark.anyio
+    async def test_messages_get_their_own_ids(self):
+        # Neither message is part of the transcript, but both are stored, so
+        # they must still be counted -- or the next message would reuse an id.
+        harness = Harness(
+            assessments=[{"uncomfortable": 0.9}], override_answers=("accept",)
+        )
+        harness.db.insert_message.return_value = 1
+        harness.patch("send_data", partial(AInterviewer.send_data, harness.interviewer))
+
+        await harness.handle_question()
+
+        intervention, override = [
+            call.kwargs["message_id"]
+            for call in harness.db.insert_message.call_args_list
+        ]
+        # The main question and its answer are 1 and 2.
+        assert (intervention, override) == (3, 4)
+        assert harness.interviewer.interview_history.current_message_id == 4
+
+
+# ── Resuming at an intervention ────────────────────────────────────────────
+
+
+@dataclass
+class StoredMessage:
+    """The shape a resumed interview reads a stored message as."""
+
+    content: str
+    role: MessageRole
+    section: int | None = None
+    main_question: int | None = None
+    sub_question: int | None = None
+    message_type: MessageType = MessageType.TEXT
+    security_intervention: SecurityIntervention | None = None
+    survey_item: Any = None
+    is_introduction: bool = False
+    outro: bool = False
+    timed: bool = False
+    skipped_by_condition: bool = False
+    include_in_history: bool = True
+    image: Any = None
+    can_answer: bool = True
+
+
+def _stored_history(
+    action: SecurityAction,
+    respondent_override: bool,
+    answer: SecurityOverride | None = None,
+) -> list[StoredMessage]:
+    """A main question and its answer, interrupted by an intervention."""
+    history = [
+        StoredMessage("Q?", MessageRole.ASSISTANT, 0, 0, 0),
+        StoredMessage("answer", MessageRole.USER, 0, 0, 0),
+        StoredMessage(
+            "Intervention",
+            MessageRole.ASSISTANT,
+            can_answer=False,
+            security_intervention=SecurityIntervention(
+                action=action, respondent_override=respondent_override
+            ),
+        ),
+    ]
+    if answer is not None:
+        history.append(
+            StoredMessage(
+                answer,
+                MessageRole.USER,
+                message_type=MessageType.SECURITY_OVERRIDE,
+                include_in_history=False,
+            )
+        )
+    return history
+
+
+class TestResumeAtIntervention:
+    @pytest.mark.anyio
+    async def test_pending_answer_is_awaited(self):
+        harness = Harness(override_answers=("accept",))
+
+        await harness.interviewer.process_history(
+            _stored_history(ConditionAction.SKIP_PROBES, respondent_override=True)
+        )
+
+        assert harness.events == ["receive_override"]
+        # Counted after the intervention it answers.
+        assert harness.stored_overrides[0]["message_id"] == 4
+        assert harness.interviewer.resume_from_history
+
+    @pytest.mark.anyio
+    async def test_pending_override_carries_on_probing(self):
+        harness = Harness(override_answers=("override",))
+
+        await harness.interviewer.process_history(
+            _stored_history(ConditionAction.SKIP_PROBES, respondent_override=True)
+        )
+
+        assert harness.events.count("ask_probe") == 2
+        assert harness.interviewer.resume_from_history
+
+    @pytest.mark.anyio
+    async def test_given_answer_is_not_asked_again(self):
+        harness = Harness()
+
+        with pytest.raises(EndInterviewCondition):
+            await harness.interviewer.process_history(
+                _stored_history(
+                    ConditionAction.END_INTERVIEW,
+                    respondent_override=True,
+                    answer=SecurityOverride.ACCEPT,
+                )
+            )
+
+        assert "receive_override" not in harness.events
+
+    @pytest.mark.anyio
+    async def test_intervention_without_override_is_applied(self):
+        harness = Harness()
+
+        with pytest.raises(EndInterviewCondition):
+            await harness.interviewer.process_history(
+                _stored_history(
+                    ConditionAction.END_INTERVIEW, respondent_override=False
+                )
+            )
+
+    @pytest.mark.anyio
+    async def test_resumed_end_skips_outros(self):
+        harness = Harness(guide_kwargs={"alt_outro": "Alternative outro"})
+
+        await harness.interviewer.interview(
+            interview_history=_stored_history(
+                ConditionAction.END_INTERVIEW, respondent_override=False
+            )
+        )
+
+        sent = [text for text, _ in harness.sent]
+        assert "Alternative outro" not in sent
+        assert harness.interviewer.interview_history.is_finished
+
+    @pytest.mark.anyio
+    async def test_skipped_section_is_not_resumed(self):
+        harness = Harness(
+            guide_kwargs={
+                "question_sections": [
+                    {
+                        "description": "First",
+                        "questions": [
+                            {"main_question": "Q1?"},
+                            {"main_question": "Q2?"},
+                        ],
+                    },
+                    {"description": "Second", "questions": [{"main_question": "Q3?"}]},
+                ]
+            }
+        )
+        asked = []
+
+        async def ask_question(question):
+            asked.append(question.main_question)
+            return await harness.ask_question(question)
+
+        harness.patch("ask_question", ask_question)
+
+        await harness.interviewer.process_history(
+            _stored_history(ConditionAction.SKIP_SECTION, respondent_override=False)
+        )
+        await harness.interviewer.handle_sections()
+
+        # Q2 is the rest of the section the intervention skipped.
+        assert asked == ["Q3?"]

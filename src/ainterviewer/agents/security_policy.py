@@ -1,20 +1,12 @@
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field, create_model, field_validator
 
-from ainterviewer.interview_guides.types import ConditionAction
+from ainterviewer.interview_guides.types import ConditionAction, SecurityAction
 
 ACTION_TEXT_DEFAULT = "Our automated safety system has triggered an intervention."
-
-# An assessment only happens once an answer has been given, so the question
-# can no longer be skipped -- skipping its remaining probes is the same thing.
-type SecurityAction = Literal[
-    ConditionAction.SKIP_PROBES,
-    ConditionAction.SKIP_SECTION,
-    ConditionAction.END_INTERVIEW,
-]
 
 # Least to most severe. Only one action can be taken per assessment, so when
 # several decisions trigger, the most severe one wins.

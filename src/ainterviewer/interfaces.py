@@ -1,3 +1,4 @@
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Protocol, Self
 
@@ -6,6 +7,7 @@ from pydantic import UUID4, BaseModel, Field, model_validator
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.survey_items import SurveyItem
+from ainterviewer.interview_guides.types import SecurityAction
 from ainterviewer.types import (
     EmbeddingKind,
     Feedback,
@@ -31,6 +33,26 @@ class ReceivedData(BaseModel):
         return self
 
 
+class SecurityIntervention(BaseModel):
+    """Marks a message as sent by the security check, to be shown in a modal
+    rather than in the chat."""
+
+    # Which decision triggered is deliberately left out, as it is sent to the
+    # respondent's client.
+    action: SecurityAction
+    respondent_override: bool
+
+
+class SecurityOverride(StrEnum):
+    """The respondent's answer to a security intervention with
+    `respondent_override`, sent back as the content of an ordinary message."""
+
+    ACCEPT = "accept"
+    """Let the intervention's action go ahead."""
+    OVERRIDE = "override"
+    """Carry on with the interview as if nothing had triggered."""
+
+
 class _OutgoingData(BaseModel):
     type: Literal["history", "message"]
     content: str
@@ -39,6 +61,7 @@ class _OutgoingData(BaseModel):
     feedback: Feedback | None = None
     image: Image | list[Image] | None = None
     survey_item: SurveyItem | None = None
+    security_intervention: SecurityIntervention | None = None
 
     def model_dump(self, **kwargs):
         # NOTE:
@@ -126,6 +149,7 @@ class PersistenceProtocol(Protocol):
         outro: bool = False,
         timed: bool = False,
         skipped_by_condition: bool = False,
+        security_intervention: SecurityIntervention | None = None,
     ) -> int: ...
 
     def insert_task(

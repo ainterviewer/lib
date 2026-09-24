@@ -20,7 +20,7 @@ from ainterviewer.interview_guides.history import (
 )
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import LikertItem, RadioItem
-from ainterviewer.types import MessageRole
+from ainterviewer.types import MessageRole, MessageType
 
 
 @pytest.fixture
@@ -45,6 +45,8 @@ class StoredMessage:
     include_in_history: bool = True
     image: Any = None
     can_answer: bool = True
+    message_type: MessageType = MessageType.TEXT
+    security_intervention: Any = None
 
 
 def guide(*survey_items: Any) -> InterviewGuide:
