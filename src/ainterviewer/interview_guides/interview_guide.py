@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from ainterviewer.interview_guides.questions import Question, QuestionBase
+from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.shuffle import shuffle_items
 from ainterviewer.interview_guides.variables import (
@@ -165,23 +166,18 @@ class InterviewGuide(InterviewGuideBase[Question]):
 
         The id is the source of truth and the position is derived from it, so
         this must run whenever the guide is reordered (see `shuffle`): the
-        interview loop reads answers back by position. A condition or
-        reference stored before questions had ids carries only a position, and
-        gets the id of whatever sits there.
+        interview loop reads answers back by position.
         """
         positions = {
             question.id: (n_section, n_question)
             for n_section, section in enumerate(self.question_sections)
             for n_question, question in enumerate(section.questions)
         }
-        ids = {position: question_id for question_id, position in positions.items()}
 
-        def resolve(question_id, position, label):
-            if question_id is None:
-                return ids.get(position), position
+        def resolve(question_id: UUID, label: str) -> QuestionIndex:
             if question_id not in positions:
                 raise ValueError(f"{label} refers to a question that does not exist")
-            return question_id, positions[question_id]
+            return positions[question_id]
 
         for n_section, section in enumerate(self.question_sections):
             for n_question, question in enumerate(section.questions):
@@ -192,17 +188,11 @@ class InterviewGuide(InterviewGuideBase[Question]):
 
                 for condition in conditions:
                     ctx = condition.question_context
-                    ctx.question_id, ctx.question_index = resolve(
-                        ctx.question_id,
-                        tuple(ctx.question_index),
-                        f"{label} condition",
-                    )
+                    ctx.question_index = resolve(ctx.question_id, f"{label} condition")
 
                 for reference in question.references or []:
-                    reference.question_id, reference.question_index = resolve(
-                        reference.question_id,
-                        tuple(reference.question_index),
-                        f"{label} reference",
+                    reference.question_index = resolve(
+                        reference.question_id, f"{label} reference"
                     )
 
     @property
@@ -246,8 +236,7 @@ class InterviewGuide(InterviewGuideBase[Question]):
             for condition in (
                 question.conditions.conditions if question.conditions else []
             )
-            if (read := condition.question_context.question_id) is not None
-            and read != question.id
+            if (read := condition.question_context.question_id) != question.id
         ]
 
     def condition_order_errors(self) -> list[str]:

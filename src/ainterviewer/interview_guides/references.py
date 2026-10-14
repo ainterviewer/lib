@@ -15,7 +15,4 @@ class Reference(BaseModel):
     question_index: QuestionIndex = Field(
         description="Position (section, question) of the referred question. Derived from `question_id` whenever the guide is validated or shuffled."
     )
-    question_id: UUID | None = Field(
-        None,
-        description="The referred question. The source of truth; None only for references stored before questions had ids, which the guide fills in from `question_index`.",
-    )
+    question_id: UUID = Field(description="The referred question.")

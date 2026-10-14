@@ -2,9 +2,8 @@
 
 Conditions and references name the question they read by id; the position the
 interview loop reads answers back by is derived from it. These pin that the id
-wins over a stale position, that guides stored before ids existed still load
-(their position is promoted to an id), and that a shuffle moves the derived
-position along with the question.
+wins over a stale position, for conditions and references alike, and that a
+shuffle moves the derived position along with the question.
 """
 
 import random
@@ -85,86 +84,29 @@ def test_id_wins_over_a_stale_position():
     assert ctx.question_id == target.id
 
 
-def test_legacy_position_is_promoted_to_an_id():
-    legacy = {
-        "question_sections": [
-            {
-                "description": "s",
-                "questions": [
-                    {"main_question": "Target"},
-                    {
-                        "main_question": "Gated",
-                        "conditions": {
-                            "action": "skip_question",
-                            "conditions": [
-                                {
-                                    "question_context": {"section": 0, "question": 0},
-                                    "evaluation": [{"trigger_value": "no"}],
-                                }
-                            ],
-                        },
-                    },
-                ],
-            }
-        ]
-    }
-    guide = InterviewGuide.model_validate(legacy)
-
-    ctx = _context(guide, 0, 1)
-    assert ctx.question_id == guide.question_sections[0].questions[0].id
-
-
-def test_legacy_reference_is_promoted_to_an_id():
+def test_stale_reference_position_is_corrected():
+    target = Question(main_question="Target")
     guide = InterviewGuide(
         question_sections=[
             QuestionSection(
                 description="s",
                 questions=[
-                    Question(main_question="Target"),
+                    Question(main_question="x"),
+                    target,
                     Question(
                         main_question="You said {}",
-                        references=[Reference(question_index=(0, 0))],
+                        references=[
+                            Reference(question_index=(0, 0), question_id=target.id)
+                        ],
                     ),
                 ],
             )
         ]
     )
 
-    references = guide.question_sections[0].questions[1].references
+    references = guide.question_sections[0].questions[2].references
     assert references is not None
-    assert references[0].question_id == guide.question_sections[0].questions[0].id
-
-
-def test_legacy_position_out_of_range_still_loads():
-    """A dangling position stored before ids existed must not make the guide
-    unloadable; it simply gets no id."""
-    guide = InterviewGuide(
-        question_sections=[
-            QuestionSection(
-                description="s",
-                questions=[
-                    Question(
-                        main_question="Gated",
-                        conditions=Conditions(
-                            action=ConditionAction.SKIP_QUESTION,
-                            conditions=[
-                                Condition(
-                                    question_context=QuestionContext(
-                                        question_index=(4, 2)
-                                    ),
-                                    evaluation=[
-                                        ConditionEvaluation(trigger_value="no")
-                                    ],
-                                )
-                            ],
-                        ),
-                    )
-                ],
-            )
-        ]
-    )
-
-    assert _context(guide, 0, 0).question_id is None
+    assert references[0].question_index == (0, 1)
 
 
 def test_ref_to_a_missing_question_is_rejected():
