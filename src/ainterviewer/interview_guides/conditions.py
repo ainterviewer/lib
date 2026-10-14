@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import operator
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.types import ConditionAction, ConditionTrigger
 
 comparison_operators = {
@@ -46,18 +48,39 @@ class Condition(BaseModel):
 
 
 class QuestionContext(BaseModel):
-    """The index of a question in a section
-    section [int]: The index of the section
-    question [int]: The index of the question
-    part
+    """The question a condition reads its answer from.
+
+    `question_id` is the source of truth. `question_index` is its position,
+    which the interview loop reads; the guide derives it from the id whenever
+    it is validated or shuffled, so a client may send a stale one.
     """
 
-    section: int = Field(description="The index of a secition")
-    question: int = Field(description="The index of a question")
+    question_index: QuestionIndex = Field(
+        description="Position (section, question) of the question to read."
+    )
+    question_id: UUID | None = Field(
+        None,
+        description="The question to read. None only for conditions stored before questions had ids, which the guide fills in from the position.",
+    )
     part: Literal["main", "probes", "both"] = Field(
         "main",
         description="The part of the question to include.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _upgrade_legacy_position(cls, data: Any) -> Any:
+        # Stored before the position became one `question_index`, as two loose
+        # fields. Old interview copies and `evaluate_condition` task rows still
+        # carry that shape.
+        if (
+            isinstance(data, dict)
+            and "question_index" not in data
+            and {"section", "question"} <= data.keys()
+        ):
+            data = dict(data)
+            data["question_index"] = (data.pop("section"), data.pop("question"))
+        return data
 
 
 class ConditionEvaluation(BaseModel):

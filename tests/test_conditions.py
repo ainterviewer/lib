@@ -27,7 +27,7 @@ def _make_condition(
     combine_next: Literal["AND", "OR"] | None = None,
 ) -> Condition:
     return Condition(
-        question_context=QuestionContext(section=section, question=question),
+        question_context=QuestionContext(question_index=(section, question)),
         evaluation=evaluations,
         negated=negated,
         trigger_type=trigger_type,
@@ -325,9 +325,13 @@ class TestEvaluateConditions:
 
 class TestQuestionContext:
     def test_defaults(self):
-        ctx = QuestionContext(section=0, question=1)
+        ctx = QuestionContext(question_index=(0, 1))
         assert ctx.part == "main"
 
+    def test_legacy_section_and_question_fields(self):
+        ctx = QuestionContext.model_validate({"section": 2, "question": 3})
+        assert ctx.question_index == (2, 3)
+
     def test_custom_part(self):
-        ctx = QuestionContext(section=0, question=1, part="probes")
+        ctx = QuestionContext(question_index=(0, 1), part="probes")
         assert ctx.part == "probes"

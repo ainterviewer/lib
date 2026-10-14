@@ -942,13 +942,12 @@ class AInterviewer:
         await asyncio.sleep(2.5)
 
     def should_check_condition_after_question(self, condition: Condition):
+        section, question = condition.question_context.question_index
         return bool(
-            condition.question_context.section
-            == self.interview_history.current_section_index
+            section == self.interview_history.current_section_index
             and (
-                condition.question_context.question - 1
-                == self.interview_history.current_question_index
-                or condition.question_context.question == 0
+                question - 1 == self.interview_history.current_question_index
+                or question == 0
                 and self.interview_history.current_question_index is None
             )
         )
@@ -991,14 +990,8 @@ class AInterviewer:
                     raise ValueError("Invalid condition action")
 
     def get_condition_context(self, condition: Condition) -> str:
-        section_context = self.interview_history[condition.question_context.section]
-
-        if (main_question_index := condition.question_context.question) is not None:
-            question_context = section_context[main_question_index]
-        else:
-            raise NotImplementedError(
-                "This feature is not implemented yet. Please specify a main question index for your condition."
-            )
+        section, question = condition.question_context.question_index
+        question_context = self.interview_history[section][question]
 
         match condition.question_context.part:
             case "main":

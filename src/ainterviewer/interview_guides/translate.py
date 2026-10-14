@@ -249,9 +249,9 @@ def _apply_condition_triggers(
             if not q.conditions:
                 continue
             for condition in q.conditions.conditions:
-                ctx = condition.question_context
-                source_options = _survey_options(original, ctx.section, ctx.question)
-                target_options = _survey_options(translated, ctx.section, ctx.question)
+                section, question = condition.question_context.question_index
+                source_options = _survey_options(original, section, question)
+                target_options = _survey_options(translated, section, question)
                 if not source_options or not target_options:
                     continue
                 lookup = {

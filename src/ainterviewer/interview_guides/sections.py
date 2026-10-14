@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID, uuid4
+
 from pydantic import BaseModel, Field, field_validator
 
 from ainterviewer.interview_guides.questions import QuestionBase, QuestionBaseExtended
@@ -20,6 +22,11 @@ class QuestionSectionBase[Q: QuestionBase](BaseModel):
 
 class QuestionSection[Q: QuestionBase](QuestionSectionBase[Q]):
     """A section of questions that all revolve around the same topic"""
+
+    id: UUID = Field(
+        default_factory=uuid4,
+        description="Stable identity of the section. Survives reordering and is shared by every translation of it.",
+    )
 
     shuffle: bool = Field(
         False,

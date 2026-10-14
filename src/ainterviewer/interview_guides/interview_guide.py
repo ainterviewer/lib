@@ -140,6 +140,70 @@ class InterviewGuide(InterviewGuideBase[Question]):
 
         self.index_questions()
 
+    @model_validator(mode="after")
+    def _validate_ids(self):
+        section_ids = [section.id for section in self.question_sections]
+        question_ids = [
+            question.id
+            for section in self.question_sections
+            for question in section.questions
+        ]
+        for kind, ids in (("section", section_ids), ("question", question_ids)):
+            if duplicates := sorted({str(i) for i in ids if ids.count(i) > 1}):
+                raise ValueError(f"Duplicate {kind} id(s): {duplicates}")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_question_refs(self):
+        self.sync_question_refs()
+        return self
+
+    def sync_question_refs(self):
+        """Point every condition and reference at its question's current
+        position.
+
+        The id is the source of truth and the position is derived from it, so
+        this must run whenever the guide is reordered (see `shuffle`): the
+        interview loop reads answers back by position. A condition or
+        reference stored before questions had ids carries only a position, and
+        gets the id of whatever sits there.
+        """
+        positions = {
+            question.id: (n_section, n_question)
+            for n_section, section in enumerate(self.question_sections)
+            for n_question, question in enumerate(section.questions)
+        }
+        ids = {position: question_id for question_id, position in positions.items()}
+
+        def resolve(question_id, position, label):
+            if question_id is None:
+                return ids.get(position), position
+            if question_id not in positions:
+                raise ValueError(f"{label} refers to a question that does not exist")
+            return question_id, positions[question_id]
+
+        for n_section, section in enumerate(self.question_sections):
+            for n_question, question in enumerate(section.questions):
+                label = f"question_sections[{n_section}].questions[{n_question}]"
+                conditions = (
+                    question.conditions.conditions if question.conditions else []
+                )
+
+                for condition in conditions:
+                    ctx = condition.question_context
+                    ctx.question_id, ctx.question_index = resolve(
+                        ctx.question_id,
+                        tuple(ctx.question_index),
+                        f"{label} condition",
+                    )
+
+                for reference in question.references or []:
+                    reference.question_id, reference.question_index = resolve(
+                        reference.question_id,
+                        tuple(reference.question_index),
+                        f"{label} reference",
+                    )
+
     @property
     def n_total_questions(self) -> int:
         return (
@@ -175,6 +239,7 @@ class InterviewGuide(InterviewGuideBase[Question]):
             section.questions = shuffle_items(section.questions)
 
         self.index_questions()
+        self.sync_question_refs()
 
     def reduce(self):
         """Reduce the interview guide to contain one probe per main question.
