@@ -1,23 +1,19 @@
 import asyncio
+from collections import defaultdict
 from typing import Any, cast
 
 from pydantic import BaseModel, ValidationError, create_model
 
-from ainterviewer.interview_guides.extra import Consent, Welcome
-from ainterviewer.interview_guides.interview_guide import (
-    InterviewGuide,
-    InterviewMessage,
-)
-from ainterviewer.interview_guides.questions import Question
-from ainterviewer.interview_guides.sections import QuestionSection
-from ainterviewer.interview_guides.survey_items import (
-    CheckboxItem,
-    LikertItem,
-    RadioItem,
-    SliderItem,
+from ainterviewer.interview_guides.localized import (
+    LocalizedConsent,
+    LocalizedInterviewGuide,
+    LocalizedText,
+    LocalizedWelcome,
 )
 from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message, MessageRole
+from ainterviewer.types import LanguageCode
+from ainterviewer.utils import get_language_dict
 
 _MAX_BATCH_SIZE = 8
 _MAX_TRANSLATION_RETRIES = 3
@@ -137,228 +133,88 @@ async def _translate_strings(
     }
 
 
-def _collect_top_level_strings(guide: InterviewGuide) -> dict[str, str]:
-    out: dict[str, str] = {}
-
-    for field in ("introduction", "outro", "alt_outro"):
-        val = getattr(guide, field)
-        if isinstance(val, str):
-            out[field] = val
-        elif isinstance(val, InterviewMessage):
-            out[f"{field}.message"] = val.message
-
-    for ti, tm in enumerate(guide.timed_messages or []):
-        out[f"timed_messages[{ti}].message"] = tm.message
-
-    return out
+_CONTEXT = (
+    "These strings come from an interview guide used by an AI interviewer "
+    "in a social science qualitative interview."
+)
 
 
-def _collect_section_strings(section: QuestionSection[Question]) -> dict[str, str]:
-    out: dict[str, str] = {"description": section.description}
-    for qi, q in enumerate(section.questions):
-        base = f"questions[{qi}]"
-        out[f"{base}.main_question"] = q.main_question
-        if q.description:
-            out[f"{base}.description"] = q.description
-        for pi, p in enumerate(q.probes or []):
-            out[f"{base}.probes[{pi}]"] = p
-        for ai, a in enumerate(q.alternative_main_questions or []):
-            out[f"{base}.alternative_main_questions[{ai}]"] = a
-        if isinstance(q.survey_item, (RadioItem, CheckboxItem, LikertItem)):
-            for oi, option in enumerate(q.survey_item.options):
-                out[f"{base}.survey_item.options[{oi}]"] = option
-        elif isinstance(q.survey_item, SliderItem):
-            if q.survey_item.min_label:
-                out[f"{base}.survey_item.min_label"] = q.survey_item.min_label
-            if q.survey_item.max_label:
-                out[f"{base}.survey_item.max_label"] = q.survey_item.max_label
-    return out
+def _group(path: str) -> str:
+    """Leaves are translated in one call per section and one for the rest, so
+    each call sees strings that belong together."""
+    head = path.split(".", 1)[0]
+    return head if head.startswith("question_sections[") else "top"
 
 
-def _apply_top_level_strings(guide: InterviewGuide, t: dict[str, str]) -> None:
-    for field in ("introduction", "outro", "alt_outro"):
-        val = getattr(guide, field)
-        if isinstance(val, str) and field in t:
-            setattr(guide, field, t[field])
-        elif isinstance(val, InterviewMessage) and f"{field}.message" in t:
-            val.message = t[f"{field}.message"]
+async def translate_missing[
+    T: (LocalizedInterviewGuide, LocalizedConsent, LocalizedWelcome)
+](
+    content: T,
+    *,
+    target: LanguageCode,
+    source: LanguageCode,
+    model: str,
+) -> T:
+    """Return a copy of `content` with every leaf written in `source` but
+    missing in `target` translated into it. Leaves `target` already has are
+    left alone, so this both seeds a new language and fills in what was added
+    since.
 
-    for ti, tm in enumerate(guide.timed_messages or []):
-        key = f"timed_messages[{ti}].message"
-        if key in t:
-            tm.message = t[key]
-
-
-def _apply_section_strings(
-    section: QuestionSection[Question], t: dict[str, str]
-) -> None:
-    if "description" in t:
-        section.description = t["description"]
-    for qi, q in enumerate(section.questions):
-        base = f"questions[{qi}]"
-        if (k := f"{base}.main_question") in t:
-            q.main_question = t[k]
-        if (k := f"{base}.description") in t:
-            q.description = t[k]
-        if q.probes:
-            q.probes = [
-                t.get(f"{base}.probes[{pi}]", p) for pi, p in enumerate(q.probes)
-            ]
-        if isinstance(q.survey_item, (RadioItem, CheckboxItem, LikertItem)):
-            q.survey_item.options = [
-                t.get(f"{base}.survey_item.options[{oi}]", option)
-                for oi, option in enumerate(q.survey_item.options)
-            ]
-        elif isinstance(q.survey_item, SliderItem):
-            if (k := f"{base}.survey_item.min_label") in t:
-                q.survey_item.min_label = t[k]
-            if (k := f"{base}.survey_item.max_label") in t:
-                q.survey_item.max_label = t[k]
-        if q.alternative_main_questions:
-            q.alternative_main_questions = [
-                t.get(f"{base}.alternative_main_questions[{ai}]", a)
-                for ai, a in enumerate(q.alternative_main_questions)
-            ]
-
-
-def _survey_options(
-    guide: InterviewGuide, section: int, question: int
-) -> list[str] | None:
-    try:
-        q = guide.question_sections[section].questions[question]
-    except IndexError:
-        return None
-    if isinstance(q.survey_item, (RadioItem, CheckboxItem, LikertItem)):
-        return list(q.survey_item.options)
-    return None
-
-
-def _apply_condition_triggers(
-    original: InterviewGuide, translated: InterviewGuide
-) -> None:
-    """Remap condition trigger values onto the translated answer options.
-
-    A trigger value references an option of another question verbatim, so it is
-    remapped by option index rather than translated on its own: that keeps it
-    exactly equal to the translated option it has to match. Trigger values that
-    are not options (numeric comparisons, classification criteria) are left
-    untouched.
+    Only text is translated: the structure is shared by every language, and a
+    condition matching a choice names the option by id, so nothing else has to
+    follow.
     """
-    for section in translated.question_sections:
-        for q in section.questions:
-            if not q.conditions:
-                continue
-            for condition in q.conditions.conditions:
-                section, question = condition.question_context.question_index
-                source_options = _survey_options(original, section, question)
-                target_options = _survey_options(translated, section, question)
-                if not source_options or not target_options:
-                    continue
-                lookup = {
-                    source.strip().casefold(): target
-                    for source, target in zip(source_options, target_options)
-                }
-                for evaluation in condition.evaluation:
-                    if not isinstance(evaluation.trigger_value, str):
-                        continue
-                    option = lookup.get(evaluation.trigger_value.strip().casefold())
-                    if option is not None:
-                        evaluation.trigger_value = option
+    translated = content.model_copy(deep=True)
+    target_name = get_language_dict(target)["name"]
 
+    groups: dict[str, dict[str, LocalizedText]] = defaultdict(dict)
+    for path, text in translated.texts():
+        if not text.get(target) and text.get(source):
+            groups[_group(path)][path] = text
+    if not groups:
+        return translated
 
-async def translate_interview_guide(
-    guide: InterviewGuide,
-    target_language: str,
-    model: str,
-) -> InterviewGuide:
-    """Return a copy of the interview guide with user-facing text translated.
-
-    Runs one LLM call for top-level messages and one call per section
-    (description + all its questions) in parallel. Non-user-facing fields
-    (framing, configs, indices) are left untouched; framing is passed as
-    context so translations stay consistent in tone. Condition trigger values
-    are remapped onto the translated answer options afterwards.
-    """
-    translated = guide.model_copy(deep=True)
-
-    base_context = (
-        "These strings come from an interview guide used by an AI interviewer "
-        "in a social science qualitative interview."
-    )
-    framing_context = f"\n\n# Framing\n{guide.framing}" if guide.framing else ""
-
-    tasks: list = []
-    appliers: list = []
-
-    top_strings = _collect_top_level_strings(translated)
-    if top_strings:
-        tasks.append(
-            _translate_strings(
-                top_strings,
-                target_language=target_language,
-                model=model,
-                context=(
-                    base_context
-                    + "\nThese are top-level messages (introduction, outro, timed messages)."
-                    + framing_context
-                ),
+    match translated:
+        case LocalizedInterviewGuide():
+            framing = translated.framing.get(source)
+            context = _CONTEXT + (f"\n\n# Framing\n{framing}" if framing else "")
+            n_sections = len(translated.question_sections)
+        case LocalizedConsent():
+            context = (
+                "Consent text shown to an interviewee before starting an interview."
             )
-        )
-        appliers.append(lambda r: _apply_top_level_strings(translated, r))
+            n_sections = 0
+        case LocalizedWelcome():
+            context = "Welcome screen text shown to an interviewee before starting an interview."
+            n_sections = 0
 
-    for si, section in enumerate(translated.question_sections):
-        strings = _collect_section_strings(section)
-        tasks.append(
+    def group_context(group: str) -> str:
+        if group == "top":
+            return context
+        n = int(group.removeprefix("question_sections[").removesuffix("]"))
+        return (
+            f"{context}\nThese strings belong to section {n + 1} of {n_sections} "
+            "(its description and questions)."
+        )
+
+    results = await asyncio.gather(
+        *(
             _translate_strings(
-                strings,
-                target_language=target_language,
+                {path: text[source] for path, text in leaves.items()},
+                target_language=target_name,
                 model=model,
-                context=(
-                    base_context + f"\nThese strings belong to section {si + 1} of "
-                    f"{len(translated.question_sections)} (its description and questions)."
-                    + framing_context
-                ),
+                context=group_context(group),
             )
+            for group, leaves in groups.items()
         )
-        appliers.append(lambda r, s=section: _apply_section_strings(s, r))
-
-    results = await asyncio.gather(*tasks)
-    for applier, result in zip(appliers, results):
-        applier(result)
-
-    _apply_condition_triggers(guide, translated)
-
-    return translated
-
-
-async def translate_consent(
-    consent: Consent,
-    target_language: str,
-    model: str,
-) -> Consent:
-    strings = {"title": consent.title, "text": consent.text}
-    result = await _translate_strings(
-        strings,
-        target_language=target_language,
-        model=model,
-        context="Consent text shown to an interviewee before starting an interview.",
     )
-    return consent.model_copy(update=result)
+    for leaves, result in zip(groups.values(), results):
+        for path, text in leaves.items():
+            text[target] = result[path]
 
-
-async def translate_welcome(
-    welcome: Welcome,
-    target_language: str,
-    model: str,
-) -> Welcome:
-    strings = {"title": welcome.title, "text": welcome.text}
-    result = await _translate_strings(
-        strings,
-        target_language=target_language,
-        model=model,
-        context="Welcome screen text shown to an interviewee before starting an interview.",
-    )
-    return welcome.model_copy(update=result)
+    # A translation can break what validation checks (a `{}` placeholder, a
+    # template variable), so the result is validated like any other write.
+    return type(translated).model_validate(translated.model_dump())
 
 
 if __name__ == "__main__":

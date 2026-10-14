@@ -8,6 +8,12 @@ from ainterviewer.interview_guides.interview_guide import (
     InterviewMessage,
     TimedMessage,
 )
+from ainterviewer.interview_guides.localized import (
+    LocalizedConsent,
+    LocalizedInterviewGuide,
+    LocalizedText,
+    LocalizedWelcome,
+)
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.questions import Question
 from ainterviewer.interview_guides.sections import QuestionSection
@@ -34,6 +40,10 @@ __all__ = [
     "Image",
     "InterviewGuide",
     "InterviewMessage",
+    "LocalizedConsent",
+    "LocalizedInterviewGuide",
+    "LocalizedText",
+    "LocalizedWelcome",
     "NumberItem",
     "Question",
     "QuestionSection",
