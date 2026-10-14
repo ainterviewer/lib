@@ -8,13 +8,14 @@
 from __future__ import annotations
 
 import warnings
+from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from ainterviewer.interview_guides.questions import Question, QuestionBase
 from ainterviewer.interview_guides.sections import QuestionSection
-from ainterviewer.interview_guides.utils import shuffle_items
+from ainterviewer.interview_guides.shuffle import shuffle_items
 from ainterviewer.interview_guides.variables import (
     BUILTIN_VARIABLES,
     extract_placeholders,
@@ -230,13 +231,80 @@ class InterviewGuide(InterviewGuideBase[Question]):
 
                     question.index = index
 
+    def condition_dependencies(self) -> list[tuple[UUID, UUID]]:
+        """Pairs `(read, gated)` of question ids: the question a condition
+        reads its answer from, and the question the condition hangs off.
+
+        `read` has to be asked before `gated`, or there is no answer to read. A
+        condition reading the question it hangs off is checked after that
+        question is answered, so it constrains nothing and is left out.
+        """
+        return [
+            (read, question.id)
+            for section in self.question_sections
+            for question in section.questions
+            for condition in (
+                question.conditions.conditions if question.conditions else []
+            )
+            if (read := condition.question_context.question_id) is not None
+            and read != question.id
+        ]
+
+    def condition_order_errors(self) -> list[str]:
+        """Conditions that read a question placed after the one they gate.
+
+        Such a condition can never be evaluated -- the answer it reads does not
+        exist yet -- and its absence is what lets `shuffle` fall back to the
+        authored order. Checked when a guide is saved rather than on
+        validation, so interview copies shuffled before the constraint existed
+        still load.
+        """
+        positions = {
+            question.id: (n_section, n_question)
+            for n_section, section in enumerate(self.question_sections)
+            for n_question, question in enumerate(section.questions)
+        }
+        errors = []
+        for read, gated in self.condition_dependencies():
+            (read_s, read_q), (gated_s, gated_q) = positions[read], positions[gated]
+            if (read_s, read_q) > (gated_s, gated_q):
+                errors.append(
+                    f"question_sections[{gated_s}].questions[{gated_q}] has a "
+                    f"condition reading question_sections[{read_s}]"
+                    f".questions[{read_q}], which comes after it"
+                )
+        return errors
+
     def shuffle(self):
         """Shuffles sections and questions in the interview guide, based on
-        their configuration."""
-        self.question_sections = shuffle_items(self.question_sections)
+        their configuration, keeping every question a condition reads before
+        the question the condition gates (see `shuffle_items`)."""
+        section_of = {
+            question.id: n_section
+            for n_section, section in enumerate(self.question_sections)
+            for question in section.questions
+        }
+        dependencies = self.condition_dependencies()
+
+        self.question_sections = shuffle_items(
+            self.question_sections,
+            must_precede={
+                (section_of[read], section_of[gated])
+                for read, gated in dependencies
+                if section_of[read] != section_of[gated]
+            },
+        )
 
         for section in self.question_sections:
-            section.questions = shuffle_items(section.questions)
+            position = {question.id: n for n, question in enumerate(section.questions)}
+            section.questions = shuffle_items(
+                section.questions,
+                must_precede={
+                    (position[read], position[gated])
+                    for read, gated in dependencies
+                    if read in position and gated in position
+                },
+            )
 
         self.index_questions()
         self.sync_question_refs()
