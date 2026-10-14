@@ -4,6 +4,32 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.5.0] - 2026-10-14
+
+### Breaking Changes
+
+- Fix typo in evaluate_condition task name
+- `QuestionContext` serialises `question_index` instead of
+`section` and `question`. A condition or reference whose `question_id` names
+no question in the guide, or a guide with duplicate section or question ids,
+now fails validation.
+- A condition or reference without `question_id`, or a
+`QuestionContext` in the `{section, question}` shape, fails validation.
+
+### Features
+
+- Stable ids on guide sections and questions; conditions and references by id [**breaking**]
+
+### Bug Fixes
+
+- Fix typo in evaluate_condition task name [**breaking**]
+- Shuffle keeps questions a condition reads before the question it gates
+
+### Internal
+
+- Route preview and graduation trailers in the changelog
+- Require question_id; migrate stored guides instead of upgrading on load [**breaking**]
+
 ## [0.4.4] - 2026-09-21
 
 ### Features
