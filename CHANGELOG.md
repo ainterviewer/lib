@@ -4,6 +4,22 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.6.0] - 2026-10-14
+
+### Breaking Changes
+
+- `translate_interview_guide`, `translate_consent` and
+`translate_welcome` are replaced by `translate_missing`, which fills the
+leaves a language lacks in a localized source.
+
+### Features
+
+- Multilingual guide source with text per language [**breaking**]
+
+### Bug Fixes
+
+- (deps) Depend on email-validator for EmailStr
+
 ## [0.5.0] - 2026-10-14
 
 ### Breaking Changes

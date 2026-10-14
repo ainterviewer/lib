@@ -63,7 +63,7 @@ wheels = [
 
 [[package]]
 name = "ainterviewer"
-version = "0.5.0"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "any-llm-sdk", extra = ["gemini"] },
