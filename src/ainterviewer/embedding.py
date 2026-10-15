@@ -37,7 +37,7 @@ from ainterviewer.interview_guides.history import (
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import EmbeddingKind, LanguageCode, MessageRole, MessageType
 
-#: Bump when `DefaultChunkPolicy` changes what it emits or how it renders.
+# Bump when `DefaultChunkPolicy` changes what it emits or how it renders.
 CHUNK_FORMAT_VERSION = "1"
 
 EMBEDDABLE_MESSAGE_TYPES = frozenset({MessageType.TEXT, MessageType.AUDIO})

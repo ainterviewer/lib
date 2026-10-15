@@ -59,10 +59,10 @@ class OutgoingMessage(_OutgoingData):
     user_image: bool = False
     progress: float | None = Field(default=None, ge=0, le=100)
     is_probe: bool = False
-    #: The guide question this asks, as its main question or one of its
-    #: probes; None for anything else (introduction, outro, timed messages).
-    #: Lets a client tell which question it is answering without counting
-    #: messages, which shuffling and conditions make unreliable.
+    # The guide question this asks, as its main question or one of its
+    # probes; None for anything else (introduction, outro, timed messages).
+    # Lets a client tell which question it is answering without counting
+    # messages, which shuffling and conditions make unreliable.
     question_id: UUID | None = None
 
 
