@@ -5,6 +5,7 @@ import re
 import time
 from datetime import UTC, datetime
 from typing import Any, Self
+from uuid import UUID
 
 from jinja2 import BaseLoader
 from pydantic import UUID4
@@ -352,6 +353,7 @@ class AInterviewer:
         is_introduction: bool = False,
         outro: bool = False,
         timed: bool = False,
+        question_id: UUID | None = None,
     ) -> None:
         message_id = self.db.insert_message(
             message_id=self.interview_history.current_message_id,
@@ -404,6 +406,7 @@ class AInterviewer:
                 can_answer=can_answer,
                 progress=progress,
                 is_probe=bool(self.interview_history.current_probe_index),
+                question_id=question_id,
             )
 
         await self.io.send_data(data)
@@ -864,6 +867,7 @@ class AInterviewer:
             can_answer=question.can_answer,
             include_in_history=not question.exclude_from_history,
             image=image,
+            question_id=question.id if isinstance(question, Question) else None,
         )
 
         if isinstance(question, Question) and question.can_answer is False:
@@ -899,6 +903,7 @@ class AInterviewer:
             user_image=question.user_image,
             can_answer=question.can_answer,
             include_in_history=not question.exclude_from_history,
+            question_id=question.id,
         )
 
         if isinstance(question, Question) and question.can_answer is False:
