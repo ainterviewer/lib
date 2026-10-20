@@ -324,14 +324,16 @@ class SecurityAgentPrompts(BasePrompts):
         section_description: str,
         question_description: str,
         transcript: str,
-        security_assessment: str,
+        assessment_questions: str,
+        assessment_example: str,
     ) -> str:
         return self.get_template("security_agent/instruction_prompt.jinja").render(
             interview_framing=interview_framing,
             section_description=section_description,
             question_description=question_description,
             interview_transcript=transcript,
-            assessment_schema=security_assessment,
+            assessment_questions=assessment_questions,
+            assessment_example=assessment_example,
         )
 
 

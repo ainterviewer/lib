@@ -1114,12 +1114,31 @@ class AInterviewer:
     ) -> TriggeredDecision | None:
         start_time = time.time()
 
-        result = await security_agent.assess(
-            interview_framing=interview_framing,
-            section_description=section_description,
-            question_description=question_description,
-            transcript=transcript,
-        )
+        try:
+            result = await security_agent.assess(
+                interview_framing=interview_framing,
+                section_description=section_description,
+                question_description=question_description,
+                transcript=transcript,
+            )
+        except Exception as error:
+            # The check runs on every answer; letting one bad reply end the
+            # session would take the respondent's interview down with it and
+            # protect nobody. The failure is logged and written down instead,
+            # with no `reason`, so it reads as "nothing triggered" everywhere
+            # a triggered decision is looked for.
+            logger.exception("Security check failed in interview %s", self.interview_id)
+            self.db.insert_task(
+                message_id=message_id,
+                interview_id=self.interview_id,
+                project_id=self.project_id,
+                task="assess_security",
+                response=json.dumps({"error": f"{type(error).__name__}: {error}"}),
+                model=security_agent.model,
+                time_spend=int(time.time() - start_time),
+            )
+            return None
+
         triggered = result.most_severe
 
         self.db.insert_task(

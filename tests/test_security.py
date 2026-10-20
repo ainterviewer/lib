@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from ainterviewer.agents import SecurityAgent
 from ainterviewer.agents.config import AgentConfigs
+from ainterviewer.agents.security_agent import ASSESS_ATTEMPTS
 from ainterviewer.agents.security_policy import (
     SecurityAssessmentResult,
     SecurityDecision,
@@ -350,8 +351,57 @@ class TestSecurityAgentAssess:
         assert [t.decision.name for t in result.triggered] == (
             ["risk"] if triggers else []
         )
-        # The schema is rendered as JSON, not as a Python dict.
-        assert '"properties"' in prompts[0]
+        # An instance to fill in, not the JSON Schema: shown the schema, models
+        # without strict structured output answer with the schema itself.
+        assert '"properties"' not in prompts[0]
+        assert '"risk": {' in prompts[0]
+        assert "Is there risk?" in prompts[0]
+
+    @pytest.mark.anyio
+    async def test_a_reply_that_does_not_fit_is_asked_for_again(self, monkeypatch):
+        policy = SecurityPolicy(decisions=[_decision()])
+        agent = SecurityAgent(policy=policy, model="model", language="EN")
+        replies = [
+            # The schema echoed back, as gpt-oss does now and then.
+            lambda: policy.assessment_model.model_validate_json('{"$defs": {}}'),
+            lambda: _assessment(policy, {"risk": 0.9}),
+        ]
+
+        async def chat_api(messages, response_format=None, **kwargs):
+            return replies.pop(0)()
+
+        monkeypatch.setattr(agent, "chat_api", chat_api)
+
+        result = await agent.assess(
+            interview_framing="Framing",
+            section_description="Section",
+            question_description="Question",
+            transcript="Transcript",
+        )
+
+        assert replies == []
+        assert [t.decision.name for t in result.triggered] == ["risk"]
+
+    @pytest.mark.anyio
+    async def test_gives_up_after_the_last_attempt(self, monkeypatch):
+        policy = SecurityPolicy(decisions=[_decision()])
+        agent = SecurityAgent(policy=policy, model="model", language="EN")
+        calls = []
+
+        async def chat_api(messages, response_format=None, **kwargs):
+            calls.append(None)
+            return policy.assessment_model.model_validate_json('{"$defs": {}}')
+
+        monkeypatch.setattr(agent, "chat_api", chat_api)
+
+        with pytest.raises(ValidationError):
+            await agent.assess(
+                interview_framing="Framing",
+                section_description="Section",
+                question_description="Question",
+                transcript="Transcript",
+            )
+        assert len(calls) == ASSESS_ATTEMPTS
 
 
 # ── AInterviewer security checks ───────────────────────────────────────────
@@ -369,6 +419,27 @@ class TestInterviewSecurity:
         assert [log["reason"] for log in harness.logged_assessments] == [None] * 3
         assert harness.sent == []
         assert harness.interviewer._security_check is None
+
+    @pytest.mark.anyio
+    async def test_a_failed_check_does_not_end_the_interview(self):
+        harness = Harness()
+
+        async def fail(**kwargs):
+            harness.events.append("assess")
+            raise ValueError("unparseable")
+
+        harness.patch_agent("assess", fail)
+
+        await harness.handle_question()
+
+        # Every answer was still assessed, the probes still asked, and each
+        # failure written down without a decision.
+        assert harness.events.count("assess") == 3
+        assert harness.events.count("ask_probe") == 2
+        assert harness.sent == []
+        logged = harness.logged_assessments
+        assert [log.get("reason") for log in logged] == [None] * 3
+        assert all("unparseable" in log["response"] for log in logged)
 
     @pytest.mark.anyio
     async def test_skip_probes_on_main_answer(self):
