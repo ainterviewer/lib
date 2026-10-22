@@ -177,7 +177,7 @@ def visual_chat(
         for message in messages
     ]
 
-    data = {
+    data: dict[str, Any] = {
         "model": model,
         "messages": encoded_messages,
         "stream": stream,

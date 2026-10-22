@@ -21,7 +21,7 @@ class VisualAgent(BaseAgent[VisualAgentPrompts]):
         self.messages += [
             {"role": MessageRole.SYSTEM, "content": self.prompts.system_prompt},
         ]
-        self.chat_api: Callable[..., str] = partial(visual_chat, model)
+        self.visual_chat_api: Callable[..., str] = partial(visual_chat, model)
 
     def describe_image(self, images: list[str]) -> str:
         if not isinstance(images, list):
@@ -35,6 +35,6 @@ class VisualAgent(BaseAgent[VisualAgentPrompts]):
             },
         ]
 
-        text = self.chat_api(messages)  # ty:ignore[invalid-argument-type]
+        text = self.visual_chat_api(messages)
 
         return text

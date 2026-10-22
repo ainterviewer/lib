@@ -1,27 +1,14 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time
-from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, validate_call
 
 
-class SurveyItemType(StrEnum):
-    RADIO = "radio"
-    CHECKBOX = "checkbox"
-    LIKERT = "likert"
-    SLIDER = "slider"
-    NUMBER = "number"
-    DATE = "date"
-    DATETIME = "datetime"
-    TIME = "time"
-
-
 class SurveyItemBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: SurveyItemType
     required: bool = True
 
 

@@ -55,7 +55,6 @@ class SecurityOverride(StrEnum):
 
 
 class _OutgoingData(BaseModel):
-    type: Literal["history", "message"]
     content: str
     role: MessageRole
     message_id: int
