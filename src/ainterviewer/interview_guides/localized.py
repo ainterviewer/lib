@@ -22,7 +22,7 @@ being reworded or reordered; rendering writes that option's text into
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, EmailStr, Field, ValidationError, model_validator
@@ -178,7 +178,7 @@ class LocalizedSliderItem(SurveyItemBase):
     step: int | float | None = 1
 
 
-LocalizedSurveyItem = (
+LocalizedSurveyItem = Annotated[
     LocalizedRadioItem
     | LocalizedCheckboxItem
     | LocalizedLikertItem
@@ -186,8 +186,9 @@ LocalizedSurveyItem = (
     | NumberItem
     | DateItem
     | DatetimeItem
-    | TimeItem
-)
+    | TimeItem,
+    Field(discriminator="type"),
+]
 
 type _LocalizedChoice = LocalizedRadioItem | LocalizedCheckboxItem | LocalizedLikertItem
 type _Choice = RadioItem | CheckboxItem | LikertItem

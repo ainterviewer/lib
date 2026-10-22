@@ -1,8 +1,10 @@
 from datetime import UTC, date, datetime, time
+from typing import get_args
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
+from ainterviewer.interview_guides.localized import LocalizedSurveyItem
 from ainterviewer.interview_guides.survey_items import (
     CheckboxItem,
     DateItem,
@@ -11,6 +13,8 @@ from ainterviewer.interview_guides.survey_items import (
     NumberItem,
     RadioItem,
     SliderItem,
+    SurveyItem,
+    SurveyItemBase,
     TimeItem,
     create_survey_answer_model,
 )
@@ -368,3 +372,32 @@ class TestCreateSurveyAnswerModel:
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
             Model(answer=None)  # ty:ignore[call-non-callable]
+
+
+# ── SurveyItem union ─────────────────────────────────────────────────────────
+
+
+def _union_members(union) -> set[type]:
+    # Unwrap `Annotated[A | B | ..., Field(discriminator=...)]`
+    return set(get_args(get_args(union)[0]))
+
+
+def _subclasses(cls: type) -> set[type]:
+    direct = set(cls.__subclasses__())
+    return direct.union(*(_subclasses(sub) for sub in direct))
+
+
+class TestSurveyItemUnion:
+    def test_discriminator_selects_item(self):
+        item = TypeAdapter(SurveyItem).validate_python({"type": "date"})
+        assert isinstance(item, DateItem)
+
+    def test_unknown_type_rejected(self):
+        with pytest.raises(ValidationError):
+            TypeAdapter(SurveyItem).validate_python({"type": "bogus"})
+
+    def test_every_item_is_in_a_union(self):
+        # The discriminator only guards members of the unions; a new item that
+        # was never added to one would silently be unparseable.
+        members = _union_members(SurveyItem) | _union_members(LocalizedSurveyItem)
+        assert _subclasses(SurveyItemBase) <= members
