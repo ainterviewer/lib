@@ -4,6 +4,17 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.1] - 2026-10-22
+
+### Features
+
+- Discriminate survey item unions on `type`
+
+### Internal
+
+- Drop base attributes that subclasses narrow
+- (deps) Upgrade dependencies
+
 ## [0.7.0] - 2026-10-22
 
 ### Features
