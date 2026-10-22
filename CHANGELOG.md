@@ -4,6 +4,24 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.0] - 2026-10-22
+
+### Features
+
+- First pass at new safety agent implementation
+- Second pass at security agent
+- Update security agent system prompt
+- Handle security override action
+
+### Bug Fixes
+
+- Keep a failed security check from ending the interview
+
+### Internal
+
+- Add raise_condition helper function
+- Create InterviewControlCondition union type and reorder their creation
+
 ## [0.6.1] - 2026-10-15
 
 ### Features
