@@ -26,9 +26,8 @@ results.
 
 from typing import Protocol, runtime_checkable
 
-from pydantic import UUID4
+from pydantic import UUID4, BaseModel
 
-from ainterviewer.interfaces import EmbeddingChunk
 from ainterviewer.interview_guides.history import (
     InterviewHistory,
     QuestionHistory,
@@ -41,6 +40,36 @@ from ainterviewer.types import EmbeddingKind, LanguageCode, MessageRole, Message
 CHUNK_FORMAT_VERSION = "1"
 
 EMBEDDABLE_MESSAGE_TYPES = frozenset({MessageType.TEXT, MessageType.AUDIO})
+
+
+class EmbeddingChunk(BaseModel):
+    """One unit of interview text handed to an embedding backend.
+
+    The chunk identifies itself *structurally* -- by interview plus the
+    ``(section, main_question, sub_question)`` coordinates the interview loop
+    already tracks -- rather than by a database row id. `InterviewHistory` holds
+    no row ids, so a QA pair assembled from it has none to give; and a
+    consumer that stores messages can resolve the coordinates back to its own
+    rows unambiguously, since a turn has exactly one respondent answer.
+
+    ``message_id`` is the per-interview counter also passed to
+    ``PersistenceProtocol.insert_message``, set only for ``MESSAGE`` chunks.
+    """
+
+    kind: EmbeddingKind
+    text: str
+    # The `ChunkPolicy.format_version` that produced `text`. Stored with the
+    # vector so a consumer can tell a corpus built under changed inclusion or
+    # rendering rules from one that is current, instead of discovering the
+    # mismatch through search results that quietly got worse.
+    format_version: str = "1"
+    project_id: UUID4
+    interview_id: UUID4
+    language: LanguageCode = "EN"
+    message_id: int | None = None
+    section: int | None = None
+    main_question: int | None = None
+    sub_question: int | None = None
 
 
 @runtime_checkable

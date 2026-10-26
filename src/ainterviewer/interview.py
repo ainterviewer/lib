@@ -27,6 +27,7 @@ from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import (
     DEFAULT_POLICY,
     ChunkPolicy,
+    EmbeddingChunk,
     interview_chunk,
     message_chunk,
     qa_pair_chunk,
@@ -39,14 +40,11 @@ from ainterviewer.exceptions import (
     SkipSectionCondition,
 )
 from ainterviewer.interfaces import (
-    EmbeddingChunk,
     EmbeddingProtocol,
     IOProtocol,
     OutgoingData,
     OutgoingMessage,
     PersistenceProtocol,
-    SecurityIntervention,
-    SecurityOverride,
 )
 from ainterviewer.interview_guides import (
     Condition,
@@ -75,6 +73,8 @@ from ainterviewer.interview_guides.types import (
     ConditionAction,
     ProbingContext,
     SecurityAction,
+    SecurityIntervention,
+    SecurityOverride,
 )
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType

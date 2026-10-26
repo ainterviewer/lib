@@ -20,15 +20,16 @@ from ainterviewer.agents.security_policy import (
 )
 from ainterviewer.config import InterviewConfig
 from ainterviewer.exceptions import EndInterviewCondition, SkipSectionCondition
-from ainterviewer.interfaces import (
-    OutgoingMessage,
-    SecurityIntervention,
-    SecurityOverride,
-)
+from ainterviewer.interfaces import OutgoingMessage
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide, Question
 from ainterviewer.interview_guides.history import HistoryMessage, Turn
-from ainterviewer.interview_guides.types import ConditionAction, SecurityAction
+from ainterviewer.interview_guides.types import (
+    ConditionAction,
+    SecurityAction,
+    SecurityIntervention,
+    SecurityOverride,
+)
 from ainterviewer.types import MessageRole, MessageType
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
