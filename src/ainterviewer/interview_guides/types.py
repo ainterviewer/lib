@@ -1,6 +1,8 @@
 from enum import StrEnum
 from typing import Literal
 
+from pydantic import BaseModel
+
 
 class ConditionTrigger(StrEnum):
     MATCH = "match"
@@ -27,3 +29,23 @@ type SecurityAction = Literal[
 class ProbingContext(StrEnum):
     SECTION = "section"
     QUESTION = "question"
+
+
+class SecurityIntervention(BaseModel):
+    """Marks a message as sent by the security check, to be shown in a modal
+    rather than in the chat."""
+
+    # Which decision triggered is deliberately left out, as it is sent to the
+    # respondent's client.
+    action: SecurityAction
+    respondent_override: bool
+
+
+class SecurityOverride(StrEnum):
+    """The respondent's answer to a security intervention with
+    `respondent_override`, sent back as the content of an ordinary message."""
+
+    ACCEPT = "accept"
+    """Let the intervention's action go ahead."""
+    OVERRIDE = "override"
+    """Carry on with the interview as if nothing had triggered."""

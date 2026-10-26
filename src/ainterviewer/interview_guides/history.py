@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.interview_guides.types import ProbingContext
+from ainterviewer.interview_guides.types import ProbingContext, SecurityIntervention
 from ainterviewer.lpm.types import CustomToken
-from ainterviewer.types import MessageType
+from ainterviewer.types import MessageRole, MessageType
 
 type SectionsRange = int | slice | list[int] | None
 
@@ -19,6 +19,34 @@ class DictLikeModel:
         Implements dictionary-like .get() method for Pydantic models
         """
         return getattr(self, key, default)
+
+
+class HistoryRecord(BaseModel):
+    """One stored message, in the shape the engine reads it back.
+
+    The host stores what the engine emits and hands it back as these to resume
+    an interview or rebuild its chunks. It carries no guide data: the survey
+    item and image a message was sent with are looked up by its coordinates in
+    the interview's own guide, so the host never has to keep guide models in
+    the engine's shape.
+    """
+
+    message_id: int
+    role: MessageRole
+    content: str
+    message_type: MessageType = MessageType.TEXT
+    # Zero-based, except `sub_question`: 0 is the main question and probes
+    # count from 1. All None for messages outside the interview structure.
+    section: int | None = None
+    main_question: int | None = None
+    sub_question: int | None = None
+    is_introduction: bool = False
+    outro: bool = False
+    timed: bool = False
+    skipped_by_condition: bool = False
+    include_in_history: bool = True
+    can_answer: bool = True
+    security_intervention: SecurityIntervention | None = None
 
 
 class HistoryMessage(BaseModel):

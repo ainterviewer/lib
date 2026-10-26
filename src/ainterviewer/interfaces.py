@@ -1,19 +1,18 @@
-from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Protocol, Self
 from uuid import UUID
 
 from pydantic import UUID4, BaseModel, Field, model_validator
 
+from ainterviewer.embedding import EmbeddingChunk
+from ainterviewer.events import InputEvent, InputRequested, OutboundEvent
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.media import Audio, Image, Video
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.interview_guides.types import SecurityAction
+from ainterviewer.interview_guides.types import SecurityIntervention
 from ainterviewer.types import (
-    EmbeddingKind,
     Feedback,
     InterviewStatus,
-    LanguageCode,
     MessageRole,
     MessageType,
 )
@@ -32,26 +31,6 @@ class ReceivedData(BaseModel):
                 "Cannot specify filename for messages with `type == 'message'`"
             )
         return self
-
-
-class SecurityIntervention(BaseModel):
-    """Marks a message as sent by the security check, to be shown in a modal
-    rather than in the chat."""
-
-    # Which decision triggered is deliberately left out, as it is sent to the
-    # respondent's client.
-    action: SecurityAction
-    respondent_override: bool
-
-
-class SecurityOverride(StrEnum):
-    """The respondent's answer to a security intervention with
-    `respondent_override`, sent back as the content of an ordinary message."""
-
-    ACCEPT = "accept"
-    """Let the intervention's action go ahead."""
-    OVERRIDE = "override"
-    """Carry on with the interview as if nothing had triggered."""
 
 
 class _OutgoingData(BaseModel):
@@ -174,36 +153,6 @@ class PersistenceProtocol(Protocol):
     async def save_media(self, image: Image | Audio | Video): ...
 
 
-class EmbeddingChunk(BaseModel):
-    """One unit of interview text handed to an embedding backend.
-
-    The chunk identifies itself *structurally* -- by interview plus the
-    ``(section, main_question, sub_question)`` coordinates the interview loop
-    already tracks -- rather than by a database row id. `InterviewHistory` holds
-    no row ids, so a QA pair assembled from it has none to give; and a
-    consumer that stores messages can resolve the coordinates back to its own
-    rows unambiguously, since a turn has exactly one respondent answer.
-
-    ``message_id`` is the per-interview counter also passed to
-    ``PersistenceProtocol.insert_message``, set only for ``MESSAGE`` chunks.
-    """
-
-    kind: EmbeddingKind
-    text: str
-    # The `ChunkPolicy.format_version` that produced `text`. Stored with the
-    # vector so a consumer can tell a corpus built under changed inclusion or
-    # rendering rules from one that is current, instead of discovering the
-    # mismatch through search results that quietly got worse.
-    format_version: str = "1"
-    project_id: UUID4
-    interview_id: UUID4
-    language: LanguageCode = "EN"
-    message_id: int | None = None
-    section: int | None = None
-    main_question: int | None = None
-    sub_question: int | None = None
-
-
 class EmbeddingProtocol(Protocol):
     """Sink for embeddable chunks produced during an interview.
 
@@ -213,3 +162,19 @@ class EmbeddingProtocol(Protocol):
     """
 
     async def embed_chunk(self, chunk: EmbeddingChunk) -> None: ...
+
+
+class EngineHost(Protocol):
+    """Everything `AInterviewer` needs from whatever runs it."""
+
+    async def emit(self, event: OutboundEvent) -> None:
+        """Takes one output event. May be called concurrently -- background
+        work such as the security check emits while the interview runs -- so an
+        implementation writing to a single stream must serialise. Events from
+        one caller arrive in the order it emitted them."""
+        ...
+
+    async def next_input(self, request: InputRequested) -> InputEvent:
+        """Puts `request` to the respondent and waits for the answer. The host
+        delivers the request itself; the engine does not emit it as well."""
+        ...
