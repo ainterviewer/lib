@@ -27,7 +27,6 @@ from ainterviewer.events import (
     MessageEmitted,
     Progress,
     SecurityOverrideAnswer,
-    StatusChanged,
     TaskRecorded,
     UserMessage,
     UserMessageRecorded,
@@ -44,7 +43,7 @@ from ainterviewer.interview_guides.types import (
     SecurityIntervention,
     SecurityOverride,
 )
-from ainterviewer.types import EmbeddingKind, InterviewStatus, MessageRole, MessageType
+from ainterviewer.types import EmbeddingKind, MessageRole, MessageType
 
 PROJECT_ID = uuid4()
 INTERVIEW_ID = uuid4()
@@ -134,7 +133,6 @@ OUTBOUND = [
             message_id=2,
         )
     ),
-    StatusChanged(status=InterviewStatus.INACTIVE, time_spent=3),
     GuideUpdated(guide=guide()),
     Progress(progress=100),
     InterviewEnded(),

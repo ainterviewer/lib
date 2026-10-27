@@ -1,26 +1,26 @@
 """What the interview loop reads off the history when it asks for an answer.
 
 `AInterviewer.receive_data` declares the kind of answer it is inviting to the
-IO layer, which cannot work it out for itself -- a respondent's client submits
+host, which cannot work it out for itself -- a respondent's client submits
 a closed answer in the same frame as free text. The declaration comes from the
 turn the answer will land on, so these pin the turn being the right one, on the
 live path and on the resume path alike.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
 import pytest
 
-from ainterviewer.interview_guides import InterviewGuide, Question
+from ainterviewer.interview_guides import Image, InterviewGuide, Question
 from ainterviewer.interview_guides.history import (
     HistoryMessage,
+    HistoryRecord,
     InterviewHistory,
     Turn,
 )
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.survey_items import LikertItem, RadioItem
-from ainterviewer.types import MessageRole, MessageType
+from ainterviewer.types import MessageRole
 
 
 @pytest.fixture
@@ -28,25 +28,22 @@ def likert():
     return LikertItem(options=["Disagree", "Neutral", "Agree"])
 
 
-@dataclass
-class StoredMessage:
-    """The shape `InterviewHistory.process_history` reads a stored row as."""
-
-    content: str
-    role: MessageRole
-    section: int | None = 0
-    main_question: int | None = 0
-    sub_question: int | None = 0
-    survey_item: Any = None
-    is_introduction: bool = False
-    outro: bool = False
-    timed: bool = False
-    skipped_by_condition: bool = False
-    include_in_history: bool = True
-    image: Any = None
-    can_answer: bool = True
-    message_type: MessageType = MessageType.TEXT
-    security_intervention: Any = None
+def record(
+    content: str,
+    role: MessageRole,
+    section: int | None = 0,
+    main_question: int | None = 0,
+    sub_question: int | None = 0,
+) -> HistoryRecord:
+    """A stored message; the id is irrelevant to reconstruction."""
+    return HistoryRecord(
+        message_id=0,
+        content=content,
+        role=role,
+        section=section,
+        main_question=main_question,
+        sub_question=sub_question,
+    )
 
 
 def guide(*survey_items: Any) -> InterviewGuide:
@@ -126,17 +123,16 @@ class TestResumedHistory:
     then waits for the answer the respondent never sent. The turn it waits on
     has to carry whatever the question carried, or the answer is stored as free
     text -- which is what made resumed survey answers indistinguishable from
-    open ones in the message table."""
+    open ones in the message table.
+
+    A stored message carries no guide data, so all of it is read from the
+    guide by the message's coordinates."""
 
     def test_pending_survey_item_is_carried(self, likert):
         history = InterviewHistory()
 
         history.process_history(
-            [
-                StoredMessage(
-                    content="q0", role=MessageRole.ASSISTANT, survey_item=likert
-                )
-            ],
+            [record("q0", role=MessageRole.ASSISTANT)],
             guide(likert),
         )
 
@@ -151,11 +147,9 @@ class TestResumedHistory:
 
         history.process_history(
             [
-                StoredMessage(
-                    content="q0", role=MessageRole.ASSISTANT, survey_item=likert
-                ),
-                StoredMessage(content="Agree", role=MessageRole.USER),
-                StoredMessage(content="p", role=MessageRole.ASSISTANT, sub_question=1),
+                record("q0", role=MessageRole.ASSISTANT),
+                record("Agree", role=MessageRole.USER),
+                record("p", role=MessageRole.ASSISTANT, sub_question=1),
             ],
             guide(likert),
         )
@@ -172,16 +166,9 @@ class TestResumedHistory:
 
         history.process_history(
             [
-                StoredMessage(
-                    content="q0", role=MessageRole.ASSISTANT, survey_item=likert
-                ),
-                StoredMessage(content="Agree", role=MessageRole.USER),
-                StoredMessage(
-                    content="q1",
-                    role=MessageRole.ASSISTANT,
-                    main_question=1,
-                    survey_item=radio,
-                ),
+                record("q0", role=MessageRole.ASSISTANT),
+                record("Agree", role=MessageRole.USER),
+                record("q1", role=MessageRole.ASSISTANT, main_question=1),
             ],
             guide(likert, radio),
         )
@@ -191,3 +178,23 @@ class TestResumedHistory:
         assert turn is not None
         assert turn.survey_item == radio
         assert turn.answer is None
+
+    def test_image_is_read_from_the_guide(self):
+        image_guide = guide(None)
+        question = image_guide.question_sections[0].questions[0]
+        question.image = Image(
+            name="cat.png",
+            data=None,
+            description="A cat",
+            alt="A cat",
+            primer="Look at this",
+        )
+        history = InterviewHistory()
+
+        history.process_history([record("q0", role=MessageRole.ASSISTANT)], image_guide)
+
+        image = history.current_question.image
+        assert image is not None
+        assert image.description.message == "A cat"
+        assert image.primer is not None
+        assert image.primer.message == "Look at this"

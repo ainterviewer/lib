@@ -1,9 +1,6 @@
 import asyncio
 import uuid
-from dataclasses import dataclass
 from functools import partial
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -19,11 +16,18 @@ from ainterviewer.agents.security_policy import (
     default_security_policy,
 )
 from ainterviewer.config import InterviewConfig
+from ainterviewer.events import (
+    InputKind,
+    InputRequested,
+    MessageEmitted,
+    SecurityOverrideAnswer,
+    TaskRecorded,
+    UserMessageRecorded,
+)
 from ainterviewer.exceptions import EndInterviewCondition, SkipSectionCondition
-from ainterviewer.interfaces import OutgoingMessage
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide, Question
-from ainterviewer.interview_guides.history import HistoryMessage, Turn
+from ainterviewer.interview_guides.history import HistoryMessage, HistoryRecord, Turn
 from ainterviewer.interview_guides.types import (
     ConditionAction,
     SecurityAction,
@@ -31,6 +35,7 @@ from ainterviewer.interview_guides.types import (
     SecurityOverride,
 )
 from ainterviewer.types import MessageRole, MessageType
+from tests.fakes import FakeHost
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -111,14 +116,9 @@ class Harness:
                 **(guide_kwargs or {}),
             }
         )
-        self.db = MagicMock()
-        self.io = MagicMock(
-            send_data=AsyncMock(),
-            receive_message=AsyncMock(side_effect=self.receive_message),
-        )
+        self.host = FakeHost(answer=self.next_input)
         self.interviewer = iv = AInterviewer(
-            io=self.io,
-            db=self.db,
+            host=self.host,
             interview_guide=guide,
             config=InterviewConfig.model_validate({}),
             agent_configs=AgentConfigs.model_validate({"security": {"include": True}}),
@@ -152,12 +152,14 @@ class Harness:
         self.events.append("assess")
         return _result(self.policy, self.assessments.pop(0) if self.assessments else {})
 
-    async def receive_message(self, message_id: int, message_type=None):
+    async def next_input(self, request: InputRequested) -> SecurityOverrideAnswer:
         # Only the override answer is read from the respondent directly.
-        assert message_type == MessageType.SECURITY_OVERRIDE
+        assert request.expects == InputKind.SECURITY_OVERRIDE
         assert self.override_answers, "Waited for an unexpected override answer"
         self.events.append("receive_override")
-        return self.override_answers.pop(0), message_type, None
+        return SecurityOverrideAnswer.model_validate(
+            {"message_id": request.message_id, "answer": self.override_answers.pop(0)}
+        )
 
     async def send_data(self, text: str, **kwargs):
         self.sent.append((text, kwargs.get("outro", False)))
@@ -201,19 +203,19 @@ class Harness:
         await iv.handle_question(question, "Section", question_index=0)
 
     @property
-    def stored_overrides(self) -> list[dict]:
+    def stored_overrides(self) -> list[UserMessageRecorded]:
         return [
-            call.kwargs
-            for call in self.db.insert_message.call_args_list
-            if call.kwargs["message_type"] == MessageType.SECURITY_OVERRIDE
+            event
+            for event in self.host.of(UserMessageRecorded)
+            if event.message_type == MessageType.SECURITY_OVERRIDE
         ]
 
     @property
-    def logged_assessments(self) -> list:
+    def logged_assessments(self) -> list[dict]:
         return [
-            call.kwargs
-            for call in self.db.insert_task.call_args_list
-            if call.kwargs["task"] == "assess_security"
+            event.model_dump()
+            for event in self.host.of(TaskRecorded)
+            if event.task == "assess_security"
         ]
 
 
@@ -472,26 +474,39 @@ class TestInterviewSecurity:
         assert kwargs["can_answer"] is False
 
     @pytest.mark.anyio
-    async def test_intervention_is_stored_and_sent_without_decision(self):
+    async def test_assessment_is_recorded_before_its_intervention(self):
+        # The check runs in the background, but what it found is written down
+        # before the respondent is shown anything because of it.
         harness = Harness(
             assessments=[{"uncomfortable": 0.9}], override_answers=("accept",)
         )
         iv = harness.interviewer
-        harness.db.insert_message.return_value = 1
         harness.patch("send_data", partial(AInterviewer.send_data, iv))
 
         await harness.handle_question()
 
-        (payload,) = [call.args[0] for call in harness.io.send_data.call_args_list]
-        assert isinstance(payload, OutgoingMessage)
-        assert payload.model_dump()["security_intervention"] == {
+        assert [
+            event.type
+            for event in harness.host.events
+            if isinstance(event, TaskRecorded | MessageEmitted | UserMessageRecorded)
+        ] == ["task_recorded", "message_emitted", "user_message_recorded"]
+
+    @pytest.mark.anyio
+    async def test_intervention_is_emitted_without_decision(self):
+        harness = Harness(
+            assessments=[{"uncomfortable": 0.9}], override_answers=("accept",)
+        )
+        iv = harness.interviewer
+        harness.patch("send_data", partial(AInterviewer.send_data, iv))
+
+        await harness.handle_question()
+
+        (message,) = harness.host.of(MessageEmitted)
+        assert message.model_dump(mode="json")["security_intervention"] == {
             "action": "skip_probes",
             "respondent_override": True,
         }
-        assert "uncomfortable" not in payload.model_dump_json()
-        # Stored, so a resumed interview replays it in a modal too.
-        stored = harness.db.insert_message.call_args_list[0].kwargs
-        assert stored["security_intervention"] == payload.security_intervention
+        assert "uncomfortable" not in message.model_dump_json()
 
     @pytest.mark.anyio
     async def test_skip_probes_on_probe_answer(self):
@@ -646,10 +661,9 @@ class TestRespondentOverride:
 
         assert harness.events.count("ask_probe") == 2
         (stored,) = harness.stored_overrides
-        assert stored["content"] == SecurityOverride.OVERRIDE
-        assert stored["role"] == MessageRole.USER
+        assert stored.content == SecurityOverride.OVERRIDE
         # Never part of the transcript the agents read.
-        assert stored["include_in_history"] is False
+        assert stored.include_in_history is False
 
     @pytest.mark.anyio
     async def test_accepted_termination_ends_interview(self):
@@ -699,14 +713,14 @@ class TestRespondentOverride:
         harness = Harness(
             assessments=[{"uncomfortable": 0.9}], override_answers=("accept",)
         )
-        harness.db.insert_message.return_value = 1
         harness.patch("send_data", partial(AInterviewer.send_data, harness.interviewer))
 
         await harness.handle_question()
 
         intervention, override = [
-            call.kwargs["message_id"]
-            for call in harness.db.insert_message.call_args_list
+            event.message_id
+            for event in harness.host.events
+            if isinstance(event, MessageEmitted | UserMessageRecorded)
         ]
         # The main question and its answer are 1 and 2.
         assert (intervention, override) == (3, 4)
@@ -716,39 +730,33 @@ class TestRespondentOverride:
 # ── Resuming at an intervention ────────────────────────────────────────────
 
 
-@dataclass
-class StoredMessage:
-    """The shape a resumed interview reads a stored message as."""
-
-    content: str
-    role: MessageRole
-    section: int | None = None
-    main_question: int | None = None
-    sub_question: int | None = None
-    message_type: MessageType = MessageType.TEXT
-    security_intervention: SecurityIntervention | None = None
-    survey_item: Any = None
-    is_introduction: bool = False
-    outro: bool = False
-    timed: bool = False
-    skipped_by_condition: bool = False
-    include_in_history: bool = True
-    image: Any = None
-    can_answer: bool = True
-
-
 def _stored_history(
     action: SecurityAction,
     respondent_override: bool,
     answer: SecurityOverride | None = None,
-) -> list[StoredMessage]:
+) -> list[HistoryRecord]:
     """A main question and its answer, interrupted by an intervention."""
     history = [
-        StoredMessage("Q?", MessageRole.ASSISTANT, 0, 0, 0),
-        StoredMessage("answer", MessageRole.USER, 0, 0, 0),
-        StoredMessage(
-            "Intervention",
-            MessageRole.ASSISTANT,
+        HistoryRecord(
+            message_id=1,
+            content="Q?",
+            role=MessageRole.ASSISTANT,
+            section=0,
+            main_question=0,
+            sub_question=0,
+        ),
+        HistoryRecord(
+            message_id=2,
+            content="answer",
+            role=MessageRole.USER,
+            section=0,
+            main_question=0,
+            sub_question=0,
+        ),
+        HistoryRecord(
+            message_id=3,
+            content="Intervention",
+            role=MessageRole.ASSISTANT,
             can_answer=False,
             security_intervention=SecurityIntervention(
                 action=action, respondent_override=respondent_override
@@ -757,9 +765,10 @@ def _stored_history(
     ]
     if answer is not None:
         history.append(
-            StoredMessage(
-                answer,
-                MessageRole.USER,
+            HistoryRecord(
+                message_id=4,
+                content=answer,
+                role=MessageRole.USER,
                 message_type=MessageType.SECURITY_OVERRIDE,
                 include_in_history=False,
             )
@@ -778,7 +787,7 @@ class TestResumeAtIntervention:
 
         assert harness.events == ["receive_override"]
         # Counted after the intervention it answers.
-        assert harness.stored_overrides[0]["message_id"] == 4
+        assert harness.stored_overrides[0].message_id == 4
         assert harness.interviewer.resume_from_history
 
     @pytest.mark.anyio

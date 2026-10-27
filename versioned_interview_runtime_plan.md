@@ -180,7 +180,7 @@ interviews, a draft snapshot for tests.
                  └────────┼────────────────────────────▲─────────────────────────────┘
                           │ Init (frozen payload),      │ MessageEmitted, InputRequested,
                           │ UserMessage,                │ UserMessageRecorded, TaskRecorded,
-                          │ SecurityOverrideAnswer      │ ChunkEmitted, StatusChanged …
+                          │ SecurityOverrideAnswer      │ ChunkEmitted, InterviewEnded …
                           ▼                             │
                  ┌─────────────────── internal network only ──────────────────┐
                  │  ┌─ worker-0-8 ────────────┐   ┌─ worker-0-9 ────────────┐  │
@@ -289,7 +289,8 @@ shape.
     never reaches resume. The backend maps its rows into it.
   - **Outbound:**
     - `MessageEmitted`: all current `insert_message` fields plus progress,
-      is_probe, user_image, `question_id`, `security_intervention`.
+      is_probe, user_image, `can_skip`, `question_id`,
+      `security_intervention`.
     - `InputRequested`: message_id and
       `expects: free_text | survey_item | security_override`. This replaces the
       `message_type` argument to `io.receive_message`.
@@ -300,7 +301,12 @@ shape.
       `_emit_chunk` runs today (message, QA pair, interview). A message chunk is
       emitted after that message's `UserMessageRecorded`, so its row already
       exists when `EmbeddingRepository.store` looks it up.
-    - `StatusChanged`, `GuideUpdated`, `Progress`, `InterviewEnded`, `Error`.
+    - `GuideUpdated`, `Progress`, `InterviewEnded`, `Error`.
+  - No status events. The host owns the session: it marks the interview active
+    when it opens a session, completed when `InterviewEnded` arrives, and
+    inactive when the session ends without it, timing the session with its own
+    clock. A worker that crashes or loses its connection can't report anything,
+    so status must not depend on it.
   - Control flow becomes explicit event types. No more `CustomToken`s passed as
     message text on the way out.
 - `interfaces.py`: replace `IOProtocol`, `PersistenceProtocol`,
@@ -319,9 +325,9 @@ shape.
   implementation per runtime version.
 - `interview.py`: `send_data`, `receive_data`, `receive_security_override`,
   `send_progress`, `handle_skip_question_exception`, every `insert_task` call
-  site (including the ones inside `_assess_security`), `_emit_chunk`,
-  `__aenter__`/`__aexit__`/`interview()` status updates and
-  `update_interview_guide` all become `emit(...)`. `send_data` no longer
+  site (including the ones inside `_assess_security`), `_emit_chunk` and
+  `update_interview_guide` all become `emit(...)`. The
+  `__aenter__`/`__aexit__` status updates go away (see above). `send_data` no longer
   branches on `text in CustomToken`. `process_history` takes
   `list[HistoryRecord]`.
 - Concurrency: the background security task emits while the main loop runs.
@@ -470,6 +476,10 @@ shape.
   by that `InputRequested.message_id`, and is written onto the row when
   `UserMessageRecorded` for that id arrives. If the worker can't be reached,
   send an `error` to the client instead of crashing.
+- Interview status lives in the relay: `active` and the session start time when
+  a session opens, `completed` on `InterviewEnded` (also writing the
+  `<|endofinterview|>` row the frontend and exports read), and `inactive` plus
+  the session's time spent in a `finally`, whatever ended the session.
 - Remove the backend's **runtime** use of the lib: no `AInterviewer` import, no
   `shuffle()`, and the local LLM error handling in `ai.py` moves into the
   worker's `Error` events. The backend keeps importing the lib for schema/editor

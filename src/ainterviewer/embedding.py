@@ -52,8 +52,8 @@ class EmbeddingChunk(BaseModel):
     consumer that stores messages can resolve the coordinates back to its own
     rows unambiguously, since a turn has exactly one respondent answer.
 
-    ``message_id`` is the per-interview counter also passed to
-    ``PersistenceProtocol.insert_message``, set only for ``MESSAGE`` chunks.
+    ``message_id`` is the per-interview counter the message was emitted or
+    recorded under, set only for ``MESSAGE`` chunks.
     """
 
     kind: EmbeddingKind

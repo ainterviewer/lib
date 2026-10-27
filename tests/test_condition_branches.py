@@ -9,13 +9,13 @@ with "Answer not found".
 """
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.config import InterviewConfig
-from ainterviewer.interfaces import OutgoingMessage
+from ainterviewer.events import InputRequested, MessageEmitted, UserMessage
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.conditions import (
@@ -28,7 +28,7 @@ from ainterviewer.interview_guides.conditions import (
 )
 from ainterviewer.interview_guides.types import ConditionAction
 from ainterviewer.lpm.types import CustomToken
-from ainterviewer.types import MessageType
+from tests.fakes import FakeHost
 
 SKIP = str(CustomToken.skip_question)
 
@@ -180,17 +180,26 @@ class Respondent:
 
     def __init__(self, answers: dict[str, list[str]]):
         self.answers = {question: list(given) for question, given in answers.items()}
-        self.asked: list[str] = []
-        self.frames: list[OutgoingMessage] = []
+        self.host = FakeHost(self.answer)
 
-    async def send_data(self, data) -> None:
-        if isinstance(data, OutgoingMessage):
-            self.frames.append(data)
-            self.asked.append(data.content)
+    @property
+    def frames(self) -> list[MessageEmitted]:
+        # A question skipped by a condition is recorded but never shown.
+        return [
+            frame
+            for frame in self.host.of(MessageEmitted)
+            if not frame.skipped_by_condition
+        ]
 
-    async def receive_message(self, message_id: int, message_type=None):
-        given = self.answers[self.asked[-1]]
-        return given.pop(0), message_type or MessageType.TEXT, None
+    @property
+    def asked(self) -> list[str]:
+        return [frame.content for frame in self.frames]
+
+    async def answer(self, request: InputRequested) -> UserMessage:
+        given = self.answers[self.asked[-1]].pop(0)
+        if given == SKIP:
+            return UserMessage(message_id=request.message_id, skip=True)
+        return UserMessage(message_id=request.message_id, content=given)
 
 
 @pytest.fixture(autouse=True)
@@ -199,13 +208,8 @@ def no_sleep(monkeypatch):
 
 
 def _interviewer(guide: InterviewGuide, respondent: Respondent) -> AInterviewer:
-    io = MagicMock(
-        send_data=AsyncMock(side_effect=respondent.send_data),
-        receive_message=AsyncMock(side_effect=respondent.receive_message),
-    )
     return AInterviewer(
-        io=io,
-        db=MagicMock(),
+        host=respondent.host,
         interview_guide=guide,
         config=InterviewConfig.model_validate({}),
         agent_configs=AgentConfigs.model_validate({}),
