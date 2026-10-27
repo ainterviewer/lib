@@ -12,6 +12,7 @@ import pytest
 
 from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.config import InterviewConfig
+from ainterviewer.embedding import chunks_for_records
 from ainterviewer.events import (
     ChunkEmitted,
     GuideUpdated,
@@ -28,10 +29,14 @@ from ainterviewer.events import (
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.history import HistoryRecord
-from ainterviewer.interview_guides.types import SecurityOverride
+from ainterviewer.interview_guides.types import (
+    ConditionAction,
+    SecurityIntervention,
+    SecurityOverride,
+)
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import EmbeddingKind, MessageRole, MessageType
-from tests.fakes import FakeHost
+from tests.fakes import FakeHost, records
 
 PROJECT_ID = uuid.uuid4()
 INTERVIEW_ID = uuid.uuid4()
@@ -142,6 +147,7 @@ class TestEventSequence:
             "chunk qa_pair",
             "message 4 Agree?",
             "answer 5 Yes",
+            "chunk section",
             "message 6 Goodbye",
             "progress 100",
             "chunk interview",
@@ -371,3 +377,188 @@ class TestFromInit:
         assert env.get_template("probing_agent/system.jinja").render() == "overridden"
         # Everything not overridden still comes from the package.
         assert env.list_templates() != ["probing_agent/system.jinja"]
+
+
+class TestChunksMatchTheBackfill:
+    """The backfill only recognises a live chunk as current if it derives the
+    same text for it from the stored messages; any difference is re-embedded
+    on every run."""
+
+    @pytest.mark.anyio
+    async def test_every_live_chunk_is_rederived_unchanged(self):
+        def guide() -> InterviewGuide:
+            return InterviewGuide.model_validate(
+                {
+                    "question_sections": [
+                        {
+                            "description": "Work",
+                            "questions": [
+                                {
+                                    "description": "How work is going",
+                                    "main_question": "How is work?",
+                                    "max_probes_n": 1,
+                                    "check_if_answered": False,
+                                    "check_if_exhausted": False,
+                                    "create_segue": False,
+                                },
+                                {
+                                    "main_question": "Agree?",
+                                    "survey_item": {
+                                        "type": "likert",
+                                        "options": ["No", "Yes"],
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            "description": "Home",
+                            "questions": [
+                                {
+                                    "main_question": "And at home?",
+                                    "max_probes_n": 0,
+                                    "check_if_answered": False,
+                                    "create_segue": False,
+                                }
+                            ],
+                        },
+                    ]
+                }
+            )
+
+        host = answering("Busy but good.", "Deadlines.", "Yes", "Quiet.")
+        iv = interviewer(host, guide())
+
+        async def generate_probe(**kwargs) -> str:
+            return "Why is that?"
+
+        iv.generate_probe = generate_probe  # ty:ignore[invalid-assignment]
+
+        await iv.interview()
+
+        live = [event.chunk for event in host.of(ChunkEmitted)]
+        backfilled = chunks_for_records(
+            guide(),
+            records(host.events),
+            project_id=PROJECT_ID,
+            interview_id=INTERVIEW_ID,
+        )
+
+        assert {c.kind for c in live} == set(EmbeddingKind)
+        # The probe and its answer are in the group they belong to.
+        assert any(
+            "Why is that?" in c.text and "Deadlines." in c.text
+            for c in live
+            if c.kind == EmbeddingKind.QA_PAIR
+        )
+        # A finished interview leaves the backfill nothing to add.
+        assert sorted(live, key=repr) == sorted(backfilled, key=repr)
+
+    @staticmethod
+    def two_sections(action: str) -> InterviewGuide:
+        """A first question whose answer "stop" triggers `action` before the
+        second is asked, and a section after it."""
+        first = uuid.UUID(int=1)
+        plain = {"max_probes_n": 0, "check_if_answered": False, "create_segue": False}
+        return InterviewGuide.model_validate(
+            {
+                "question_sections": [
+                    {
+                        "description": "Work",
+                        "questions": [
+                            {"id": str(first), "main_question": "Go on?", **plain},
+                            {
+                                "main_question": "Why?",
+                                "conditions": {
+                                    "action": action,
+                                    "conditions": [
+                                        {
+                                            "question_context": {
+                                                "question_id": str(first),
+                                                "question_index": [0, 0],
+                                            },
+                                            "evaluation": [{"trigger_value": "stop"}],
+                                        }
+                                    ],
+                                },
+                                **plain,
+                            },
+                        ],
+                    },
+                    {
+                        "description": "Home",
+                        "questions": [{"main_question": "At home?", **plain}],
+                    },
+                ]
+            }
+        )
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ("action", "answers", "sections"),
+        [
+            ("skip_section", ("stop", "Quiet."), [0, 1]),
+            ("end_interview", ("stop",), [0]),
+        ],
+    )
+    async def test_a_section_left_early_is_emitted(self, action, answers, sections):
+        host = answering(*answers)
+
+        await interviewer(host, self.two_sections(action)).interview()
+
+        live = [event.chunk for event in host.of(ChunkEmitted)]
+        backfilled = chunks_for_records(
+            self.two_sections(action),
+            records(host.events),
+            project_id=PROJECT_ID,
+            interview_id=INTERVIEW_ID,
+        )
+        assert [c.section for c in live if c.kind == EmbeddingKind.SECTION] == sections
+        assert sorted(live, key=repr) == sorted(backfilled, key=repr)
+
+    @pytest.mark.anyio
+    async def test_a_section_skipped_on_resume_is_emitted(self):
+        # The previous session stopped at an intervention that skips the rest
+        # of the section, so this one leaves it straight away.
+        stored = [
+            HistoryRecord(
+                message_id=1,
+                role=MessageRole.ASSISTANT,
+                content="Go on?",
+                section=0,
+                main_question=0,
+                sub_question=0,
+            ),
+            HistoryRecord(
+                message_id=2,
+                role=MessageRole.USER,
+                content="Fine.",
+                section=0,
+                main_question=0,
+                sub_question=0,
+            ),
+            HistoryRecord(
+                message_id=3,
+                role=MessageRole.ASSISTANT,
+                content="Let's move on.",
+                can_answer=False,
+                security_intervention=SecurityIntervention(
+                    action=ConditionAction.SKIP_SECTION, respondent_override=False
+                ),
+            ),
+        ]
+        host = answering("Quiet.")
+
+        await interviewer(host, self.two_sections("skip_section")).interview(
+            interview_history=stored
+        )
+
+        live = [event.chunk for event in host.of(ChunkEmitted)]
+        backfilled = chunks_for_records(
+            self.two_sections("skip_section"),
+            stored + records(host.events),
+            project_id=PROJECT_ID,
+            interview_id=INTERVIEW_ID,
+        )
+        assert [c.section for c in live if c.kind == EmbeddingKind.SECTION] == [0, 1]
+        for chunk in live:
+            assert chunk in backfilled

@@ -1,6 +1,14 @@
 from collections.abc import Awaitable, Callable
 
-from ainterviewer.events import InputEvent, InputRequested, OutboundEvent
+from ainterviewer.events import (
+    InputEvent,
+    InputRequested,
+    MessageEmitted,
+    OutboundEvent,
+    UserMessageRecorded,
+)
+from ainterviewer.interview_guides.history import HistoryRecord
+from ainterviewer.types import MessageRole
 
 
 class FakeHost:
@@ -27,3 +35,26 @@ class FakeHost:
     def of[T](self, kind: type[T]) -> list[T]:
         """The events of one kind, in the order they were emitted."""
         return [event for event in self.events if isinstance(event, kind)]
+
+
+def records(events: list[OutboundEvent]) -> list[HistoryRecord]:
+    """What a host that stores the messages it is sent hands back on resume or
+    backfill."""
+    out = []
+    for event in events:
+        match event:
+            case MessageEmitted():
+                out.append(
+                    HistoryRecord(
+                        role=MessageRole.ASSISTANT,
+                        **event.model_dump(include=set(HistoryRecord.model_fields)),
+                    )
+                )
+            case UserMessageRecorded():
+                out.append(
+                    HistoryRecord(
+                        role=MessageRole.USER,
+                        **event.model_dump(include=set(HistoryRecord.model_fields)),
+                    )
+                )
+    return out
