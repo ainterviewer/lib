@@ -252,13 +252,13 @@ The **contract between backend and workers** has three parts:
 
 1. **Frozen payloads.** The backend sends a worker only JSON that the same
    runtime version already accepted (`/validate`) or produced (`/prepare`).
-2. **Events and `HistoryRecord`.** They stay additive-only (new optional fields
-   and new event types are fine; renames and removals are not), and each event
-   carries `schema_version`. The backend consumes events from every live runtime
-   version, upgrading older payload shapes with `ainterviewer.compat` before
-   storing or forwarding them.
-3. **`EmbeddingChunk`**, returned by `ChunkEmitted` and `/chunks`, is
-   additive-only too.
+2. **Events and `HistoryRecord`.** Each event carries `schema_version`. The
+   backend consumes events from every live runtime version, upgrading them with
+   `ainterviewer.compat` before storing or forwarding them, and downgrades the
+   events it sends (`Init`, inputs) to the worker's `schema_version`. A breaking
+   change ships both directions (see "Schema evolution rules").
+3. **`EmbeddingChunk`**, returned by `ChunkEmitted` and `/chunks`, follows the
+   same rules.
 
 Only workers reconstruct `InterviewHistory`, and `HistoryRecord` carries no
 guide data. So the backend never parses guide JSON in another runtime version's
@@ -335,10 +335,16 @@ shape.
   `emit` is safe to call concurrently, and events keep the order each caller
   emits them in. The backend must not assume that a `TaskRecorded` arrives next
   to its message.
-- New `src/ainterviewer/compat.py`: one upgrade function per breaking change to
-  a worker-facing model or event payload, keyed by `schema_version`
-  (`upgrade(kind, json, from_version) -> json`). The backend's DB migrations and
-  `EventSink` both use it (see "Schema evolution rules").
+- New `src/ainterviewer/compat.py`: owns `SCHEMA_VERSION`, one version for the
+  whole contract. Each breaking change registers an upgrade and a downgrade per
+  kind it touches, keyed by `(kind, version)`:
+  `upgrade(kind, json, from_version)`, `downgrade(kind, json, to_version)`, and
+  `upgrade_event`/`downgrade_event`, which read and stamp `schema_version`. A
+  downgrade that can't express its input raises `Unsupported(paths)`. Kinds
+  include the parts the backend stores on their own (`SURVEY_ITEM`, `IMAGE` on
+  message rows), and the steps of the kinds containing them call theirs. The
+  backend's DB migrations, `EventSink`, the serialiser and the relay use it
+  (see "Schema evolution rules").
 - New `src/ainterviewer/worker/server.py` behind the `ainterviewer[worker]`
   extra (re-adds a small ASGI server and websockets). Endpoints:
   - `ws /run`: reads `Init`, builds `AInterviewer` with a `WebsocketHost`,
@@ -385,8 +391,13 @@ shape.
   reordered to match the worker's shuffle by section/question ids, which are
   stable across versions.
 - **Serialising for a runtime version: what the editor shows is what runs.** The
-  backend walks the full vB dump next to the target's `GET /schema` (cached per
-  lib version), following `$defs` and the `type` discriminator of survey items:
+  backend first downgrades the vB dump to the target's `schema_version` with
+  `ainterviewer.compat` (from `/version`). That handles breaking changes: a
+  lossless one passes unnoticed, and a lossy one raises `Unsupported` with the
+  paths, which are reported like a `/validate` refusal. Then it walks the
+  result next to the target's `GET /schema` (cached per lib version), following
+  `$defs` and the `type` discriminator of survey items, which handles additive
+  ones:
   - **A field the target knows** is always written out, with the stored value.
     The worker's own defaults never decide anything, so defaults may change
     between runtime versions. Fields whose default comes from settings, such as
@@ -470,7 +481,9 @@ shape.
 - `ai.py` becomes a relay only. Auth, `session_manager`, history replay and DB
   loading stay. Then it opens a ws to the interview's worker and sends `Init`
   built from the **frozen** `runtime_guide` and the version's `runtime_payload`,
-  sent as raw JSON. It pumps both directions: worker events go to `EventSink`.
+  sent as raw JSON. The `Init` envelope and every input are downgraded to the
+  worker's `schema_version` first. It pumps both directions: worker events go
+  to `EventSink`.
   Client messages are validated against the last `InputRequested` by
   `WebsocketMessageHandler` and sent on as `UserMessage` or
   `SecurityOverrideAnswer`. An audio answer's filename stays in the relay, keyed
@@ -574,11 +587,25 @@ These replace the old "keep it additive" note. Splitting the models into an
     version can run content that doesn't use it.
   - Defaults of existing fields may change. Payloads write every field the
     target knows explicitly (see "Serialising for a runtime version").
-  - A breaking change is allowed. It ships with an `ainterviewer.compat` upgrade
-    function and a `schema_version` bump. The backend's DB migration applies it
-    to the vB copies, and `EventSink` applies it to events from older runtime
-    versions. Frozen payloads are never rewritten. They only change through an
-    upgrade or a retirement, which builds a new payload from the vB copy.
+  - A breaking change is allowed. It bumps `SCHEMA_VERSION` and ships both
+    directions in `ainterviewer.compat`, for every kind it touches (parts stored
+    on their own included):
+    - **Upgrades** go up: the backend's DB migration applies them to the vB
+      copies (including the message rows' `survey_item` and `image`), and
+      `EventSink` applies them to events from older runtime versions.
+    - **Downgrades** go down: the serialiser applies them before freezing a
+      payload for an older runtime version, and the relay applies them to what
+      it sends a worker. So pinned projects keep republishing across a breaking
+      change. A downgrade that can't express its input raises `Unsupported`
+      with the paths, never drops them, and the publish is refused with
+      "upgrade to X.Y".
+    - A lossless change must round-trip (`downgrade(upgrade(x)) == x`), tested
+      on a real payload of the previous version.
+  - Frozen payloads are never rewritten. They only change through an upgrade or
+    a retirement, which builds a new payload from the vB copy.
+  - The steps for the change from schema N are needed only while a runtime
+    version on N or older is running. Once none is, they are deleted and
+    `MIN_SCHEMA_VERSION` moves past N.
 - **Newer runtime versions accept everything older runtime versions did.** An
   upgrade or retirement must always validate. A runtime version that drops a
   feature needs an explicit migration of affected content before older runtime
