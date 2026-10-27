@@ -1229,43 +1229,38 @@ class AInterviewer:
             security_check.cancel()
             self._security_check = None
 
-    def get_condition_context(self, condition: Condition) -> str:
+    def get_condition_context(self, condition: Condition) -> str | None:
+        """The answer a condition reads, or None when there is none: the
+        question was skipped by a condition, skipped by the respondent, never
+        reached (a skipped section), or took no answer. The evaluator treats
+        None as unknown rather than as a mismatch, so a rule reading a branch
+        the respondent did not take neither crashes nor fires on it."""
         section, question = condition.question_context.question_index
-        question_context = self.interview_history[section][question]
+
+        try:
+            question_context = self.interview_history[section][question]
+        except IndexError:
+            return None
+
+        main_answer = question_context.main_question.answer
+        if main_answer is None or main_answer.message in CustomToken:
+            return None
+
+        probe_answers = [
+            probe.answer.message
+            for probe in question_context.probes
+            if probe.answer and probe.answer.message not in CustomToken
+        ]
 
         match condition.question_context.part:
             case "main":
-                if (main_answer := question_context.main_question.answer) is None:
-                    raise ValueError("Answer not found")
-                condition_context = main_answer.message
-
+                return main_answer.message
             case "probes":
-                condition_context = "\n".join(
-                    [
-                        probe.answer.message
-                        for probe in question_context.probes
-                        if probe.answer
-                    ]
-                )
-
+                return "\n".join(probe_answers)
             case "both":
-                if (main_answer := question_context.main_question.answer) is None:
-                    raise ValueError("Answer not found")
-
-                condition_context = "\n".join(
-                    [
-                        main_answer.message,
-                        *[
-                            probe.answer.message
-                            for probe in question_context.probes
-                            if probe.answer
-                        ],
-                    ]
-                )
+                return "\n".join([main_answer.message, *probe_answers])
             case _:
                 raise ValueError("Invalid part")
-
-        return condition_context
 
     async def probe(self, question: Question, section_description: str):
         # TODO:

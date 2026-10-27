@@ -113,6 +113,30 @@ class ConditionEvaluation(BaseModel):
     )
 
 
+def combine(left: bool | None, operator: Literal["AND", "OR"], right: bool | None):
+    """Combine two verdicts in Kleene's three-valued logic.
+
+    None is "unknown": the condition read a question the respondent was never
+    asked, or skipped. It is decided by the other side where that side settles
+    the result on its own -- `True OR unknown` is True, `False AND unknown` is
+    False -- and stays unknown otherwise, so a rule never fires on an answer
+    that does not exist.
+    """
+    match operator:
+        case "AND":
+            if left is False or right is False:
+                return False
+            if left is None or right is None:
+                return None
+            return True
+        case "OR":
+            if left is True or right is True:
+                return True
+            if left is None or right is None:
+                return None
+            return False
+
+
 class ConditionEvaluator:
     """Evaluates conditions, optionally using a classifier for non-deterministic evaluation."""
 
@@ -120,9 +144,14 @@ class ConditionEvaluator:
         self.classifier = classifier
 
     async def evaluate_conditions(
-        self, contexts: list[str], conditions: Conditions
-    ) -> bool:
-        """Evaluate multiple conditions against their corresponding contexts."""
+        self, contexts: list[str | None], conditions: Conditions
+    ) -> bool | None:
+        """Evaluate multiple conditions against their corresponding contexts.
+
+        A context of None is a question without an answer, which makes its
+        condition unknown (see `combine`). The result is None when the
+        unknowns leave it undecided; the action only fires on True.
+        """
         condition_list = conditions.conditions
 
         if not condition_list:
@@ -141,20 +170,23 @@ class ConditionEvaluator:
                 contexts[i + 1], condition_list[i + 1]
             )
 
-            match current_condition.combine_next:
-                case "AND":
-                    result = result and next_result
-                case "OR":
-                    result = result or next_result
-                case None:
-                    raise ValueError(
-                        "Must specify a combine_next value when there are more conditions"
-                    )
+            if current_condition.combine_next is None:
+                raise ValueError(
+                    "Must specify a combine_next value when there are more conditions"
+                )
+            result = combine(result, current_condition.combine_next, next_result)
 
         return result
 
-    async def evaluate_condition(self, context: str, condition: Condition) -> bool:
-        """Evaluate a condition against the given context."""
+    async def evaluate_condition(
+        self, context: str | None, condition: Condition
+    ) -> bool | None:
+        """Evaluate a condition against the given context, or None when there
+        is no answer to evaluate it against. Negating unknown leaves it
+        unknown."""
+        if context is None:
+            return None
+
         match condition.trigger_type:
             case ConditionTrigger.MATCH:
                 result = evaluate_match_condition(context, condition.evaluation)
