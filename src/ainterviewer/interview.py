@@ -31,6 +31,7 @@ from ainterviewer.embedding import (
     interview_chunk,
     message_chunk,
     qa_pair_chunk,
+    section_chunk,
 )
 from ainterviewer.events import (
     ChunkEmitted,
@@ -270,6 +271,25 @@ class AInterviewer:
                 exc_info=True,
             )
 
+    async def _emit_section(self) -> None:
+        """Emit the section the interview is leaving, however it leaves it:
+        finished, skipped, or ended early."""
+        if not self.interview_history.sections:
+            return
+
+        section_index = self.interview_history.current_section_index
+
+        await self._emit_chunk(
+            section_chunk(
+                self.interview_history[section_index],
+                project_id=self.project_id,
+                interview_id=self.interview_id,
+                section_index=section_index,
+                language=self.language,
+                policy=self.chunk_policy,
+            )
+        )
+
     async def _emit_qa_pair(self) -> None:
         """Emit the question group the interview just finished with."""
         section_index = self.interview_history.current_section_index
@@ -470,6 +490,7 @@ class AInterviewer:
         except EndInterviewCondition:
             # Raised by a condition that ends the interview, i.e. missing
             # consent
+            await self._emit_section()
 
             # TODO:
             # - Make more fine-grained an configurable.
@@ -693,6 +714,8 @@ class AInterviewer:
             if self.resume_from_history and self.skip_resumed_section:
                 self.resume_from_history = False
                 self.skip_resumed_section = False
+                # Left while resuming, so this is the last of it.
+                await self._emit_section()
                 continue
 
             if self.resume_from_history:
@@ -770,7 +793,9 @@ class AInterviewer:
                 )
         except SkipSectionCondition:
             # TODO: We need to handle this somehow in the interview history / database ...
-            return
+            pass
+
+        await self._emit_section()
 
     async def handle_question(
         self,

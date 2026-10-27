@@ -8,6 +8,7 @@ from ainterviewer.embedding import (
     DEFAULT_POLICY,
     ChunkPolicy,
     DefaultChunkPolicy,
+    chunks_for_records,
     chunks_from_history,
     interview_chunk,
     message_chunk,
@@ -15,8 +16,10 @@ from ainterviewer.embedding import (
     section_chunk,
     should_embed_message,
 )
+from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.history import (
     HistoryMessage,
+    HistoryRecord,
     InterviewHistory,
     QuestionHistory,
     SectionHistory,
@@ -316,6 +319,104 @@ class TestChunksFromHistory:
             language="DA",
         )
         assert chunks and all(c.language == "DA" for c in chunks)
+
+
+class TestChunksForRecords:
+    """The backfill's view of a stored interview. That it agrees with the live
+    path is pinned in `test_engine`; these cover the stored shapes the live
+    path never produces."""
+
+    @pytest.fixture
+    def guide(self):
+        return InterviewGuide.model_validate(
+            {
+                "question_sections": [
+                    {
+                        "description": "s",
+                        "questions": [
+                            {"main_question": "How is work?"},
+                            {"main_question": "And home?"},
+                        ],
+                    }
+                ]
+            }
+        )
+
+    def record(
+        self,
+        message_id: int,
+        content: str,
+        role: MessageRole,
+        main_question: int = 0,
+        skipped_by_condition: bool = False,
+    ) -> HistoryRecord:
+        return HistoryRecord(
+            message_id=message_id,
+            content=content,
+            role=role,
+            section=0,
+            main_question=main_question,
+            sub_question=0,
+            skipped_by_condition=skipped_by_condition,
+        )
+
+    def chunks(self, guide, records, **kwargs):
+        return chunks_for_records(
+            guide,
+            records,
+            project_id=PROJECT_ID,
+            interview_id=INTERVIEW_ID,
+            **kwargs,
+        )
+
+    def test_nothing_stored_gives_nothing(self, guide):
+        assert self.chunks(guide, []) == []
+
+    def test_message_chunks_carry_their_record(self, guide):
+        chunks = self.chunks(
+            guide,
+            [
+                self.record(1, "How is work?", MessageRole.ASSISTANT),
+                self.record(2, "Busy but good.", MessageRole.USER),
+            ],
+            language="DA",
+        )
+
+        (message,) = [c for c in chunks if c.kind == EmbeddingKind.MESSAGE]
+        assert message.message_id == 2
+        assert (message.section, message.main_question, message.sub_question) == (
+            0,
+            0,
+            0,
+        )
+        assert all(c.language == "DA" for c in chunks)
+
+    def test_an_abandoned_interview_still_yields_its_answers(self, guide):
+        # Never reached the point where the live path emits its group.
+        chunks = self.chunks(
+            guide,
+            [
+                self.record(1, "How is work?", MessageRole.ASSISTANT),
+                self.record(2, "Busy but good.", MessageRole.USER),
+                self.record(3, "And home?", MessageRole.ASSISTANT, main_question=1),
+            ],
+        )
+
+        assert [c.main_question for c in chunks if c.kind == EmbeddingKind.QA_PAIR] == [
+            0
+        ]
+
+    def test_questions_skipped_by_condition_are_left_out(self, guide):
+        chunks = self.chunks(
+            guide,
+            [
+                self.record(
+                    1, "How is work?", MessageRole.ASSISTANT, skipped_by_condition=True
+                ),
+            ],
+        )
+
+        assert chunks == []
 
 
 # ── policy is replaceable ────────────────────────────────────────────────────

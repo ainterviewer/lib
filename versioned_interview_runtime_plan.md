@@ -297,9 +297,11 @@ shape.
       security-override answer is recorded the same way.
     - `TaskRecorded`, including `assess_security`.
     - `ChunkEmitted`: carries an `EmbeddingChunk`, emitted wherever
-      `_emit_chunk` runs today (message, QA pair, interview). A message chunk is
-      emitted after that message's `UserMessageRecorded`, so its row already
-      exists when `EmbeddingRepository.store` looks it up.
+      `_emit_chunk` runs today (message, QA pair, interview), and also for
+      each section as the interview leaves it (finished, skipped or ended), so
+      a finished interview's live chunks equal its backfilled ones. A message
+      chunk is emitted after that message's `UserMessageRecorded`, so its row
+      already exists when `EmbeddingRepository.store` looks it up.
     - `GuideUpdated`, `Progress`, `InterviewEnded`, `Error`.
   - No status events. The host owns the session: it marks the interview active
     when it opens a session, completed when `InterviewEnded` arrives, and

@@ -12,7 +12,7 @@ because near-identical vectors drawn from a handful of option strings crowd out
 real answers in nearest-neighbour results, but a consumer studying response
 patterns would want the opposite. Every such decision sits on `ChunkPolicy`, so
 it can be replaced without forking this module. Pass a policy to `AInterviewer`
-and to `chunks_from_history`; omit it and `DEFAULT_POLICY` applies.
+and to `chunks_for_records`; omit it and `DEFAULT_POLICY` applies.
 
 `ChunkPolicy.format_version` rides along on every chunk and is meant to be
 stored beside the vector. Rendering and inclusion rules are what a stored
@@ -29,10 +29,12 @@ from typing import Protocol, runtime_checkable
 from pydantic import UUID4, BaseModel
 
 from ainterviewer.interview_guides.history import (
+    HistoryRecord,
     InterviewHistory,
     QuestionHistory,
     SectionHistory,
 )
+from ainterviewer.interview_guides.interview_guide import InterviewGuide
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import EmbeddingKind, LanguageCode, MessageRole, MessageType
 
@@ -405,5 +407,63 @@ def chunks_from_history(
         )
     ):
         chunks.append(chunk)
+
+    return chunks
+
+
+def chunks_for_records(
+    guide: InterviewGuide,
+    records: list[HistoryRecord],
+    *,
+    project_id: UUID4,
+    interview_id: UUID4,
+    language: LanguageCode = "EN",
+    policy: ChunkPolicy = DEFAULT_POLICY,
+) -> list[EmbeddingChunk]:
+    """Every chunk derivable from one stored interview, given the guide it ran
+    on.
+
+    The backfill's counterpart to the chunks an interview emits as it runs,
+    and the reason it has to live next to them: for the backfill to recognise
+    a live chunk as current, both must come from the same code. Message chunks
+    are built straight from the records, because that is where the message ids
+    are. QA-pair, section and interview chunks come from the history
+    reconstruction, because that is where the question grouping is -- the same
+    reconstruction the interview loop uses to resume.
+    """
+    chunks: list[EmbeddingChunk] = [
+        chunk
+        for record in records
+        if (
+            chunk := message_chunk(
+                project_id=project_id,
+                interview_id=interview_id,
+                message_id=record.message_id,
+                content=record.content,
+                role=record.role,
+                message_type=record.message_type,
+                language=language,
+                section=record.section,
+                main_question=record.main_question,
+                sub_question=record.sub_question,
+                skipped_by_condition=record.skipped_by_condition,
+                policy=policy,
+            )
+        )
+        is not None
+    ]
+
+    history = InterviewHistory()
+    history.process_history(records, guide)
+
+    chunks.extend(
+        chunks_from_history(
+            history,
+            project_id=project_id,
+            interview_id=interview_id,
+            language=language,
+            policy=policy,
+        )
+    )
 
     return chunks
