@@ -78,6 +78,9 @@ class OutgoingHistoryMessage(_OutgoingData):
 class OutgoingMessage(_OutgoingData):
     type: Literal["message"] = "message"
     can_answer: bool = True
+    # Whether the respondent may skip this question (the guide's `can_skip`).
+    # A skip sent for one that cannot be is ignored.
+    can_skip: bool = True
     user_image: bool = False
     progress: float | None = Field(default=None, ge=0, le=100)
     is_probe: bool = False

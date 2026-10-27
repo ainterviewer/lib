@@ -294,7 +294,7 @@ class AInterviewer:
             )
         )
 
-    async def receive_data(self) -> str:
+    async def receive_data(self, can_skip: bool = True) -> str:
         # The IO layer cannot work out what kind of answer it is receiving --
         # the respondent's client submits a closed answer in the same frame as
         # free text -- so the type is declared here, from the turn the answer
@@ -307,12 +307,24 @@ class AInterviewer:
             else None
         )
 
-        text, message_type_received, audio_file = await self.io.receive_message(
-            message_id=self.interview_history.current_message_id + 1,
-            message_type=message_type_to_receive,
-        )
+        while True:
+            text, message_type_received, audio_file = await self.io.receive_message(
+                message_id=self.interview_history.current_message_id + 1,
+                message_type=message_type_to_receive,
+            )
 
-        processed_text = await self.preprocess_answer(text)
+            processed_text = await self.preprocess_answer(text)
+
+            # The client offers no Skip for a question that cannot be skipped,
+            # so one arriving anyway is a stale or tampered client. Dropped
+            # before it is stored: the question is still waiting on an answer.
+            if can_skip or processed_text != CustomToken.skip_question:
+                break
+
+            logger.warning(
+                "Ignored a skip of a question that cannot be skipped in interview %s",
+                self.interview_id,
+            )
 
         # Read before the answer is added to the history, which advances them.
         message_id = self.interview_history.current_message_id + 1
@@ -357,6 +369,7 @@ class AInterviewer:
         self,
         text: str,
         can_answer: bool = True,
+        can_skip: bool = True,
         include_in_history: bool = True,
         survey_item: SurveyItem | None = None,
         image: Image | list[Image] | None = None,
@@ -419,6 +432,7 @@ class AInterviewer:
                 message_id=message_id,
                 role=MessageRole.ASSISTANT,
                 can_answer=can_answer,
+                can_skip=can_skip,
                 progress=progress,
                 is_probe=bool(self.interview_history.current_probe_index),
                 question_id=question_id,
@@ -586,7 +600,10 @@ class AInterviewer:
                     self.apply_security_action(security_intervention.action)
 
             elif message.role == "assistant" and message.can_answer:
-                await self.receive_data()
+                answer = await self.receive_data(can_skip=last_question.can_skip)
+
+                if answer == CustomToken.skip_question:
+                    raise SkipQuestionException
 
             await self.probe(last_question, last_section.description)
             await self.resolve_security_check()
@@ -600,7 +617,9 @@ class AInterviewer:
         except SkipQuestionCondition:
             await self.handle_skip_question_exception(last_question)
         except SkipQuestionException:
-            pass
+            # The respondent skipped the question the history stopped at, so
+            # the interview goes on after it -- not from the top of its section.
+            self.resume_from_history = True
         finally:
             self.cancel_security_check()
 
@@ -956,6 +975,7 @@ class AInterviewer:
             user_image=question.user_image,
             questions_asked=self.interview_history.n_questions - 1,
             can_answer=question.can_answer,
+            can_skip=question.can_skip,
             include_in_history=not question.exclude_from_history,
             image=image,
             question_id=question.id if isinstance(question, Question) else None,
@@ -964,7 +984,7 @@ class AInterviewer:
         if isinstance(question, Question) and question.can_answer is False:
             return CustomToken.no_answer
 
-        answer = await self.receive_data()
+        answer = await self.receive_data(can_skip=question.can_skip)
 
         # TODO: when the answer is a special token, should it then be added to
         # the interview history?
@@ -993,6 +1013,7 @@ class AInterviewer:
             message,
             user_image=question.user_image,
             can_answer=question.can_answer,
+            can_skip=question.can_skip,
             include_in_history=not question.exclude_from_history,
             question_id=question.id,
         )
@@ -1000,7 +1021,7 @@ class AInterviewer:
         if isinstance(question, Question) and question.can_answer is False:
             return CustomToken.no_answer
 
-        answer = await self.receive_data()
+        answer = await self.receive_data(can_skip=question.can_skip)
 
         # TODO: when the answer is a special token, should it then be added to
         # the interview history?

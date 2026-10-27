@@ -266,3 +266,30 @@ async def test_respondent_skip_reads_as_unknown():
         "Hvad betyder mest for at få børn?",
         "Hvad betyder mest for at få flere børn?",
     ]
+
+
+# ── can_skip ────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_can_skip_rides_on_the_frame():
+    respondent = await _run(
+        {"Har du børn?": ["Ja"], "Vil du gerne have flere børn?": ["Ja"], **FREE},
+        can_skip=False,
+    )
+    assert [frame.can_skip for frame in respondent.frames] == [False, True, True]
+
+
+@pytest.mark.anyio
+async def test_skip_of_an_unskippable_question_is_ignored():
+    # The stale skip is dropped and the answer after it is the one that counts.
+    respondent = await _run(
+        {
+            "Har du børn?": [SKIP, "Nej"],
+            "Vil du gerne have børn?": ["Nej"],
+            **FREE,
+        },
+        can_skip=False,
+    )
+    assert respondent.asked == ["Har du børn?", "Vil du gerne have børn?"]
+    assert respondent.answers["Har du børn?"] == []
