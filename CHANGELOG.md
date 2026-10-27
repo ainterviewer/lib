@@ -4,6 +4,20 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.2] - 2026-10-27
+
+### Features
+
+- (interview) Honour a question's can_skip
+
+### Bug Fixes
+
+- (conditions) Treat an unanswered question as unknown
+
+### Internal
+
+- Update any-llm-sdk
+
 ## [0.7.1] - 2026-10-22
 
 ### Features
