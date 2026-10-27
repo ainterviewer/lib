@@ -19,6 +19,7 @@ from uuid import UUID
 from pydantic import UUID4, BaseModel, Field, TypeAdapter
 
 from ainterviewer.agents.config import AgentConfigs
+from ainterviewer.compat import SCHEMA_VERSION
 from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import EmbeddingChunk
 from ainterviewer.interview_guides import InterviewGuide
@@ -27,10 +28,6 @@ from ainterviewer.interview_guides.media import Image
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import SecurityIntervention, SecurityOverride
 from ainterviewer.types import LanguageCode, MessageType
-
-# Bump on a breaking change to any event, together with an upgrade in
-# `ainterviewer.compat`.
-SCHEMA_VERSION = 1
 
 
 class _Event(BaseModel):
