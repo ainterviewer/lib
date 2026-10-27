@@ -259,7 +259,9 @@ class InterviewHistory(BaseModel):
 
         return sections
 
-    def process_history(self, interview_history: list, interview_guide: InterviewGuide):
+    def process_history(
+        self, interview_history: list[HistoryRecord], interview_guide: InterviewGuide
+    ):
         """Backfill messages to the history"""
         message = None
 
@@ -305,35 +307,32 @@ class InterviewHistory(BaseModel):
                         )
 
                     if message.sub_question == 0:
-                        question_description = (
-                            interview_guide.question_sections[message.section]
-                            .questions[message.main_question]
-                            .description
-                        )
+                        # A main question is sent with its guide question's
+                        # survey item and image, so they are read from there.
+                        guide_question = interview_guide.question_sections[
+                            message.section
+                        ].questions[message.main_question]
+                        image = guide_question.image
                         section.add_question(
-                            question_description,
+                            guide_question.description,
                             main_question=Turn(
                                 question=history_message,
-                                survey_item=message.survey_item,
+                                survey_item=guide_question.survey_item,
                             ),
                             exclude_from_history=not message.include_in_history,
                             image=ImageHistory(
-                                primer=HistoryMessage(message=message.image.primer),
-                                description=HistoryMessage(
-                                    message=message.image.description
-                                ),
+                                primer=HistoryMessage(message=primer)
+                                if (primer := image.primer)
+                                else None,
+                                description=HistoryMessage(message=image.description),
                             )
-                            if message.image
+                            if image
                             else None,
                         )
                     else:
+                        # Probes are never sent with a survey item.
                         question = section[message.main_question]
-                        question.add_probe(
-                            Turn(
-                                question=history_message,
-                                survey_item=message.survey_item,
-                            )
-                        )
+                        question.add_probe(Turn(question=history_message))
 
             if message.role == "user":
                 if message.sub_question is None or not self.sections:
@@ -359,7 +358,7 @@ class SectionHistory(BaseModel):
 
     def add_question(
         self,
-        question_description: str,
+        question_description: str | None,
         main_question: Turn,
         image: ImageHistory | None = None,
         exclude_from_history: bool = False,

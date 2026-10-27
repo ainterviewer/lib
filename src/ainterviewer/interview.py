@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any, NoReturn, Self
 from uuid import UUID
 
-from jinja2 import BaseLoader
+from jinja2 import BaseLoader, ChoiceLoader, DictLoader, PackageLoader
 from pydantic import UUID4
 
 from ainterviewer.agents import (
@@ -32,6 +32,20 @@ from ainterviewer.embedding import (
     message_chunk,
     qa_pair_chunk,
 )
+from ainterviewer.events import (
+    ChunkEmitted,
+    GuideUpdated,
+    Init,
+    InputKind,
+    InputRequested,
+    InterviewEnded,
+    MessageEmitted,
+    Progress,
+    SecurityOverrideAnswer,
+    TaskRecorded,
+    UserMessage,
+    UserMessageRecorded,
+)
 from ainterviewer.exceptions import (
     EndInterviewCondition,
     SkipProbesCondition,
@@ -39,13 +53,7 @@ from ainterviewer.exceptions import (
     SkipQuestionException,
     SkipSectionCondition,
 )
-from ainterviewer.interfaces import (
-    EmbeddingProtocol,
-    IOProtocol,
-    OutgoingData,
-    OutgoingMessage,
-    PersistenceProtocol,
-)
+from ainterviewer.interfaces import EngineHost
 from ainterviewer.interview_guides import (
     Condition,
     Image,
@@ -62,6 +70,7 @@ from ainterviewer.interview_guides.conditions import (
 )
 from ainterviewer.interview_guides.history import (
     HistoryMessage,
+    HistoryRecord,
     ImageHistory,
     InterviewHistory,
     Turn,
@@ -77,7 +86,7 @@ from ainterviewer.interview_guides.types import (
     SecurityOverride,
 )
 from ainterviewer.lpm.types import CustomToken
-from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType
+from ainterviewer.types import LanguageCode, MessageRole, MessageType
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +94,7 @@ logger = logging.getLogger(__name__)
 class AInterviewer:
     def __init__(
         self,
-        io: IOProtocol,
-        db: PersistenceProtocol,
+        host: EngineHost,
         interview_guide: InterviewGuide,
         config: InterviewConfig,
         agent_configs: AgentConfigs,
@@ -97,7 +105,6 @@ class AInterviewer:
         template_loader: BaseLoader | None = None,
         language: LanguageCode = "EN",
         referable_values: dict[str, Any] | None = None,
-        embedder: EmbeddingProtocol | None = None,
         chunk_policy: ChunkPolicy = DEFAULT_POLICY,
     ):
         self.interview_started = datetime.now(UTC)
@@ -117,8 +124,7 @@ class AInterviewer:
                 if previous_time_spent <= timed_message.time
             ]
 
-        self.io: IOProtocol = io
-        self.db: PersistenceProtocol = db
+        self.host: EngineHost = host
 
         self.config: InterviewConfig = config
 
@@ -131,9 +137,6 @@ class AInterviewer:
         self.language: LanguageCode = language
         self.translation = language if language != "EN" else None
 
-        # Optional: when left unset the interview emits no embedding chunks at
-        # all, which is how the synthetic test runner opts out.
-        self.embedder: EmbeddingProtocol | None = embedder
         # Decides which text is embeddable and how it is rendered. Whatever a
         # consumer passes here must be the same policy its backfill uses, or the
         # two paths produce different text for the same chunk.
@@ -219,25 +222,26 @@ class AInterviewer:
                 language=language,
             )
 
-    async def __aenter__(self) -> Self:
-        self.db.update_interview_status(
-            self.project_id,
-            self.interview_id,
-            status=InterviewStatus.ACTIVE,
+    @classmethod
+    def from_init(cls, host: EngineHost, init: Init) -> Self:
+        """The interviewer for the session `init` describes."""
+        return cls(
+            host=host,
+            interview_guide=init.guide,
+            config=init.config,
+            agent_configs=init.agent_configs,
+            project_id=init.project_id,
+            interview_id=init.interview_id,
+            previous_time_spent=init.previous_time_spent,
+            template_loader=ChoiceLoader(
+                [
+                    DictLoader(init.prompt_overrides),
+                    PackageLoader("ainterviewer.agents.prompts.templates", "EN"),
+                ]
+            ),
+            language=init.language,
+            referable_values=init.referable_values,
         )
-
-        return self
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        if not self.interview_history.is_finished:
-            self.db.update_interview_status(
-                self.project_id,
-                self.interview_id,
-                status=InterviewStatus.INACTIVE,
-                time_spent=self.time_spent,
-            )
-
-        return False
 
     @property
     def time_spent(self) -> int:
@@ -245,7 +249,7 @@ class AInterviewer:
         return time_spent
 
     async def _emit_chunk(self, chunk: EmbeddingChunk | None) -> None:
-        """Hand a chunk to the embedder, if there is one and there is a chunk.
+        """Hand a chunk to the host, if there is one.
 
         Never raises: this sits on the interview's critical path, and an
         unreachable embedding backend must cost the respondent nothing. What is
@@ -253,11 +257,11 @@ class AInterviewer:
         messages later, which is the reason the chunk rules live in
         `ainterviewer.embedding` rather than in either caller.
         """
-        if self.embedder is None or chunk is None:
+        if chunk is None:
             return
 
         try:
-            await self.embedder.embed_chunk(chunk)
+            await self.host.emit(ChunkEmitted(chunk=chunk))
         except Exception:
             logger.warning(
                 "Failed to emit %s embedding chunk for interview %s",
@@ -268,9 +272,6 @@ class AInterviewer:
 
     async def _emit_qa_pair(self) -> None:
         """Emit the question group the interview just finished with."""
-        if self.embedder is None:
-            return
-
         section_index = self.interview_history.current_section_index
         question_index = self.interview_history.current_question_index
 
@@ -295,24 +296,16 @@ class AInterviewer:
         )
 
     async def receive_data(self) -> str:
-        # The IO layer cannot work out what kind of answer it is receiving --
-        # the respondent's client submits a closed answer in the same frame as
-        # free text -- so the type is declared here, from the turn the answer
-        # lands on.
+        # The host cannot work out what kind of answer it is receiving -- the
+        # respondent's client submits a closed answer in the same frame as free
+        # text -- so the kind is declared here, from the turn the answer lands
+        # on.
         turn = self.interview_history.current_turn
-
-        message_type_to_receive = (
-            MessageType.SURVEY_ITEM
+        expects = (
+            InputKind.SURVEY_ITEM
             if turn is not None and turn.survey_item is not None
-            else None
+            else InputKind.FREE_TEXT
         )
-
-        text, message_type_received, audio_file = await self.io.receive_message(
-            message_id=self.interview_history.current_message_id + 1,
-            message_type=message_type_to_receive,
-        )
-
-        processed_text = await self.preprocess_answer(text)
 
         # Read before the answer is added to the history, which advances them.
         message_id = self.interview_history.current_message_id + 1
@@ -320,17 +313,30 @@ class AInterviewer:
         main_question = self.interview_history.current_question_index
         sub_question = self.interview_history.current_probe_index
 
-        self.db.insert_message(
-            message_id=message_id,
-            content=processed_text,
-            message_type=message_type_received,
-            audio_file=audio_file,
-            role=MessageRole.USER,
-            section=section,
-            main_question=main_question,
-            sub_question=sub_question,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
+        answer = await self.next_input(
+            InputRequested(message_id=message_id, expects=expects), UserMessage
+        )
+
+        # A skip is recorded as the control token, which is how stored
+        # interviews have always marked a skipped question.
+        text = CustomToken.skip_question if answer.skip else answer.content
+        message_type = (
+            MessageType.SURVEY_ITEM
+            if expects == InputKind.SURVEY_ITEM
+            else answer.message_type
+        )
+
+        processed_text = await self.preprocess_answer(text)
+
+        await self.host.emit(
+            UserMessageRecorded(
+                message_id=message_id,
+                content=processed_text,
+                message_type=message_type,
+                section=section,
+                main_question=main_question,
+                sub_question=sub_question,
+            )
         )
 
         self.interview_history.add_answer(HistoryMessage(message=processed_text))
@@ -342,7 +348,7 @@ class AInterviewer:
                 message_id=message_id,
                 content=processed_text,
                 role=MessageRole.USER,
-                message_type=message_type_received,
+                message_type=message_type,
                 language=self.language,
                 section=section,
                 main_question=main_question,
@@ -352,6 +358,26 @@ class AInterviewer:
         )
 
         return processed_text
+
+    async def next_input[T: UserMessage | SecurityOverrideAnswer](
+        self, request: InputRequested, expected: type[T]
+    ) -> T:
+        """Puts `request` to the respondent and returns their answer, which
+        must be of the `expected` kind and answer this request."""
+        answer = await self.host.next_input(request)
+
+        if not isinstance(answer, expected):
+            raise TypeError(
+                f"Expected {expected.__name__} for {request.expects}, "
+                f"got {type(answer).__name__}"
+            )
+        if answer.message_id != request.message_id:
+            raise ValueError(
+                f"Answer to message {answer.message_id}, "
+                f"expected one to {request.message_id}"
+            )
+
+        return answer
 
     async def send_data(
         self,
@@ -369,63 +395,44 @@ class AInterviewer:
         question_id: UUID | None = None,
         security_intervention: SecurityIntervention | None = None,
     ) -> None:
-        message_id = self.db.insert_message(
-            message_id=self.interview_history.current_message_id,
-            content=text,
-            message_type=MessageType.TEXT
-            if not survey_item
-            else MessageType.SURVEY_ITEM,
-            can_answer=can_answer,
-            include_in_history=include_in_history,
-            role=MessageRole.ASSISTANT,
-            survey_item=survey_item,
-            image=image,
-            section=(
-                self.interview_history.current_section_index
-                if with_interview_structure
-                else None
-            ),
-            main_question=(
-                self.interview_history.current_question_index
-                if with_interview_structure
-                else None
-            ),
-            sub_question=(
-                self.interview_history.current_probe_index
-                if with_interview_structure
-                else None
-            ),
-            is_introduction=is_introduction,
-            outro=outro,
-            timed=timed,
-            security_intervention=security_intervention,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-        )
-
-        if text in CustomToken:
-            data = OutgoingData(content=text)
-        else:
-            if questions_asked:
-                progress = self.calculate_progress(questions_asked)
-            else:
-                progress = None
-
-            data = OutgoingMessage(
+        await self.host.emit(
+            MessageEmitted(
+                message_id=self.interview_history.current_message_id,
                 content=text,
+                message_type=MessageType.TEXT
+                if not survey_item
+                else MessageType.SURVEY_ITEM,
+                can_answer=can_answer,
+                include_in_history=include_in_history,
                 survey_item=survey_item,
                 image=image,
-                user_image=user_image,
-                message_id=message_id,
-                role=MessageRole.ASSISTANT,
-                can_answer=can_answer,
-                progress=progress,
-                is_probe=bool(self.interview_history.current_probe_index),
-                question_id=question_id,
+                section=(
+                    self.interview_history.current_section_index
+                    if with_interview_structure
+                    else None
+                ),
+                main_question=(
+                    self.interview_history.current_question_index
+                    if with_interview_structure
+                    else None
+                ),
+                sub_question=(
+                    self.interview_history.current_probe_index
+                    if with_interview_structure
+                    else None
+                ),
+                is_introduction=is_introduction,
+                outro=outro,
+                timed=timed,
                 security_intervention=security_intervention,
+                progress=self.calculate_progress(questions_asked)
+                if questions_asked
+                else None,
+                is_probe=bool(self.interview_history.current_probe_index),
+                user_image=user_image,
+                question_id=question_id,
             )
-
-        await self.io.send_data(data)
+        )
 
     async def send_progress(
         self,
@@ -441,14 +448,12 @@ class AInterviewer:
                 "Must either provide questions_asked or set finished to True"
             )
 
-        payload = OutgoingData(progress=progress)
-
-        await self.io.send_data(payload)
+        await self.host.emit(Progress(progress=progress))
 
     def calculate_progress(self, questions_asked: int):
         return questions_asked / self.interview_guide.n_total_questions * 100
 
-    async def interview(self, interview_history: list | None = None):
+    async def interview(self, interview_history: list[HistoryRecord] | None = None):
         """
         Main entry point for the interview process
         """
@@ -508,20 +513,7 @@ class AInterviewer:
 
         await self.send_progress(None, finished=True)
 
-        self.db.update_interview_status(
-            self.project_id,
-            self.interview_id,
-            status=InterviewStatus.COMPLETED,
-            time_spent=self.time_spent,
-        )
-
         self.interview_history.is_finished = True
-
-        await self.send_data(
-            CustomToken.end_of_interview,
-            with_interview_structure=False,
-            can_answer=False,
-        )
 
         await self._emit_chunk(
             interview_chunk(
@@ -533,15 +525,13 @@ class AInterviewer:
             )
         )
 
-    async def process_history(self, interview_history: list):
+        await self.host.emit(InterviewEnded())
+
+    async def process_history(self, interview_history: list[HistoryRecord]):
         # FIXME:
         # - Fix image replay
         # If an image has failed being send, the primer might be the last
         # message and the interview stuck.
-
-        # TODO:
-        # - The data class for the stored interviews should be a part of this
-        # library, so we can use it in this function
 
         message = self.interview_history.process_history(
             interview_history, self.interview_guide
@@ -606,7 +596,7 @@ class AInterviewer:
 
     @staticmethod
     def last_security_intervention(
-        interview_history: list,
+        interview_history: list[HistoryRecord],
     ) -> tuple[SecurityIntervention, SecurityOverride | None] | None:
         """The security intervention the interview stopped at, if any, with the
         respondent's answer to it if they gave one."""
@@ -673,24 +663,24 @@ class AInterviewer:
             else None,
         )
 
-        self.db.insert_message(
-            message_id=self.interview_history.current_message_id,
-            content=content,
-            message_type=MessageType.TEXT
-            if not survey_item
-            else MessageType.SURVEY_ITEM,
-            can_answer=can_answer,
-            include_in_history=include_in_history,
-            role=MessageRole.ASSISTANT,
-            survey_item=survey_item,
-            image=image,
-            section=(self.interview_history.current_section_index),
-            main_question=(self.interview_history.current_question_index),
-            sub_question=(self.interview_history.current_probe_index),
-            is_introduction=False,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-            skipped_by_condition=True,
+        # Never shown, only recorded.
+        await self.host.emit(
+            MessageEmitted(
+                message_id=self.interview_history.current_message_id,
+                content=content,
+                message_type=MessageType.TEXT
+                if not survey_item
+                else MessageType.SURVEY_ITEM,
+                can_answer=can_answer,
+                include_in_history=include_in_history,
+                survey_item=survey_item,
+                image=image,
+                section=self.interview_history.current_section_index,
+                main_question=self.interview_history.current_question_index,
+                sub_question=self.interview_history.current_probe_index,
+                skipped_by_condition=True,
+                question_id=question.id,
+            )
         )
 
     async def handle_sections(self):
@@ -733,12 +723,16 @@ class AInterviewer:
             self.interview_guide.question_sections.append(section)
             self.interview_guide.ai_generated_sections -= 1
 
-            self.db.update_interview_guide(
-                self.project_id, self.interview_id, self.interview_guide
-            )
+            await self.emit_guide()
 
             self.interview_history.add_section(section.description)
             await self.handle_section(section)
+
+    async def emit_guide(self) -> None:
+        # A copy, as the interview goes on changing its guide in place.
+        await self.host.emit(
+            GuideUpdated(guide=self.interview_guide.model_copy(deep=True))
+        )
 
     async def handle_section(
         self, section: QuestionSection[Question], initial_question_index: int = 0
@@ -766,9 +760,7 @@ class AInterviewer:
                 section.questions.append(question)
                 section.ai_generated_questions.n -= 1
 
-                self.db.update_interview_guide(
-                    self.project_id, self.interview_id, self.interview_guide
-                )
+                await self.emit_guide()
 
                 # Appended, so its index is the position it just took.
                 await self.handle_question(
@@ -1059,17 +1051,17 @@ class AInterviewer:
             condition_contexts, conditions
         )
 
-        self.db.insert_task(
-            message_id=self.interview_history.current_message_id,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-            task="evaluate_condition",
-            content=conditions.model_dump_json(),
-            response=str(condition_triggered),
-            # "<section>:<question>", both zero-based, matching the indices on a
-            # message. A rule checked before its question is asked is written
-            # against the *previous* question's last message.
-            context=f"{carrier[0]}:{carrier[1]}" if carrier else None,
+        await self.host.emit(
+            TaskRecorded(
+                message_id=self.interview_history.current_message_id,
+                task="evaluate_condition",
+                content=conditions.model_dump_json(),
+                response=str(condition_triggered),
+                # "<section>:<question>", both zero-based, matching the indices on a
+                # message. A rule checked before its question is asked is written
+                # against the *previous* question's last message.
+                context=f"{carrier[0]}:{carrier[1]}" if carrier else None,
+            )
         )
 
         if condition_triggered:
@@ -1128,28 +1120,28 @@ class AInterviewer:
             # with no `reason`, so it reads as "nothing triggered" everywhere
             # a triggered decision is looked for.
             logger.exception("Security check failed in interview %s", self.interview_id)
-            self.db.insert_task(
-                message_id=message_id,
-                interview_id=self.interview_id,
-                project_id=self.project_id,
-                task="assess_security",
-                response=json.dumps({"error": f"{type(error).__name__}: {error}"}),
-                model=security_agent.model,
-                time_spend=int(time.time() - start_time),
+            await self.host.emit(
+                TaskRecorded(
+                    message_id=message_id,
+                    task="assess_security",
+                    response=json.dumps({"error": f"{type(error).__name__}: {error}"}),
+                    model=security_agent.model,
+                    time_spend=int(time.time() - start_time),
+                )
             )
             return None
 
         triggered = result.most_severe
 
-        self.db.insert_task(
-            message_id=message_id,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-            task="assess_security",
-            reason=triggered.decision.name if triggered else None,
-            response=result.assessment.model_dump_json(),
-            model=security_agent.model,
-            time_spend=int(time.time() - start_time),
+        await self.host.emit(
+            TaskRecorded(
+                message_id=message_id,
+                task="assess_security",
+                reason=triggered.decision.name if triggered else None,
+                response=result.assessment.model_dump_json(),
+                model=security_agent.model,
+                time_spend=int(time.time() - start_time),
+            )
         )
 
         return triggered
@@ -1197,20 +1189,19 @@ class AInterviewer:
         shown."""
         message_id = self.interview_history.current_message_id + 1
 
-        text, _, _ = await self.io.receive_message(
-            message_id=message_id,
-            message_type=MessageType.SECURITY_OVERRIDE,
+        answer = await self.next_input(
+            InputRequested(message_id=message_id, expects=InputKind.SECURITY_OVERRIDE),
+            SecurityOverrideAnswer,
         )
-        override = SecurityOverride(text)
+        override = answer.answer
 
-        self.db.insert_message(
-            message_id=message_id,
-            content=override,
-            message_type=MessageType.SECURITY_OVERRIDE,
-            role=MessageRole.USER,
-            include_in_history=False,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
+        await self.host.emit(
+            UserMessageRecorded(
+                message_id=message_id,
+                content=override,
+                message_type=MessageType.SECURITY_OVERRIDE,
+                include_in_history=False,
+            )
         )
         self.interview_history.security_messages.append(
             HistoryMessage(message=override)
@@ -1388,14 +1379,14 @@ class AInterviewer:
 
         time_spend = time.time() - start_time
 
-        self.db.insert_task(
-            message_id=self.interview_history.current_message_id + 1,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-            task="has_question_been_answered",
-            content=question,
-            response=str(response),
-            time_spend=int(time_spend),
+        await self.host.emit(
+            TaskRecorded(
+                message_id=self.interview_history.current_message_id + 1,
+                task="has_question_been_answered",
+                content=question,
+                response=str(response),
+                time_spend=int(time_spend),
+            )
         )
 
         return response
@@ -1422,14 +1413,14 @@ class AInterviewer:
 
         time_spend = time.time() - start_time
 
-        self.db.insert_task(
-            message_id=self.interview_history.current_message_id,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-            task="has_question_been_exhausted",
-            content=context,
-            response=str(response),
-            time_spend=int(time_spend),
+        await self.host.emit(
+            TaskRecorded(
+                message_id=self.interview_history.current_message_id,
+                task="has_question_been_exhausted",
+                content=context,
+                response=str(response),
+                time_spend=int(time_spend),
+            )
         )
 
         return response
@@ -1445,14 +1436,14 @@ class AInterviewer:
         )
         time_spend = time.time() - now
 
-        self.db.insert_task(
-            message_id=self.interview_history.current_message_id + 1,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-            task="contains_multiple_refusals",
-            content=current_question_transcript,
-            response=str(contains_refusal),
-            time_spend=int(time_spend),
+        await self.host.emit(
+            TaskRecorded(
+                message_id=self.interview_history.current_message_id + 1,
+                task="contains_multiple_refusals",
+                content=current_question_transcript,
+                response=str(contains_refusal),
+                time_spend=int(time_spend),
+            )
         )
 
         return contains_refusal
@@ -1487,16 +1478,16 @@ class AInterviewer:
 
         time_spend = time.time() - start_time
 
-        self.db.insert_task(
-            message_id=self.interview_history.current_message_id,
-            interview_id=self.interview_id,
-            project_id=self.project_id,
-            task="reformulate_question",
-            reason=reason,
-            content=question.main_question,
-            response=message,
-            time_spend=int(time_spend),
-            model=self.probing_agent.model,
+        await self.host.emit(
+            TaskRecorded(
+                message_id=self.interview_history.current_message_id,
+                task="reformulate_question",
+                reason=reason,
+                content=question.main_question,
+                response=message,
+                time_spend=int(time_spend),
+                model=self.probing_agent.model,
+            )
         )
 
         return message

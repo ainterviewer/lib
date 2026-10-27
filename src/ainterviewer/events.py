@@ -26,7 +26,7 @@ from ainterviewer.interview_guides.history import HistoryRecord
 from ainterviewer.interview_guides.media import Image
 from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import SecurityIntervention, SecurityOverride
-from ainterviewer.types import InterviewStatus, LanguageCode, MessageType
+from ainterviewer.types import LanguageCode, MessageType
 
 # Bump on a breaking change to any event, together with an upgrade in
 # `ainterviewer.compat`.
@@ -182,13 +182,6 @@ class ChunkEmitted(_Event):
     chunk: EmbeddingChunk
 
 
-class StatusChanged(_Event):
-    type: Literal["status_changed"] = "status_changed"
-    status: InterviewStatus
-    # Seconds spent in this session.
-    time_spent: int = 0
-
-
 class GuideUpdated(_Event):
     """The engine extended the interview's guide, e.g. with a generated
     question. Replaces the guide the host passes in `Init` from now on."""
@@ -203,7 +196,13 @@ class Progress(_Event):
 
 
 class InterviewEnded(_Event):
-    """The interview is complete; nothing follows."""
+    """The interview is complete; nothing follows.
+
+    The only status the engine reports. Whether a session is active, when it
+    stopped and how long it took are the host's to record: it owns the
+    connection, and a session can end -- a crash, a dropped socket -- without
+    the engine being able to say so.
+    """
 
     type: Literal["interview_ended"] = "interview_ended"
 
@@ -229,7 +228,6 @@ type OutboundEvent = Annotated[
     | UserMessageRecorded
     | TaskRecorded
     | ChunkEmitted
-    | StatusChanged
     | GuideUpdated
     | Progress
     | InterviewEnded
