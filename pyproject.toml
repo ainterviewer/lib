@@ -11,8 +11,6 @@ license_files = ["LICENSE"]
 dependencies = [
   "any-llm-sdk[gemini,openai,openrouter,vllm]>=1.13.0",
   "jinja2>=3.1.6",
-  "polars>=1.35.2",
-  "pyarrow>=22.0.0",
   "pydantic-extra-types>=2.10.4",
   "pydantic-settings>=2.7.1",
   "pydantic[email]>=2.9,<3",
@@ -26,7 +24,8 @@ dependencies = [
 analysis = [
   "adbc-driver-sqlite>=1.6.0",
   "ipykernel>=6.29.5",
-  "pyarrow>=20.0.0",
+  "polars>=1.35.2",
+  "pyarrow>=22.0.0",
   "rich>=14.0.0",
   "ua-parser[regex]>=1.0.1",
   "umap-learn>=0.5.9.post2",
@@ -37,8 +36,9 @@ worker = ["fastapi>=0.162.0", "uvicorn[standard]>=0.54.0"]
 
 [dependency-groups]
 dev = [
-  # The worker's tests run in the dev environment.
-  "ainterviewer[worker]",
+  # The worker's tests and the analysis helpers' type checks run in the dev
+  # environment.
+  "ainterviewer[analysis,worker]",
   "deptry>=0.23.0",
   "djlint>=1.36.4",
   "httpx>=0.28.1",

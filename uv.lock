@@ -61,8 +61,6 @@ source = { editable = "." }
 dependencies = [
     { name = "any-llm-sdk", extra = ["gemini"] },
     { name = "jinja2" },
-    { name = "polars" },
-    { name = "pyarrow" },
     { name = "pydantic", extra = ["email"] },
     { name = "pydantic-extra-types" },
     { name = "pydantic-settings" },
@@ -76,6 +74,7 @@ dependencies = [
 analysis = [
     { name = "adbc-driver-sqlite" },
     { name = "ipykernel" },
+    { name = "polars" },
     { name = "pyarrow" },
     { name = "rich" },
     { name = "ua-parser", extra = ["regex"] },
@@ -89,7 +88,7 @@ worker = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "ainterviewer", extra = ["worker"] },
+    { name = "ainterviewer", extra = ["analysis", "worker"] },
     { name = "deptry" },
     { name = "djlint" },
     { name = "httpx" },
@@ -109,9 +108,8 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'worker'", specifier = ">=0.162.0" },
     { name = "ipykernel", marker = "extra == 'analysis'", specifier = ">=6.29.5" },
     { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "polars", specifier = ">=1.35.2" },
-    { name = "pyarrow", specifier = ">=22.0.0" },
-    { name = "pyarrow", marker = "extra == 'analysis'", specifier = ">=20.0.0" },
+    { name = "polars", marker = "extra == 'analysis'", specifier = ">=1.35.2" },
+    { name = "pyarrow", marker = "extra == 'analysis'", specifier = ">=22.0.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.9,<3" },
     { name = "pydantic-extra-types", specifier = ">=2.10.4" },
     { name = "pydantic-settings", specifier = ">=2.7.1" },
@@ -129,7 +127,7 @@ provides-extras = ["analysis", "worker"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "ainterviewer", extras = ["worker"] },
+    { name = "ainterviewer", extras = ["analysis", "worker"] },
     { name = "deptry", specifier = ">=0.23.0" },
     { name = "djlint", specifier = ">=1.36.4" },
     { name = "httpx", specifier = ">=0.28.1" },
