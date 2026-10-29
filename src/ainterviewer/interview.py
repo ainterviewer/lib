@@ -617,7 +617,10 @@ class AInterviewer:
                 if answer == CustomToken.skip_question:
                     raise SkipQuestionException
 
-            await self.probe(last_question, last_section.description)
+            # A question that takes no answer is not probed, as when it is
+            # first asked.
+            if last_question.can_answer:
+                await self.probe(last_question, last_section.description)
             await self.resolve_security_check()
 
             self.resume_from_history = True
@@ -869,7 +872,7 @@ class AInterviewer:
 
             if answer == CustomToken.skip_question:
                 return
-            elif answer == CustomToken.no_answer:
+            elif answer is None:
                 await asyncio.sleep(2.5)
                 return
 
@@ -918,8 +921,9 @@ class AInterviewer:
 
         return message
 
-    async def ask_question(self, question: Question) -> str:
-        """Asks the user a question and returns the answer"""
+    async def ask_question(self, question: Question) -> str | None:
+        """Asks the user a question and returns the answer, or None for a
+        question that takes none."""
 
         # TODO: Reimplement
         # if question.alternative_main_questions:
@@ -1000,7 +1004,7 @@ class AInterviewer:
         )
 
         if isinstance(question, Question) and question.can_answer is False:
-            return CustomToken.no_answer
+            return None
 
         answer = await self.receive_data(can_skip=question.can_skip)
 
@@ -1009,7 +1013,9 @@ class AInterviewer:
 
         return answer
 
-    async def ask_probe(self, question: Question, probe: str):
+    async def ask_probe(self, question: Question, probe: str) -> str:
+        """Asks the user a probe and returns the answer. Only a question that
+        takes answers is probed."""
         message = await self.preprocess_message(probe)
 
         if self.interview_guide.timed_messages:
@@ -1035,9 +1041,6 @@ class AInterviewer:
             include_in_history=not question.exclude_from_history,
             question_id=question.id,
         )
-
-        if isinstance(question, Question) and question.can_answer is False:
-            return CustomToken.no_answer
 
         answer = await self.receive_data(can_skip=question.can_skip)
 
@@ -1330,8 +1333,7 @@ class AInterviewer:
                 # question
                 raise SkipQuestionException
 
-            if answer != CustomToken.no_answer:
-                self.start_security_check(question, section_description)
+            self.start_security_check(question, section_description)
 
     async def generate_probe(
         self,

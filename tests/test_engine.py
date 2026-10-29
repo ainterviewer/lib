@@ -234,6 +234,45 @@ class TestInputs:
 
 class TestResume:
     @pytest.mark.anyio
+    async def test_a_question_that_takes_no_answer_is_not_probed(self):
+        # Probing one would ask the language model for follow-ups the
+        # respondent cannot answer.
+        guide = InterviewGuide.model_validate(
+            {
+                "question_sections": [
+                    {
+                        "description": "Section",
+                        "questions": [
+                            {"main_question": "Read this.", "can_answer": False},
+                            {
+                                "main_question": "Free?",
+                                "max_probes_n": 0,
+                                "check_if_answered": False,
+                                "create_segue": False,
+                            },
+                        ],
+                    }
+                ]
+            }
+        )
+        history = [
+            HistoryRecord(
+                message_id=1,
+                role=MessageRole.ASSISTANT,
+                content="Read this.",
+                section=0,
+                main_question=0,
+                sub_question=0,
+                can_answer=False,
+            )
+        ]
+        host = answering("Fine")
+
+        await interviewer(host, guide).interview(interview_history=history)
+
+        assert [event.content for event in host.of(MessageEmitted)] == ["Free?"]
+
+    @pytest.mark.anyio
     async def test_resumes_after_the_last_answer(self):
         guide = make_guide()
         history = [
