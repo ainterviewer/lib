@@ -391,9 +391,12 @@ shape.
   - an rc tag `vX.Y.ZrcN` → `worker:X.Y.ZrcN`, and moves `:X.Y-rc`, never
     `:X.Y`;
   - a manual run on any branch → `worker:sha-<short>`, built with a preview
-    `RUNTIME_VERSION` name.
+    `RUNTIME_VERSION` name, `X.Y-<label>` (the branch name unless given).
 
-  Testing a lib change therefore never needs a release.
+  Testing a lib change therefore never needs a release. Every build is started
+  and its `/version` checked against the runtime version it is published as
+  before any tag is pushed, and a GitHub release is only made once its image
+  is.
 
 ### 2. Backend
 
