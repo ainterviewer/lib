@@ -26,6 +26,7 @@ from ainterviewer.events import (
     UserMessage,
     UserMessageRecorded,
 )
+from ainterviewer.exceptions import UnexpectedInput
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.history import HistoryRecord
@@ -37,6 +38,7 @@ from ainterviewer.interview_guides.types import (
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import EmbeddingKind, MessageRole, MessageType
 from tests.fakes import FakeHost, records
+from tests.guides import make_guide, two_sections
 
 PROJECT_ID = uuid.uuid4()
 INTERVIEW_ID = uuid.uuid4()
@@ -51,37 +53,6 @@ def no_sleep(monkeypatch):
         await sleep(0)
 
     monkeypatch.setattr(asyncio, "sleep", no_sleep)
-
-
-def make_guide() -> InterviewGuide:
-    """An introduction, a free-text question, a survey question and an outro,
-    none of which needs a language model."""
-    return InterviewGuide.model_validate(
-        {
-            "introduction": "Hello",
-            "outro": "Goodbye",
-            "question_sections": [
-                {
-                    "description": "Section",
-                    "questions": [
-                        {
-                            "main_question": "Free?",
-                            "max_probes_n": 0,
-                            "check_if_answered": False,
-                            "create_segue": False,
-                        },
-                        {
-                            "main_question": "Agree?",
-                            "survey_item": {
-                                "type": "likert",
-                                "options": ["No", "Yes"],
-                            },
-                        },
-                    ],
-                }
-            ],
-        }
-    )
 
 
 def answering(*answers: UserMessage | str) -> FakeHost:
@@ -247,7 +218,7 @@ class TestInputs:
         async def stale(request: InputRequested):
             return UserMessage(message_id=request.message_id - 1, content="x")
 
-        with pytest.raises(ValueError, match="expected one to 3"):
+        with pytest.raises(UnexpectedInput, match="expected one to 3"):
             await run(FakeHost(answer=stale))
 
     @pytest.mark.anyio
@@ -257,7 +228,7 @@ class TestInputs:
                 message_id=request.message_id, answer=SecurityOverride.ACCEPT
             )
 
-        with pytest.raises(TypeError, match="Expected UserMessage"):
+        with pytest.raises(UnexpectedInput, match="Expected UserMessage"):
             await run(FakeHost(answer=override))
 
 
@@ -453,45 +424,6 @@ class TestChunksMatchTheBackfill:
         # A finished interview leaves the backfill nothing to add.
         assert sorted(live, key=repr) == sorted(backfilled, key=repr)
 
-    @staticmethod
-    def two_sections(action: str) -> InterviewGuide:
-        """A first question whose answer "stop" triggers `action` before the
-        second is asked, and a section after it."""
-        first = uuid.UUID(int=1)
-        plain = {"max_probes_n": 0, "check_if_answered": False, "create_segue": False}
-        return InterviewGuide.model_validate(
-            {
-                "question_sections": [
-                    {
-                        "description": "Work",
-                        "questions": [
-                            {"id": str(first), "main_question": "Go on?", **plain},
-                            {
-                                "main_question": "Why?",
-                                "conditions": {
-                                    "action": action,
-                                    "conditions": [
-                                        {
-                                            "question_context": {
-                                                "question_id": str(first),
-                                                "question_index": [0, 0],
-                                            },
-                                            "evaluation": [{"trigger_value": "stop"}],
-                                        }
-                                    ],
-                                },
-                                **plain,
-                            },
-                        ],
-                    },
-                    {
-                        "description": "Home",
-                        "questions": [{"main_question": "At home?", **plain}],
-                    },
-                ]
-            }
-        )
-
     @pytest.mark.anyio
     @pytest.mark.parametrize(
         ("action", "answers", "sections"),
@@ -503,11 +435,11 @@ class TestChunksMatchTheBackfill:
     async def test_a_section_left_early_is_emitted(self, action, answers, sections):
         host = answering(*answers)
 
-        await interviewer(host, self.two_sections(action)).interview()
+        await interviewer(host, two_sections(action)).interview()
 
         live = [event.chunk for event in host.of(ChunkEmitted)]
         backfilled = chunks_for_records(
-            self.two_sections(action),
+            two_sections(action),
             records(host.events),
             project_id=PROJECT_ID,
             interview_id=INTERVIEW_ID,
@@ -548,13 +480,13 @@ class TestChunksMatchTheBackfill:
         ]
         host = answering("Quiet.")
 
-        await interviewer(host, self.two_sections("skip_section")).interview(
+        await interviewer(host, two_sections("skip_section")).interview(
             interview_history=stored
         )
 
         live = [event.chunk for event in host.of(ChunkEmitted)]
         backfilled = chunks_for_records(
-            self.two_sections("skip_section"),
+            two_sections("skip_section"),
             stored + records(host.events),
             project_id=PROJECT_ID,
             interview_id=INTERVIEW_ID,
