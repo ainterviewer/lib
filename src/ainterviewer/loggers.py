@@ -1,6 +1,12 @@
+import os
+import sys
 from pathlib import Path
 
 import structlog
+
+# Where agent logs go: a file, `agents.log` in the working directory unless
+# set, or `-` for stdout, as in the worker image.
+_AGENTS_LOG = os.environ.get("AINTERVIEWER_AGENTS_LOG") or "agents.log"
 
 structlog.configure(
     processors=[
@@ -44,7 +50,8 @@ structlog.configure(
     # string) from the final processor (`JSONRenderer`) will be passed to
     # the method of the same name as that you've called on the bound logger.
     logger_factory=structlog.WriteLoggerFactory(
-        file=Path("agents").with_suffix(".log").open("a+")
+        # Open for as long as the process logs.
+        file=sys.stdout if _AGENTS_LOG == "-" else Path(_AGENTS_LOG).open("a+")  # noqa: SIM115
     ),
     # Effectively freeze configuration after creating the first bound
     # logger.
