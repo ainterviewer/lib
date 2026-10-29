@@ -13,8 +13,6 @@ class CustomToken(StrEnum):
     end_of_interview = "<|endofinterview|>"
     skip_question = "<|skipquestion|>"
     skip_section = "<|skipsection|>"
-    no_answer = "<|noanswer|>"
-    restart_interview = "<|restartinterview|>"
 
 
 class Message(TypedDict):
