@@ -1,6 +1,6 @@
 [project]
 name = "ainterviewer"
-version = "0.7.2"
+version = "0.8.0rc1"
 description = "Python framework for creating automated interviews with the use of LLMs"
 readme = "README.md"
 authors = [{ name = "Tobias Gårdhus", email = "tpg@sodas.ku.dk" }]

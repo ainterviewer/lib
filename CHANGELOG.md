@@ -4,6 +4,32 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.0rc1] - 2026-10-29
+
+### Breaking Changes
+
+- (engine) IOProtocol, PersistenceProtocol, EmbeddingProtocol,
+the Outgoing* models and ReceivedData are removed, as is the embedder
+argument. process_history takes list[HistoryRecord].
+
+### Features
+
+- (events) Add engine event contract and HistoryRecord
+- (engine) Run AInterviewer on an EngineHost [**breaking**]
+- (embedding) Derive chunks from HistoryRecords and emit sections live
+- (compat) Convert contract JSON between schema versions
+- (worker) Add the runtime server
+- (loggers) Choose the agent log destination with AINTERVIEWER_AGENTS_LOG
+
+### Internal
+
+- Add plan
+- Update plan
+- Pin runtime versions per project in plan
+- (worker) Build, smoke-test and publish worker images
+- Merge main (v0.7.2) into the versioned runtime
+- (deps) Move polars and pyarrow to the analysis extra
+
 ## [0.7.2] - 2026-10-27
 
 ### Features
