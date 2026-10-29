@@ -101,6 +101,9 @@ class MessageEmitted(_Event):
     content: str
     message_type: MessageType = MessageType.TEXT
     can_answer: bool = True
+    # Whether the respondent may skip this question (the guide's `can_skip`).
+    # A skip sent for one that cannot be is ignored.
+    can_skip: bool = True
     include_in_history: bool = True
     survey_item: SurveyItem | None = None
     image: Image | list[Image] | None = None

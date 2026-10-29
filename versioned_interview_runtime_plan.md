@@ -293,7 +293,8 @@ shape.
     never reaches resume. The backend maps its rows into it.
   - **Outbound:**
     - `MessageEmitted`: all current `insert_message` fields plus progress,
-      is_probe, user_image, `question_id`, `security_intervention`.
+      is_probe, user_image, `can_skip`, `question_id`,
+      `security_intervention`.
     - `InputRequested`: message_id and
       `expects: free_text | survey_item | security_override`. This replaces the
       `message_type` argument to `io.receive_message`.

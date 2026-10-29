@@ -316,7 +316,7 @@ class AInterviewer:
             )
         )
 
-    async def receive_data(self) -> str:
+    async def receive_data(self, can_skip: bool = True) -> str:
         # The host cannot work out what kind of answer it is receiving -- the
         # respondent's client submits a closed answer in the same frame as free
         # text -- so the kind is declared here, from the turn the answer lands
@@ -334,9 +334,21 @@ class AInterviewer:
         main_question = self.interview_history.current_question_index
         sub_question = self.interview_history.current_probe_index
 
-        answer = await self.next_input(
-            InputRequested(message_id=message_id, expects=expects), UserMessage
-        )
+        while True:
+            answer = await self.next_input(
+                InputRequested(message_id=message_id, expects=expects), UserMessage
+            )
+
+            # The client offers no Skip for a question that cannot be skipped,
+            # so one arriving anyway is a stale or tampered client. Dropped
+            # before it is stored: the question is still waiting on an answer.
+            if can_skip or not answer.skip:
+                break
+
+            logger.warning(
+                "Ignored a skip of a question that cannot be skipped in interview %s",
+                self.interview_id,
+            )
 
         # A skip is recorded as the control token, which is how stored
         # interviews have always marked a skipped question.
@@ -404,6 +416,7 @@ class AInterviewer:
         self,
         text: str,
         can_answer: bool = True,
+        can_skip: bool = True,
         include_in_history: bool = True,
         survey_item: SurveyItem | None = None,
         image: Image | list[Image] | None = None,
@@ -445,6 +458,7 @@ class AInterviewer:
                 is_introduction=is_introduction,
                 outro=outro,
                 timed=timed,
+                can_skip=can_skip,
                 security_intervention=security_intervention,
                 progress=self.calculate_progress(questions_asked)
                 if questions_asked
@@ -598,7 +612,10 @@ class AInterviewer:
                     self.apply_security_action(security_intervention.action)
 
             elif message.role == "assistant" and message.can_answer:
-                await self.receive_data()
+                answer = await self.receive_data(can_skip=last_question.can_skip)
+
+                if answer == CustomToken.skip_question:
+                    raise SkipQuestionException
 
             await self.probe(last_question, last_section.description)
             await self.resolve_security_check()
@@ -612,7 +629,9 @@ class AInterviewer:
         except SkipQuestionCondition:
             await self.handle_skip_question_exception(last_question)
         except SkipQuestionException:
-            pass
+            # The respondent skipped the question the history stopped at, so
+            # the interview goes on after it -- not from the top of its section.
+            self.resume_from_history = True
         finally:
             self.cancel_security_check()
 
@@ -974,6 +993,7 @@ class AInterviewer:
             user_image=question.user_image,
             questions_asked=self.interview_history.n_questions - 1,
             can_answer=question.can_answer,
+            can_skip=question.can_skip,
             include_in_history=not question.exclude_from_history,
             image=image,
             question_id=question.id if isinstance(question, Question) else None,
@@ -982,7 +1002,7 @@ class AInterviewer:
         if isinstance(question, Question) and question.can_answer is False:
             return CustomToken.no_answer
 
-        answer = await self.receive_data()
+        answer = await self.receive_data(can_skip=question.can_skip)
 
         # TODO: when the answer is a special token, should it then be added to
         # the interview history?
@@ -1011,6 +1031,7 @@ class AInterviewer:
             message,
             user_image=question.user_image,
             can_answer=question.can_answer,
+            can_skip=question.can_skip,
             include_in_history=not question.exclude_from_history,
             question_id=question.id,
         )
@@ -1018,7 +1039,7 @@ class AInterviewer:
         if isinstance(question, Question) and question.can_answer is False:
             return CustomToken.no_answer
 
-        answer = await self.receive_data()
+        answer = await self.receive_data(can_skip=question.can_skip)
 
         # TODO: when the answer is a special token, should it then be added to
         # the interview history?
@@ -1246,43 +1267,38 @@ class AInterviewer:
             security_check.cancel()
             self._security_check = None
 
-    def get_condition_context(self, condition: Condition) -> str:
+    def get_condition_context(self, condition: Condition) -> str | None:
+        """The answer a condition reads, or None when there is none: the
+        question was skipped by a condition, skipped by the respondent, never
+        reached (a skipped section), or took no answer. The evaluator treats
+        None as unknown rather than as a mismatch, so a rule reading a branch
+        the respondent did not take neither crashes nor fires on it."""
         section, question = condition.question_context.question_index
-        question_context = self.interview_history[section][question]
+
+        try:
+            question_context = self.interview_history[section][question]
+        except IndexError:
+            return None
+
+        main_answer = question_context.main_question.answer
+        if main_answer is None or main_answer.message in CustomToken:
+            return None
+
+        probe_answers = [
+            probe.answer.message
+            for probe in question_context.probes
+            if probe.answer and probe.answer.message not in CustomToken
+        ]
 
         match condition.question_context.part:
             case "main":
-                if (main_answer := question_context.main_question.answer) is None:
-                    raise ValueError("Answer not found")
-                condition_context = main_answer.message
-
+                return main_answer.message
             case "probes":
-                condition_context = "\n".join(
-                    [
-                        probe.answer.message
-                        for probe in question_context.probes
-                        if probe.answer
-                    ]
-                )
-
+                return "\n".join(probe_answers)
             case "both":
-                if (main_answer := question_context.main_question.answer) is None:
-                    raise ValueError("Answer not found")
-
-                condition_context = "\n".join(
-                    [
-                        main_answer.message,
-                        *[
-                            probe.answer.message
-                            for probe in question_context.probes
-                            if probe.answer
-                        ],
-                    ]
-                )
+                return "\n".join([main_answer.message, *probe_answers])
             case _:
                 raise ValueError("Invalid part")
-
-        return condition_context
 
     async def probe(self, question: Question, section_description: str):
         # TODO:
