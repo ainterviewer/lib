@@ -44,3 +44,8 @@ class MissingEnvironmentVariable(Exception):
 
 class ClassificationError(Exception):
     pass
+
+
+class UnexpectedInput(Exception):
+    """The host answered an input request with something that does not answer
+    it: the wrong kind of input, or an answer to another message."""

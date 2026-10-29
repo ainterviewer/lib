@@ -53,6 +53,7 @@ from ainterviewer.exceptions import (
     SkipQuestionCondition,
     SkipQuestionException,
     SkipSectionCondition,
+    UnexpectedInput,
 )
 from ainterviewer.interfaces import EngineHost
 from ainterviewer.interview_guides import (
@@ -387,12 +388,12 @@ class AInterviewer:
         answer = await self.host.next_input(request)
 
         if not isinstance(answer, expected):
-            raise TypeError(
+            raise UnexpectedInput(
                 f"Expected {expected.__name__} for {request.expects}, "
                 f"got {type(answer).__name__}"
             )
         if answer.message_id != request.message_id:
-            raise ValueError(
+            raise UnexpectedInput(
                 f"Answer to message {answer.message_id}, "
                 f"expected one to {request.message_id}"
             )

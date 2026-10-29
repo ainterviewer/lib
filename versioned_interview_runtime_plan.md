@@ -28,8 +28,12 @@ Decisions so far:
   `runtime_payload` in exactly the shape the target runtime version accepts, and
   that is all a worker ever sees. Migrations update the vB copies, never the
   frozen ones.
-- **Runtime versions have a lifecycle**: supported → deprecated → retired, with
-  3 months from deprecated to retired by default. On the retirement date,
+- **Runtime versions have a lifecycle**: (preview →) gated → supported →
+  deprecated → retired, with 3 months from deprecated to retired by default. A
+  _preview_ (a release candidate or branch build, `0.9-rc`, `0.9-feat-x`) is for
+  test interviews only and never pinned by published content. A _gated_ runtime
+  version is a real release that admins move pilot projects onto before it is
+  generally available. On the retirement date,
   projects still on the runtime version are force-upgraded and in-progress
   interviews resume on the new runtime version. An admin can postpone retirement
   for one project.
@@ -349,10 +353,13 @@ shape.
   extra (re-adds a small ASGI server and websockets). Endpoints:
   - `ws /run`: reads `Init`, builds `AInterviewer` with a `WebsocketHost`,
     forwards outbound events and feeds inbound inputs.
-  - `POST /validate`: `{guide, config, agent_configs, prompt_overrides}` in. It
-    parses them **strictly** with this runtime version's models
-    (`extra="forbid"` everywhere, for this check only) and returns ok, or a list
-    of the paths it doesn't understand or can't accept.
+  - `POST /validate`: any of `{guide, config, agent_configs, prompt_overrides}`
+    in. It parses them **strictly** with this runtime version's models: after
+    validating as usual, it walks the input next to the result and reports
+    every key the models let pass without a field to take it, so no feature is
+    silently dropped. Prompt overrides must name templates this version has and
+    compile. Returns `{ok, problems: [{path, message}]}`, paths being dotted
+    paths into the request (`guide.question_sections.0.questions.1.foo`).
   - `POST /prepare`: a validated guide in, this interview's shuffled guide out,
     using this runtime version's `shuffle()`.
   - `POST /chunks`:
@@ -362,23 +369,42 @@ shape.
     models (`InterviewGuide`, `InterviewConfig`, `AgentConfigs`), from
     pydantic's `model_json_schema()`. The backend serialises payloads against
     it.
-  - `/health` and `/version` (lib version, event `schema_version`,
-    `CHUNK_FORMAT_VERSION`).
+  - `/health` and `/version` (lib version, runtime version, `build` (the commit
+    a CI image was built from), `schema_version`, `CHUNK_FORMAT_VERSION`).
+
+  `ws /run` reports any failure as an `Error` event before closing, with a code
+  the relay maps onto the client's: `inference_unavailable` (transient provider
+  failure, worth retrying), `inference_error` (the provider refused),
+  `protocol` (the host sent something unreadable or an answer that doesn't fit
+  the request), `internal` (a bug). It reads only events at its own
+  `schema_version`. Run with `python -m ainterviewer.worker` (port 8700,
+  `WORKER_HOST`/`WORKER_PORT`). Its runtime version is the lib's `X.Y`, or a
+  preview name set by the image build (`RUNTIME_VERSION=0.9-feat-x`), which
+  must start with that `X.Y` so it can't pass for another version.
 
   `/validate`, `/prepare`, `/chunks` and `/schema` keep no state and make no LLM
   calls.
 
-- `Dockerfile` in the lib repo. The release workflow's tag-only jobs publish
-  `ghcr.io/ainterviewer/worker:X.Y.Z` and move `:X.Y`.
+- `Dockerfile` in the lib repo. The release workflow publishes worker images on
+  three triggers:
+  - a stable tag `vX.Y.Z` → `worker:X.Y.Z`, and moves `:X.Y`;
+  - an rc tag `vX.Y.ZrcN` → `worker:X.Y.ZrcN`, and moves `:X.Y-rc`, never
+    `:X.Y`;
+  - a manual run on any branch → `worker:sha-<short>`, built with a preview
+    `RUNTIME_VERSION` name.
+
+  Testing a lib change therefore never needs a release.
 
 ### 2. Backend
 
 #### Pinning and frozen payloads
 
-- **`runtime_version` table**: version (`"0.8"`), status
-  (`supported | deprecated | retired`), `deprecated_at`, `retire_at` (default
-  `deprecated_at + 3 months`). Exactly one supported runtime version is the
-  default. This replaces a `runtime_default` setting.
+- **`runtime_version` table**: version (`"0.8"`, `"0.9-rc"`), status
+  (`preview | gated | supported | deprecated | retired`), `image` (pinned, e.g.
+  `worker:0.9.0rc2` or `worker:sha-a1b2c3d`, for previews only; releases use
+  `worker:X.Y`), `deprecated_at`, `retire_at` (default `deprecated_at +
+  3 months`). Exactly one supported runtime version is the default. This
+  replaces a `runtime_default` setting.
 - **On `projectcontentversion`**: `runtime_version` and `runtime_payload` (plain
   JSONB, _not_ `PydanticJSONB`). The payload holds per offered language the
   rendered guide, plus config, agent_configs and prompt_overrides, serialised
@@ -416,6 +442,9 @@ shape.
   - Otherwise → the runtime version of the currently published content version,
     if it isn't retired.
   - Explicit upgrade → the chosen newer runtime version (admin-only for now).
+    Researchers, once upgrades are opened to them, are only offered supported
+    ones; admins can also move a project onto a gated one.
+  - A preview is never a publish target, the default, or a retirement target.
   - The payload is then sent to that runtime version's `/validate`. On failure,
     the publish is refused with the paths returned, and the researcher chooses
     between "remove these features" and "upgrade to X.Y".
@@ -426,7 +455,8 @@ shape.
   marks the features it doesn't support. The frontend stays one build on vB
   types.
 - **Test interviews** run on the runtime version the draft would publish to,
-  with an option to "test on X.Y" to preview an upgrade. Their snapshot versions
+  with an option to "test on X.Y" to preview an upgrade, previews included
+  (admin-only). Their snapshot versions
   get a payload like any publish.
 - **New interview** (`app/api/interview.py`): the content version's payload for
   the respondent's language goes through `/prepare` on that content version's
@@ -438,6 +468,18 @@ shape.
 
 #### Runtime version lifecycle
 
+- **Preview**: added by hand with a pinned image, for test interviews only.
+  Deleting the row removes it; its test interviews are test data. Locally, a
+  backend dev setting `DEV_RUNTIME_URL=ws://localhost:8700` registers a `dev`
+  preview pointing at a worker run from a lib checkout, so a lib change needs
+  no image either.
+- **Gated**: a real release (stable tag, `worker:X.Y`, patches, lifecycle) that
+  can't be the default and that only admins move projects onto, for pilot
+  studies. The patch rule is the same as for supported runtime versions: a
+  pilot that needs a prompt or flow change gets the next minor, also gated, and
+  a gated runtime version that never reaches general availability retires once
+  its pilots have moved on or finished. **General availability** is a status
+  change, `gated → supported`, optionally making it the default.
 - **Deprecating** a runtime version: no new projects start on it. Publishes may
   stay on it, with an "upgrade recommended" banner that shows `retire_at`. Only
   security and critical fixes get backported.
@@ -461,7 +503,8 @@ shape.
 #### Relay, events and wire format
 
 - Worker address by naming convention, not a per-version URL map: runtime
-  version `X.Y` → `ws://ainterviewer-worker-X-Y:8700`.
+  version `X.Y` → `ws://ainterviewer-worker-X-Y:8700`, and a preview
+  `0.9-feat-x` → `ws://ainterviewer-worker-0-9-feat-x:8700`.
 - **Client wire format moves here**, in two steps:
   1. Move `OutgoingMessage` (with `question_id` and `security_intervention`),
      `OutgoingHistoryMessage`, `OutgoingData`, `ReceivedData` and the client
@@ -534,19 +577,28 @@ ones, and the backend no longer imports any history or chunking code.
 
 - At startup, health-check every runtime version that `runtimes-sync` would run,
   and log any that are missing.
+- **The backend's lib must be at least as new as every worker's schema.** The
+  backend can only convert schema versions its own lib knows, so a worker whose
+  `/version` reports a newer `schema_version` than the backend's is refused,
+  naming it. A new runtime version is therefore usable only once the backend has
+  upgraded its lib. A preview that changes the schema needs a backend built
+  with that lib branch; most previews don't.
+- Check that a worker's `/version` reports the runtime version it is addressed
+  as.
 - Refuse to create a project, publish or start an interview when the target
   runtime version's worker is unreachable. The error names the runtime version.
 
 ### 3. Platform: no hand-maintained version list
 
 - `just runtimes-sync <env>` (backed by a backend CLI command):
-  1. Select the runtime versions to run: the default runtime version, plus every
-     non-retired runtime version (or retired runtime version with an active
-     postponement) that is referenced by a published or test version of a
-     non-archived project, or by an unfinished interview.
+  1. Select the runtime versions to run: the default runtime version, every
+     preview (it exists to be tested), plus every non-retired runtime version
+     (or retired runtime version with an active postponement) that is
+     referenced by a published or test version of a non-archived project, or by
+     an unfinished interview.
   2. Render `platform/compose/runtimes.<env>.yml` from one service template:
-     image `worker:X.Y`, internal network only, storage mounted read-only,
-     config.toml, proxy reachable.
+     image `worker:X.Y` (a preview's pinned `image`), internal network only,
+     storage mounted read-only, config.toml, proxy reachable.
   3. `docker compose pull` + `up -d --remove-orphans`.
 - Run it on every deploy and after the retirement job. Runtime versions nobody
   uses get removed automatically. A hotfix is a lib patch release followed by a

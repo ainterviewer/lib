@@ -32,11 +32,16 @@ analysis = [
   "umap-learn>=0.5.9.post2",
   "user-agents>=2.2.0",
 ]
+# The runtime server (`ainterviewer.worker`), one per runtime version.
+worker = ["fastapi>=0.162.0", "uvicorn[standard]>=0.54.0"]
 
 [dependency-groups]
 dev = [
+  # The worker's tests run in the dev environment.
+  "ainterviewer[worker]",
   "deptry>=0.23.0",
   "djlint>=1.36.4",
+  "httpx>=0.28.1",
   "inquirer>=3.4.0",
   "ipykernel>=6.29.5",
   "prek>=0.4.4",

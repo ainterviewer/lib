@@ -205,8 +205,14 @@ class InterviewEnded(_Event):
 
 
 class ErrorCode(StrEnum):
-    # A language model could not be reached or gave an unusable reply.
+    # A language model is down, overloaded or timing out: worth retrying.
+    INFERENCE_UNAVAILABLE = "inference_unavailable"
+    # A language model refused the request, e.g. an unknown model or bad
+    # credentials: retrying gives the same.
     INFERENCE_ERROR = "inference_error"
+    # The host sent something this engine cannot read.
+    PROTOCOL = "protocol"
+    # A bug.
     INTERNAL = "internal"
 
 
