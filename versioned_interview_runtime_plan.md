@@ -512,18 +512,29 @@ shape.
   and a preview `0.9-feat-x` → `http://ainterviewer-worker-0-9-feat-x:8700`.
   The pattern is the backend setting `services.runtime.worker_url`, default
   `http://ainterviewer-worker-{name}:8700`.
-- **Client wire format moves here**, in two steps:
-  1. Move `OutgoingMessage` (with `question_id` and `security_intervention`),
-     `OutgoingHistoryMessage`, `OutgoingData` and `ReceivedData` into
-     `app/api/websockets/schemas.py` unchanged, so the frontend doesn't change
-     at cut-over. `CustomToken` stays imported from the lib: its values are in
-     every stored transcript and the exports read them, so it is stored
-     vocabulary rather than wire format, and the redesign below retires its
-     use on the wire.
-  2. In a separate PR together with the frontend, redesign them as one
-     discriminated union on `type`: `message` | `history` | `progress` |
-     `security{action, respondent_override}` | `control{action: end | restart}`
-     | `error{code}`.
+- **Client wire format moves here**, owned by the backend in
+  `app/api/websockets/schemas.py`, and redesigned together with the frontend
+  (both deploy together):
+  - Server → client, one union on `type`: `message` | `history` | `progress` |
+    `security{message_id, content, action, respondent_override}` |
+    `control{action: end | restart}` | `error{code: retry | fatal}`. The error
+    codes say what the client does, not what went wrong: `retry` for anything
+    that may pass by itself (a worker or inference server down, a rate limit),
+    `fatal` for anything else. The cause stays in the log. Restart and the
+    end of the interview are `control` frames, not tokens.
+  - Client → server: `answer{content, audio_filename}` | `skip` |
+    `security_override{answer}`, which takes the skip token and the override
+    sent as message text off the wire.
+  - `CustomToken` stays imported from the lib: its values are in every stored
+    transcript, and the exports and the transcript views read them. The
+    members nothing produces today (`end_of_probe`, `end_of_section`,
+    `skip_section`) stay for a possible agent-driven flow. Two go from lib
+    `0.8.0rc2`, neither ever stored: `restart_interview`, now a `control`
+    frame, and `no_answer`, which was only the engine's return value for a
+    question that takes no answer (now `None`). When the backend moves to it
+    and the SDK is regenerated, drop both from `TOKEN_CONFIG` and
+    `TOKEN_PATTERN` in the frontend's `MessageBubble.svelte`, which must list
+    exactly the generated `CustomToken`.
 - New `app/api/websockets/interviews/events.py`: `EventSink` takes an event in
   its runtime version's shape and runs `ainterviewer.compat` on it, so that
   `survey_item` and `image` are in vB shape. It persists the event (if it is a
