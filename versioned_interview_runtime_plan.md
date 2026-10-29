@@ -473,10 +473,11 @@ shape.
 #### Runtime version lifecycle
 
 - **Preview**: added by hand with a pinned image, for test interviews only.
-  Deleting the row removes it; its test interviews are test data. Locally, a
-  backend dev setting `DEV_RUNTIME_URL=ws://localhost:8700` registers a `dev`
-  preview pointing at a worker run from a lib checkout, so a lib change needs
-  no image either.
+  Deleting the row removes it; its test interviews are test data. Locally, the
+  backend setting `services.runtime.worker_url = "http://localhost:8700"` (no
+  `{name}`) sends every runtime version to one worker run from a lib checkout,
+  so a lib change needs no image either. The worker must still report the
+  runtime version it is asked for, which a checkout does for its own `X.Y`.
 - **Gated**: a real release (stable tag, `worker:X.Y`, patches, lifecycle) that
   can't be the default and that only admins move projects onto, for pilot
   studies. The patch rule is the same as for supported runtime versions: a
@@ -507,13 +508,18 @@ shape.
 #### Relay, events and wire format
 
 - Worker address by naming convention, not a per-version URL map: runtime
-  version `X.Y` → `ws://ainterviewer-worker-X-Y:8700`, and a preview
-  `0.9-feat-x` → `ws://ainterviewer-worker-0-9-feat-x:8700`.
+  version `X.Y` → `http://ainterviewer-worker-X-Y:8700` (sessions on `ws://…/run`),
+  and a preview `0.9-feat-x` → `http://ainterviewer-worker-0-9-feat-x:8700`.
+  The pattern is the backend setting `services.runtime.worker_url`, default
+  `http://ainterviewer-worker-{name}:8700`.
 - **Client wire format moves here**, in two steps:
   1. Move `OutgoingMessage` (with `question_id` and `security_intervention`),
-     `OutgoingHistoryMessage`, `OutgoingData`, `ReceivedData` and the client
-     tokens `ai.py` uses from `CustomToken` into `app/api/websockets/schemas.py`
-     unchanged, so the frontend doesn't change at cut-over.
+     `OutgoingHistoryMessage`, `OutgoingData` and `ReceivedData` into
+     `app/api/websockets/schemas.py` unchanged, so the frontend doesn't change
+     at cut-over. `CustomToken` stays imported from the lib: its values are in
+     every stored transcript and the exports read them, so it is stored
+     vocabulary rather than wire format, and the redesign below retires its
+     use on the wire.
   2. In a separate PR together with the frontend, redesign them as one
      discriminated union on `type`: `message` | `history` | `progress` |
      `security{action, respondent_override}` | `control{action: end | restart}`
