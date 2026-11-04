@@ -120,7 +120,7 @@ async def chat[T: BaseModel](
             **extra_model_kwargs,
         )
     else:
-        server_endpoint = f"{settings.llm.llm_endpoint}/v1"
+        server_endpoint = settings.llm.vllm_api_base
 
         # TODO: re-enable once logit bias is validated against gpt-oss-120b in staging
         extra_model_kwargs = {}  # get_extra_model_kwargs(model, response_format is not None)

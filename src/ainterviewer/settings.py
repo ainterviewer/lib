@@ -68,6 +68,10 @@ def BaseSettingsConfigDict(**kwargs) -> SettingsConfigDict:
 class LLMSettings(BaseModel):
     llm_host: str = "0.0.0.0"
     llm_port: int = 8880
+    # Full OpenAI-compatible base URL of a vLLM server, e.g.
+    # "https://llm.example.org/v1". Overrides llm_host/llm_port for models
+    # without a provider prefix, and allows HTTPS and path prefixes.
+    vllm_base_url: str | None = None
 
     available_models: list[str] = Field(default_factory=lambda: ["gpt-5-mini"])
     default_model: str = "gpt-5-mini"
@@ -81,6 +85,13 @@ class LLMSettings(BaseModel):
     @property
     def llm_endpoint(self) -> str:
         return f"http://{self.llm_host}:{self.llm_port}"
+
+    @property
+    def vllm_api_base(self) -> str:
+        """Base URL that models without a provider prefix are sent to."""
+        if self.vllm_base_url:
+            return self.vllm_base_url.rstrip("/")
+        return f"{self.llm_endpoint}/v1"
 
     @field_validator("available_models")
     @classmethod
