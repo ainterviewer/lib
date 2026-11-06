@@ -4,6 +4,45 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.0rc2] - 2026-11-06
+
+### Breaking Changes
+
+- (engine) IOProtocol, PersistenceProtocol, EmbeddingProtocol,
+the Outgoing* models and ReceivedData are removed, as is the embedder
+argument. process_history takes list[HistoryRecord].
+- (tokens) Drop restart_interview and no_answer from CustomToken
+- (agents) `ainterviewer.config` and `InterviewConfig` are removed.
+`Init` has no `config`, `AInterviewer` takes no `config`, the worker's
+`/schema` has no `interview_config` and `/validate` no longer takes `config`.
+Changed in place at schema version 1, as 0.8.0 is unreleased.
+
+### Features
+
+- (events) Add engine event contract and HistoryRecord
+- (engine) Run AInterviewer on an EngineHost [**breaking**]
+- (embedding) Derive chunks from HistoryRecords and emit sections live
+- (compat) Convert contract JSON between schema versions
+- (worker) Add the runtime server
+- (loggers) Choose the agent log destination with AINTERVIEWER_AGENTS_LOG
+
+### Bug Fixes
+
+- (engine) Don't probe a question that takes no answer on resume
+
+### Internal
+
+- Allow small self-contained commits straight to main
+- Add plan
+- Update plan
+- Pin runtime versions per project in plan
+- (worker) Build, smoke-test and publish worker images
+- (deps) Move polars and pyarrow to the analysis extra
+- Worker address setting and stored tokens in plan
+- (tokens) Drop restart_interview and no_answer from CustomToken [**breaking**]
+- Client frame redesign and token cleanup in plan
+- (agents) Move probing strategies into the probing agent's config [**breaking**]
+
 ## [0.7.3] - 2026-11-04
 
 ### Features
