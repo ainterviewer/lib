@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from ainterviewer.agents.config import AgentConfigs
-from ainterviewer.config import InterviewConfig
 from ainterviewer.events import InputRequested, MessageEmitted, UserMessage
 from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide
@@ -211,7 +210,6 @@ def _interviewer(guide: InterviewGuide, respondent: Respondent) -> AInterviewer:
     return AInterviewer(
         host=respondent.host,
         interview_guide=guide,
-        config=InterviewConfig.model_validate({}),
         agent_configs=AgentConfigs.model_validate({}),
         project_id=uuid.uuid4(),
         interview_id=uuid.uuid4(),

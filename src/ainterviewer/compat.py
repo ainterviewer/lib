@@ -3,8 +3,7 @@ schema versions.
 
 The contract between a host and its engines -- the events, `HistoryRecord`,
 `EmbeddingChunk`, and the models an engine is handed (`InterviewGuide`,
-`InterviewConfig`, `AgentConfigs`) -- is versioned as a whole by
-`SCHEMA_VERSION`. A host runs on one library version but talks to engines on
+`AgentConfigs`) -- is versioned as a whole by `SCHEMA_VERSION`. A host runs on one library version but talks to engines on
 older ones, so it converts in both directions:
 
 - **Up**, for what comes from older versions: events from engines on an older
@@ -55,7 +54,6 @@ type Step = Callable[[Json], Json]
 class Kind(StrEnum):
     EVENT = "event"
     INTERVIEW_GUIDE = "interview_guide"
-    INTERVIEW_CONFIG = "interview_config"
     AGENT_CONFIGS = "agent_configs"
     HISTORY_RECORD = "history_record"
     EMBEDDING_CHUNK = "embedding_chunk"

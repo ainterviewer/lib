@@ -15,7 +15,6 @@ from ainterviewer.agents.security_policy import (
     TriggeredDecision,
     default_security_policy,
 )
-from ainterviewer.config import InterviewConfig
 from ainterviewer.events import (
     InputKind,
     InputRequested,
@@ -120,7 +119,6 @@ class Harness:
         self.interviewer = iv = AInterviewer(
             host=self.host,
             interview_guide=guide,
-            config=InterviewConfig.model_validate({}),
             agent_configs=AgentConfigs.model_validate({"security": {"include": True}}),
             project_id=uuid.uuid4(),
             interview_id=uuid.uuid4(),

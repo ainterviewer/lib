@@ -153,10 +153,10 @@ def test_upgrades_chain_from_the_given_version(history):
 
 
 def test_a_kind_no_version_touched_comes_back_as_it_was(history):
-    config = {"with_consent": True}
+    configs = {"probing": {"strategies": ["standard"]}}
 
-    assert upgrade(Kind.INTERVIEW_CONFIG, config, from_version=1) == config
-    assert downgrade(Kind.INTERVIEW_CONFIG, config, to_version=1) == config
+    assert upgrade(Kind.AGENT_CONFIGS, configs, from_version=1) == configs
+    assert downgrade(Kind.AGENT_CONFIGS, configs, to_version=1) == configs
 
 
 def test_a_part_stored_on_its_own_converts_by_itself(history):

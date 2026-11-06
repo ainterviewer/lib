@@ -17,7 +17,6 @@ from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from ainterviewer.agents.config import AgentConfigs
-from ainterviewer.config import InterviewConfig
 from ainterviewer.interview_guides import InterviewGuide
 
 TEMPLATES = PackageLoader("ainterviewer.agents.prompts.templates", "EN")
@@ -148,7 +147,6 @@ def validate_payload(payload: dict[str, Any]) -> list[Problem]:
 
     for key, model in (
         ("guide", InterviewGuide),
-        ("config", InterviewConfig),
         ("agent_configs", AgentConfigs),
     ):
         if key in payload:
@@ -162,7 +160,7 @@ def validate_payload(payload: dict[str, Any]) -> list[Problem]:
     problems.extend(
         Problem(path=key, message="Not supported by this version")
         for key in payload
-        if key not in {"guide", "config", "agent_configs", "prompt_overrides"}
+        if key not in {"guide", "agent_configs", "prompt_overrides"}
     )
 
     return problems

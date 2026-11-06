@@ -23,7 +23,6 @@ from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.agents.reformulation_agent import ReformulationReason
 from ainterviewer.agents.security_policy import TriggeredDecision
 from ainterviewer.agents.types import ProbingStrategy
-from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import (
     DEFAULT_POLICY,
     ChunkPolicy,
@@ -98,7 +97,6 @@ class AInterviewer:
         self,
         host: EngineHost,
         interview_guide: InterviewGuide,
-        config: InterviewConfig,
         agent_configs: AgentConfigs,
         project_id: UUID4,
         interview_id: UUID4,
@@ -128,9 +126,9 @@ class AInterviewer:
 
         self.host: EngineHost = host
 
-        self.config: InterviewConfig = config
-
         self.one_question: bool = one_question
+
+        self.probing_strategies: set[ProbingStrategy] = agent_configs.probing.strategies
 
         self.interview_guide: InterviewGuide = interview_guide
 
@@ -230,7 +228,6 @@ class AInterviewer:
         return cls(
             host=host,
             interview_guide=init.guide,
-            config=init.config,
             agent_configs=init.agent_configs,
             project_id=init.project_id,
             interview_id=init.interview_id,
@@ -1345,7 +1342,7 @@ class AInterviewer:
         if (suggested_probes := question.probes) is not None:
             suggested_probes = "\n".join("- " + probe for probe in suggested_probes)
 
-        if ProbingStrategy.DICE_MASTER_TO_ONE_PROBE in self.config.probing_strategy:
+        if ProbingStrategy.DICE_MASTER_TO_ONE_PROBE in self.probing_strategies:
             await self.probing_agent.generate_master_to_one_probe(
                 section_description=section_description,
                 question_description=question.description,  # ty:ignore[invalid-argument-type]
@@ -1353,10 +1350,7 @@ class AInterviewer:
                 transcript=transcript,
                 suggested_probes=suggested_probes,
             )
-        if (
-            ProbingStrategy.DICE_ENSEMBLE_TO_MASTER_PROBE
-            in self.config.probing_strategy
-        ):
+        if ProbingStrategy.DICE_ENSEMBLE_TO_MASTER_PROBE in self.probing_strategies:
             await self.probing_agent.generate_ensemble_to_master_probe(
                 section_description=section_description,
                 question_description=question.description,  # ty:ignore[invalid-argument-type]
@@ -1366,7 +1360,7 @@ class AInterviewer:
             )
         if (
             ProbingStrategy.DICE_MASTER_TO_ENSEMBLE_TO_ONE_PROBE
-            in self.config.probing_strategy
+            in self.probing_strategies
         ):
             await self.probing_agent.generate_master_to_ensemble_to_one_probe(
                 section_description=section_description,

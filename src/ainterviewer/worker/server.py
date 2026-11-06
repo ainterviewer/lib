@@ -23,7 +23,6 @@ from pydantic import UUID4, BaseModel, ValidationError
 from ainterviewer import __version__
 from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.compat import SCHEMA_VERSION
-from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import (
     CHUNK_FORMAT_VERSION,
     EmbeddingChunk,
@@ -127,14 +126,13 @@ def schema() -> dict[str, Any]:
     """The JSON Schema of everything a host serialises for this version."""
     return {
         "interview_guide": InterviewGuide.model_json_schema(),
-        "interview_config": InterviewConfig.model_json_schema(),
         "agent_configs": AgentConfigs.model_json_schema(),
     }
 
 
 @app.post("/validate")
 def validate(payload: dict[str, Any]) -> Validation:
-    """Whether this version runs `payload` -- any of `guide`, `config`,
+    """Whether this version runs `payload` -- any of `guide`,
     `agent_configs` and `prompt_overrides` -- exactly as given, naming every
     path it cannot accept."""
     problems = validate_payload(payload)

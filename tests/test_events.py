@@ -12,7 +12,6 @@ import pytest
 from pydantic import BaseModel
 
 from ainterviewer.agents.config import AgentConfigs
-from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import EmbeddingChunk
 from ainterviewer.events import (
     SCHEMA_VERSION,
@@ -73,7 +72,6 @@ INBOUND = [
         interview_id=INTERVIEW_ID,
         language="da",
         guide=guide(),
-        config=InterviewConfig(),
         agent_configs=AgentConfigs(),
         prompt_overrides={"probing.jinja": "x"},
         history=[

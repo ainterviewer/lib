@@ -219,7 +219,7 @@ interviews, a draft snapshot for tests.
 ```txt
 Browser          backend (/ws/ai + EventSink)              worker-0-8 (lib engine)
    │  connect  ──▶ auth, load frozen payload, replay history
-   │                 ── Init{runtime_guide,config,agent_configs,history,…} ──▶ build AInterviewer
+   │                 ── Init{runtime_guide,agent_configs,history,…} ──▶ build AInterviewer
    │                                                     ◀── MessageEmitted{id=7, question_id…}
    │                 insert_message(id=7) → DB
    │ ◀── message(id=7)
@@ -279,7 +279,7 @@ shape.
 
 - New `src/ainterviewer/events.py` (pydantic, discriminated union on `type`):
   - **Inbound:**
-    - `Init`: the interview's `runtime_guide`, config, agent_configs,
+    - `Init`: the interview's `runtime_guide`, agent_configs,
       prompt_overrides, history, referable_values, language,
       previous_time_spent, project/interview ids.
     - `UserMessage`: text, message_type, plus a `skip` flag in place of the
@@ -354,7 +354,7 @@ shape.
   extra (re-adds a small ASGI server and websockets). Endpoints:
   - `ws /run`: reads `Init`, builds `AInterviewer` with a `WebsocketHost`,
     forwards outbound events and feeds inbound inputs.
-  - `POST /validate`: any of `{guide, config, agent_configs, prompt_overrides}`
+  - `POST /validate`: any of `{guide, agent_configs, prompt_overrides}`
     in. It parses them **strictly** with this runtime version's models: after
     validating as usual, it walks the input next to the result and reports
     every key the models let pass without a field to take it, so no feature is
@@ -367,7 +367,7 @@ shape.
     `{guide, history: list[HistoryRecord], project/interview ids, language}` in,
     `list[EmbeddingChunk]` out, via `chunks_for_records`.
   - `GET /schema`: the JSON Schema of this runtime version's worker-facing
-    models (`InterviewGuide`, `InterviewConfig`, `AgentConfigs`), from
+    models (`InterviewGuide`, `AgentConfigs`), from
     pydantic's `model_json_schema()`. The backend serialises payloads against
     it.
   - `/health` and `/version` (lib version, runtime version, `build` (the commit
@@ -411,9 +411,16 @@ shape.
   replaces a `runtime_default` setting.
 - **On `projectcontentversion`**: `runtime_version` and `runtime_payload` (plain
   JSONB, _not_ `PydanticJSONB`). The payload holds per offered language the
-  rendered guide, plus config, agent_configs and prompt_overrides, serialised
+  rendered guide, plus agent_configs and prompt_overrides, serialised
   for the target runtime version. The existing vB columns stay as they are and
   keep being migrated.
+- **The project's `InterviewConfig` is not sent to workers** (`0.8.0rc2`). Of
+  its fields the engine only ever used `probing_strategy`, which moved to
+  `AgentConfigs.probing.strategies`, so it is versioned and frozen like the
+  rest of the agents' settings. `with_consent`, `with_welcome` and
+  `with_audio` only shape the pages around the interview: they stay a live
+  project setting, and `InterviewConfig` became a backend model. A migration
+  moves each project's strategies into its draft and versions.
 - **On `interview`**: `runtime_version`, `runtime_guide` (plain JSONB: the
   runtime version's `/prepare` output) and `runtime_lib_versions` (each lib
   version reported by `/version` at `Init`, appended per session). The existing
@@ -654,7 +661,7 @@ These replace the old "keep it additive" note. Splitting the models into an
 `ainterviewer-schema` package stays deferred.
 
 - **Worker-facing models** (`InterviewGuide` and everything in it,
-  `InterviewConfig`, `AgentConfigs` including `SecurityPolicy`) and the contract
+  `AgentConfigs` including `SecurityPolicy`) and the contract
   (`HistoryRecord`, events, `EmbeddingChunk`):
   - A new field's default must mean the old behaviour, so that an older runtime
     version can run content that doesn't use it.

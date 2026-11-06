@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from ainterviewer.agents.security_policy import SecurityPolicy, default_security_policy
+from ainterviewer.agents.types import ProbingStrategy
 from ainterviewer.lpm.types import Temperature
 from ainterviewer.settings import settings
 
@@ -127,6 +128,11 @@ DEFAULT_PROBING_SLOTS = ProbingPromptSlots(
 class ProbingAgentConfig(AgentConfig):
     few_shot_examples: list[str] | None = None
     prompt_slots: ProbingPromptSlots = Field(default_factory=ProbingPromptSlots)
+    # The DICE strategies listed are run alongside the standard probe, which
+    # is always the one asked.
+    strategies: set[ProbingStrategy] = Field(
+        default_factory=lambda: {ProbingStrategy.STANDARD}
+    )
 
 
 class SecurityConfig(AgentConfig):

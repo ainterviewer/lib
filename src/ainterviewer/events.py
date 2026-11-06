@@ -20,7 +20,6 @@ from pydantic import UUID4, BaseModel, Field, TypeAdapter
 
 from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.compat import SCHEMA_VERSION
-from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import EmbeddingChunk
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.history import HistoryRecord
@@ -46,7 +45,6 @@ class Init(_Event):
     language: LanguageCode = "EN"
     # The interview's own guide, already rendered for `language` and shuffled.
     guide: InterviewGuide
-    config: InterviewConfig
     agent_configs: AgentConfigs
     # Prompt templates by name, taking precedence over the packaged ones.
     prompt_overrides: dict[str, str] = Field(default_factory=dict)

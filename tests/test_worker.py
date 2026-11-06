@@ -12,7 +12,6 @@ from starlette.websockets import WebSocketDisconnect
 from ainterviewer import __version__
 from ainterviewer.agents.config import AgentConfigs
 from ainterviewer.compat import SCHEMA_VERSION
-from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import chunks_for_records
 from ainterviewer.events import (
     ErrorCode,
@@ -60,7 +59,6 @@ def init(**kwargs) -> Init:
         project_id=PROJECT_ID,
         interview_id=INTERVIEW_ID,
         guide=make_guide(),
-        config=InterviewConfig.model_validate({}),
         agent_configs=AgentConfigs.model_validate({}),
         **kwargs,
     )
@@ -104,7 +102,7 @@ def test_a_preview_cannot_pass_for_another_version(name):
 def test_schema_describes_what_a_host_serialises(client):
     schema = client.get("/schema").json()
 
-    assert schema.keys() == {"interview_guide", "interview_config", "agent_configs"}
+    assert schema.keys() == {"interview_guide", "agent_configs"}
     assert "question_sections" in schema["interview_guide"]["properties"]
 
 
@@ -115,7 +113,6 @@ def full_payload() -> dict:
     """Everything a host serialises, as this version dumps it."""
     return {
         "guide": two_sections("skip_section").model_dump(mode="json"),
-        "config": InterviewConfig.model_validate({}).model_dump(mode="json"),
         "agent_configs": AgentConfigs.model_validate(
             {"security": {"include": True}}
         ).model_dump(mode="json"),
@@ -168,14 +165,18 @@ def test_a_missing_field_is_named(client):
     ]
 
 
-def test_config_and_agent_configs_are_checked(client):
+def test_agent_configs_are_checked(client):
     payload = full_payload()
-    payload["config"]["future"] = 1
     payload["agent_configs"]["probing"]["future"] = 1
 
-    assert set(problems(client, payload)) == {
-        "config.future",
-        "agent_configs.probing.future",
+    assert set(problems(client, payload)) == {"agent_configs.probing.future"}
+
+
+def test_a_part_this_version_does_not_take_is_named(client):
+    # The project-level config the backend once sent: the engine only ever
+    # used its probing strategy, now `agent_configs.probing.strategies`.
+    assert problems(client, {"config": {"with_consent": True}}) == {
+        "config": "Not supported by this version"
     }
 
 

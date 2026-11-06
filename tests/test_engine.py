@@ -11,7 +11,6 @@ import uuid
 import pytest
 
 from ainterviewer.agents.config import AgentConfigs
-from ainterviewer.config import InterviewConfig
 from ainterviewer.embedding import chunks_for_records
 from ainterviewer.events import (
     ChunkEmitted,
@@ -74,7 +73,6 @@ def interviewer(host: FakeHost, guide: InterviewGuide | None = None) -> AIntervi
     return AInterviewer(
         host=host,
         interview_guide=guide or make_guide(),
-        config=InterviewConfig.model_validate({}),
         agent_configs=AgentConfigs.model_validate({}),
         project_id=PROJECT_ID,
         interview_id=INTERVIEW_ID,
@@ -372,7 +370,6 @@ class TestFromInit:
             interview_id=INTERVIEW_ID,
             language="DA",
             guide=make_guide(),
-            config=InterviewConfig.model_validate({}),
             agent_configs=AgentConfigs.model_validate({}),
             prompt_overrides={"probing_agent/system.jinja": "overridden"},
             previous_time_spent=30,
@@ -387,6 +384,44 @@ class TestFromInit:
         assert env.get_template("probing_agent/system.jinja").render() == "overridden"
         # Everything not overridden still comes from the package.
         assert env.list_templates() != ["probing_agent/system.jinja"]
+
+    @pytest.mark.anyio
+    async def test_probes_with_the_probing_agents_strategies(self, monkeypatch):
+        init = Init(
+            project_id=PROJECT_ID,
+            interview_id=INTERVIEW_ID,
+            guide=make_guide(),
+            agent_configs=AgentConfigs.model_validate(
+                {"probing": {"strategies": ["standard", "dice_master_to_one_probe"]}}
+            ),
+        )
+        iv = AInterviewer.from_init(FakeHost(), init)
+        called = []
+
+        async def generator(name: str, probe: str):
+            async def generate(**_):
+                called.append(name)
+                return probe
+
+            return generate
+
+        agent = iv.probing_agent
+        for name in (
+            "generate_master_to_one_probe",
+            "generate_ensemble_to_master_probe",
+            "generate_master_to_ensemble_to_one_probe",
+        ):
+            monkeypatch.setattr(agent, name, await generator(name, "unused"))
+        monkeypatch.setattr(
+            agent, "generate_probe", await generator("generate_probe", "Why?")
+        )
+
+        question = make_guide().question_sections[0].questions[0]
+        probe = await iv.generate_probe("Section", question, transcript="")
+
+        # The DICE strategy runs alongside; the standard probe is the one asked.
+        assert probe == "Why?"
+        assert called == ["generate_master_to_one_probe", "generate_probe"]
 
 
 class TestChunksMatchTheBackfill:
