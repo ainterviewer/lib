@@ -4,6 +4,17 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.4] - 2026-11-10
+
+### Features
+
+- (survey) Add a Likert grid item
+
+### Bug Fixes
+
+- (survey) Accept the ends of a number, slider or date range
+- (survey) Keep a checkbox option that contains a comma whole
+
 ## [0.7.3] - 2026-11-04
 
 ### Features
