@@ -134,13 +134,19 @@ class TestSliderItem:
         item = SliderItem(min=0, max=10, step=1)
         assert item.validate_answer(5) is True
 
+    def test_validate_bounds_inclusive(self):
+        # The respondent's slider reaches both ends, so both are answers.
+        item = SliderItem(min=0, max=10, step=1)
+        assert item.validate_answer(0) is True
+        assert item.validate_answer(10) is True
+
     def test_validate_below_min(self):
         item = SliderItem(min=0, max=10, step=1)
-        assert item.validate_answer(0) is False  # <= min
+        assert item.validate_answer(-1) is False
 
     def test_validate_above_max(self):
         item = SliderItem(min=0, max=10, step=1)
-        assert item.validate_answer(10) is False  # >= max
+        assert item.validate_answer(11) is False
 
     def test_validate_wrong_step(self):
         item = SliderItem(min=0, max=10, step=2)
@@ -167,13 +173,18 @@ class TestNumberItem:
         item = NumberItem(min=1, max=100, step=1)
         assert item.validate_answer(50) is True
 
+    def test_validate_bounds_inclusive(self):
+        item = NumberItem(min=1, max=100, step=1)
+        assert item.validate_answer(1) is True
+        assert item.validate_answer(100) is True
+
     def test_validate_below_min(self):
         item = NumberItem(min=1, max=100, step=1)
-        assert item.validate_answer(1) is False  # <= min
+        assert item.validate_answer(0) is False
 
     def test_validate_above_max(self):
         item = NumberItem(min=1, max=100, step=1)
-        assert item.validate_answer(100) is False  # >= max
+        assert item.validate_answer(101) is False
 
     def test_validate_wrong_step(self):
         item = NumberItem(min=0, max=100, step=5)
@@ -192,13 +203,18 @@ class TestDateItem:
         item = DateItem(min="2020-01-01", max="2025-12-31")
         assert item.validate_answer("2023-06-15") is True
 
+    def test_validate_bounds_inclusive(self):
+        item = DateItem(min="2020-01-01", max="2025-12-31")
+        assert item.validate_answer("2020-01-01") is True
+        assert item.validate_answer("2025-12-31") is True
+
     def test_validate_before_min(self):
         item = DateItem(min="2020-01-01", max="2025-12-31")
-        assert item.validate_answer("2020-01-01") is False  # <= min
+        assert item.validate_answer("2019-12-31") is False
 
     def test_validate_after_max(self):
         item = DateItem(min="2020-01-01", max="2025-12-31")
-        assert item.validate_answer("2025-12-31") is False  # >= max
+        assert item.validate_answer("2026-01-01") is False
 
     def test_validate_no_constraints(self):
         item = DateItem()
@@ -213,13 +229,18 @@ class TestDatetimeItem:
         item = DatetimeItem(min="2020-01-01T00:00:00", max="2025-12-31T23:59:59")
         assert item.validate_answer("2023-06-15T12:00:00") is True
 
+    def test_validate_bounds_inclusive(self):
+        item = DatetimeItem(min="2020-01-01T00:00:00", max="2025-12-31T23:59:59")
+        assert item.validate_answer("2020-01-01T00:00:00") is True
+        assert item.validate_answer("2025-12-31T23:59:59") is True
+
     def test_validate_before_min(self):
         item = DatetimeItem(min="2020-01-01T00:00:00", max="2025-12-31T23:59:59")
-        assert item.validate_answer("2020-01-01T00:00:00") is False
+        assert item.validate_answer("2019-12-31T23:59:59") is False
 
     def test_validate_after_max(self):
         item = DatetimeItem(min="2020-01-01T00:00:00", max="2025-12-31T23:59:59")
-        assert item.validate_answer("2025-12-31T23:59:59") is False
+        assert item.validate_answer("2026-01-01T00:00:00") is False
 
     def test_validate_no_constraints(self):
         item = DatetimeItem()
@@ -234,13 +255,18 @@ class TestTimeItem:
         item = TimeItem(min="08:00:00", max="17:00:00")
         assert item.validate_answer("12:00:00") is True
 
+    def test_validate_bounds_inclusive(self):
+        item = TimeItem(min="08:00:00", max="17:00:00")
+        assert item.validate_answer("08:00:00") is True
+        assert item.validate_answer("17:00:00") is True
+
     def test_validate_before_min(self):
         item = TimeItem(min="08:00:00", max="17:00:00")
-        assert item.validate_answer("08:00:00") is False
+        assert item.validate_answer("07:59:59") is False
 
     def test_validate_after_max(self):
         item = TimeItem(min="08:00:00", max="17:00:00")
-        assert item.validate_answer("17:00:00") is False
+        assert item.validate_answer("17:00:01") is False
 
     def test_validate_no_constraints(self):
         item = TimeItem()
@@ -316,6 +342,19 @@ class TestCreateSurveyAnswerModel:
         Model = create_survey_answer_model(item)
         with pytest.raises(ValidationError):
             Model(answer=101)  # ty:ignore[call-non-callable]
+
+    def test_slider_endpoints_are_answers(self):
+        # A synthetic respondent must be able to pick either end of the
+        # scale, as a real one can.
+        Model = create_survey_answer_model(SliderItem(min=1, max=5))
+        assert Model(answer=1).answer == 1  # ty:ignore[call-non-callable]
+        assert Model(answer=5).answer == 5  # ty:ignore[call-non-callable]
+
+    def test_date_endpoints_are_answers(self):
+        Model = create_survey_answer_model(DateItem(min="2020-01-01", max="2020-12-31"))
+        assert Model(answer="2020-01-01").answer == date(2020, 1, 1)  # ty:ignore[call-non-callable]
+        with pytest.raises(ValidationError):
+            Model(answer="2021-01-01")  # ty:ignore[call-non-callable]
 
     def test_slider_within_range(self):
         item = SliderItem(min=1, max=10)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, datetime, time
 from typing import Annotated, Any, Literal
 
@@ -57,6 +58,29 @@ class LikertItem(SurveyItemBase):
         return answer in self.options
 
 
+def _within[T: (int, float, date, datetime, time)](
+    value: T, low: T | None, high: T | None
+) -> bool:
+    """Whether `value` lies in the closed interval `[low, high]`, either end
+    open. Inclusive, like the `min` and `max` of the respondent's input."""
+    return (low is None or value >= low) and (high is None or value <= high)
+
+
+def _on_step(value: float, step: float | None, base: float | None) -> bool:
+    """Whether `value` is a whole number of `step`s from `base` (or 0)."""
+    if step is None:
+        return True
+    steps = (value - (base if base is not None else 0)) / step
+    # Allow for float imprecision, e.g. 0.3 / 0.1.
+    return abs(round(steps) - steps) <= 1e-9
+
+
+def _iso_bound[T: (date, datetime, time)](
+    parse: Callable[[str], T], value: str | None
+) -> T | None:
+    return None if value is None else parse(value)
+
+
 class SliderItem(SurveyItemBase):
     type: Literal["slider"] = "slider"
 
@@ -68,25 +92,9 @@ class SliderItem(SurveyItemBase):
 
     @validate_strict
     def validate_answer(self, answer: float):
-        valid = True
-
-        if self.min is not None and answer <= self.min:
-            valid = False
-
-        if self.max is not None and answer >= self.max:
-            valid = False
-
-        if self.step is not None:
-            base = self.min if self.min is not None else 0
-            diff = answer - base
-
-            # handle float precision safely
-            eps = 1e-9
-            steps = diff / self.step
-            if abs(round(steps) - steps) > eps:
-                valid = False
-
-        return valid
+        return _within(answer, self.min, self.max) and _on_step(
+            answer, self.step, self.min
+        )
 
 
 class NumberItem(SurveyItemBase):
@@ -98,25 +106,9 @@ class NumberItem(SurveyItemBase):
 
     @validate_strict
     def validate_answer(self, answer: float):
-        valid = True
-
-        if self.min is not None and answer <= self.min:
-            valid = False
-
-        if self.max is not None and answer >= self.max:
-            valid = False
-
-        if self.step is not None:
-            base = self.min if self.min is not None else 0
-            diff = answer - base
-
-            # handle float precision safely
-            eps = 1e-9
-            steps = diff / self.step
-            if abs(round(steps) - steps) > eps:
-                valid = False
-
-        return valid
+        return _within(answer, self.min, self.max) and _on_step(
+            answer, self.step, self.min
+        )
 
 
 class DateItem(SurveyItemBase):
@@ -127,19 +119,10 @@ class DateItem(SurveyItemBase):
 
     @validate_strict
     def validate_answer(self, answer: str):
-        valid = True
-
-        if self.min is not None and date.fromisoformat(answer) <= date.fromisoformat(
-            self.min
-        ):
-            valid = False
-
-        if self.max is not None and date.fromisoformat(answer) >= date.fromisoformat(
-            self.max
-        ):
-            valid = False
-
-        return valid
+        parse = date.fromisoformat
+        return _within(
+            parse(answer), _iso_bound(parse, self.min), _iso_bound(parse, self.max)
+        )
 
 
 class DatetimeItem(SurveyItemBase):
@@ -150,19 +133,10 @@ class DatetimeItem(SurveyItemBase):
 
     @validate_strict
     def validate_answer(self, answer: str):
-        valid = True
-
-        if self.min is not None and datetime.fromisoformat(
-            answer
-        ) <= datetime.fromisoformat(self.min):
-            valid = False
-
-        if self.max is not None and datetime.fromisoformat(
-            answer
-        ) >= datetime.fromisoformat(self.max):
-            valid = False
-
-        return valid
+        parse = datetime.fromisoformat
+        return _within(
+            parse(answer), _iso_bound(parse, self.min), _iso_bound(parse, self.max)
+        )
 
 
 class TimeItem(SurveyItemBase):
@@ -173,19 +147,10 @@ class TimeItem(SurveyItemBase):
 
     @validate_strict
     def validate_answer(self, answer: str):
-        valid = True
-
-        if self.min is not None and time.fromisoformat(answer) <= time.fromisoformat(
-            self.min
-        ):
-            valid = False
-
-        if self.max is not None and time.fromisoformat(answer) >= time.fromisoformat(
-            self.max
-        ):
-            valid = False
-
-        return valid
+        parse = time.fromisoformat
+        return _within(
+            parse(answer), _iso_bound(parse, self.min), _iso_bound(parse, self.max)
+        )
 
 
 SurveyItem = Annotated[
@@ -228,30 +193,30 @@ def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
         case SliderItem() | NumberItem():
             field_type = int | float
             if survey_item.min is not None:
-                kwargs["gt"] = survey_item.min
+                kwargs["ge"] = survey_item.min
             if survey_item.max is not None:
-                kwargs["lt"] = survey_item.max
+                kwargs["le"] = survey_item.max
 
         case DateItem():
             field_type = date
             if survey_item.min is not None:
-                kwargs["gt"] = date.fromisoformat(survey_item.min)
+                kwargs["ge"] = date.fromisoformat(survey_item.min)
             if survey_item.max is not None:
-                kwargs["lt"] = date.fromisoformat(survey_item.max)
+                kwargs["le"] = date.fromisoformat(survey_item.max)
 
         case DatetimeItem():
             field_type = datetime
             if survey_item.min is not None:
-                kwargs["gt"] = datetime.fromisoformat(survey_item.min)
+                kwargs["ge"] = datetime.fromisoformat(survey_item.min)
             if survey_item.max is not None:
-                kwargs["lt"] = datetime.fromisoformat(survey_item.max)
+                kwargs["le"] = datetime.fromisoformat(survey_item.max)
 
         case TimeItem():
             field_type = time
             if survey_item.min is not None:
-                kwargs["gt"] = time.fromisoformat(survey_item.min)
+                kwargs["ge"] = time.fromisoformat(survey_item.min)
             if survey_item.max is not None:
-                kwargs["lt"] = time.fromisoformat(survey_item.max)
+                kwargs["le"] = time.fromisoformat(survey_item.max)
 
     if not survey_item.required:
         field_type = field_type | None
