@@ -929,11 +929,11 @@ class AInterviewer:
             for reference in references:
                 section_reference = self.interview_history[reference.question_index[0]]
                 question_reference = section_reference[reference.question_index[1]]
-                answer = question_reference.main_question.answer
+                answer = question_reference.main_question.answer_text
                 if not answer:
                     raise ValueError("Answer reference not found.")
 
-                question_references.append(answer.message)
+                question_references.append(answer)
 
             question_text = question_text.format(*[question_references])
 

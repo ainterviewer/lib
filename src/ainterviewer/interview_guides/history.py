@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from ainterviewer.interview_guides import InterviewGuide
-from ainterviewer.interview_guides.survey_items import SurveyItem
+from ainterviewer.interview_guides.survey_items import LikertGridItem, SurveyItem
 from ainterviewer.interview_guides.types import ProbingContext
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import MessageType
@@ -45,6 +45,16 @@ class Turn(BaseModel):
         if self.answer is None or self.survey_item is not None:
             return False
         return self.answer.message.strip() not in CustomToken
+
+    @property
+    def answer_text(self) -> str | None:
+        """The answer as a reader should see it: a grid's stored JSON becomes
+        one "row: option" line per rated row."""
+        if self.answer is None:
+            return None
+        if isinstance(self.survey_item, LikertGridItem):
+            return self.survey_item.describe_answer(self.answer.message)
+        return self.answer.message
 
     def answer_label(self, with_survey_type: bool = False) -> str:
         if with_survey_type and self.survey_item is not None:
@@ -457,17 +467,17 @@ class QuestionHistory(BaseModel):
             )
 
         transcript += "Q: " + self.main_question.question.message + "\n"
-        if answer := self.main_question.answer:
+        if (answer := self.main_question.answer_text) is not None:
             label = self.main_question.answer_label(with_survey_labels)
-            transcript += f"{label}: " + answer.message + "\n"
+            transcript += f"{label}: " + answer + "\n"
         else:
             transcript += "\n"
 
         for probe in self.probes:
             transcript += "Q: " + probe.question.message + "\n"
-            if answer := probe.answer:
+            if (answer := probe.answer_text) is not None:
                 label = probe.answer_label(with_survey_labels)
-                transcript += f"{label}: " + answer.message + "\n"
+                transcript += f"{label}: " + answer + "\n"
             transcript += "\n"
 
         return transcript.strip()

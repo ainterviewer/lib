@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import json
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time
 from typing import Annotated, Any, Literal
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, validate_call
 
@@ -100,6 +102,81 @@ class LikertItem(SurveyItemBase):
     @validate_strict
     def validate_answer(self, answer: str):
         return answer in self.options
+
+
+class GridRow(BaseModel):
+    """One statement of a Likert grid, rated on the grid's scale."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID = Field(
+        default_factory=uuid4,
+        description="Stable identity of the row; the answer is keyed by it.",
+    )
+    text: str
+    required: bool = Field(
+        True, description="Whether the row must be rated to submit the grid."
+    )
+
+
+class LikertGridItem(SurveyItemBase):
+    """Several statements rated on one shared Likert scale, answered together
+    as one answer.
+
+    The answer is a JSON object from row id to the chosen option's text
+    (`encode_answer`); a row left blank is absent from it. It is stored and
+    sent as that JSON, and read back with `parse_answer` -- or as text a
+    person or model can read with `describe_answer`.
+    """
+
+    type: Literal["likert_grid"] = "likert_grid"
+    options: list[str]
+    rows: list[GridRow]
+
+    @validate_strict
+    def validate_answer(self, answer: dict[str, str]):
+        rows = {str(row.id): row for row in self.rows}
+        return all(
+            key in rows and value in self.options for key, value in answer.items()
+        ) and all(str(row.id) in answer for row in self.rows if row.required)
+
+    def encode_answer(self, values: Mapping[UUID | str, str | None]) -> str:
+        """The answer for `values` (row id -> option), in row order, blanks left out."""
+        by_id = {str(key): value for key, value in values.items()}
+        return json.dumps(
+            {
+                str(row.id): value
+                for row in self.rows
+                if (value := by_id.get(str(row.id)))
+            },
+            ensure_ascii=False,
+        )
+
+    def parse_answer(self, answer: str) -> dict[UUID, str]:
+        """Row id -> chosen option of a stored answer, for the rows that still
+        exist. Anything that is not such an answer reads as no ratings."""
+        try:
+            data = json.loads(answer)
+        except ValueError:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        rows = {str(row.id): row.id for row in self.rows}
+        return {
+            rows[key]: value
+            for key, value in data.items()
+            if key in rows and isinstance(value, str)
+        }
+
+    def describe_answer(self, answer: str) -> str:
+        """The answer as "row: option" lines, for transcripts and models.
+        Text that is not a grid answer (a control token) is returned as is."""
+        values = self.parse_answer(answer)
+        if not values:
+            return answer
+        return "\n".join(
+            f"{row.text}: {values[row.id]}" for row in self.rows if row.id in values
+        )
 
 
 def _within[T: (int, float, date, datetime, time)](
@@ -201,6 +278,7 @@ SurveyItem = Annotated[
     RadioItem
     | CheckboxItem
     | LikertItem
+    | LikertGridItem
     | SliderItem
     | NumberItem
     | DateItem
@@ -234,6 +312,19 @@ def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
         case LikertItem():
             field_type = Literal[tuple(survey_item.options)]  # ty:ignore[invalid-type-form]
 
+        case LikertGridItem():
+            # One field per row, named by position: row texts are not
+            # identifiers. `grid_answer` maps them back to row ids.
+            scale = Literal[tuple(survey_item.options)]  # ty:ignore[invalid-type-form]
+            rows: dict[str, Any] = {
+                f"row_{n}": (
+                    scale if row.required else scale | None,
+                    Field(... if row.required else None, description=row.text),
+                )
+                for n, row in enumerate(survey_item.rows)
+            }
+            field_type = create_model("GridAnswer", **rows)
+
         case SliderItem() | NumberItem():
             field_type = int | float
             if survey_item.min is not None:
@@ -266,7 +357,12 @@ def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
         field_type = field_type | None
         kwargs["default"] = None
 
-    return create_model(
-        "SurveyAnswer",
-        answer=(field_type, Field(**kwargs)),
-    )  # ty:ignore[invalid-return-type]
+    fields: dict[str, Any] = {"answer": (field_type, Field(**kwargs))}
+    return create_model("SurveyAnswer", **fields)  # ty:ignore[invalid-return-type]
+
+
+def grid_answer(item: LikertGridItem, answer: BaseModel) -> str:
+    """The stored answer for a `create_survey_answer_model` grid answer."""
+    return item.encode_answer(
+        {row.id: getattr(answer, f"row_{n}", None) for n, row in enumerate(item.rows)}
+    )

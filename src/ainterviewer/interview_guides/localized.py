@@ -47,6 +47,8 @@ from ainterviewer.interview_guides.survey_items import (
     CheckboxItem,
     DateItem,
     DatetimeItem,
+    GridRow,
+    LikertGridItem,
     LikertItem,
     NumberItem,
     RadioItem,
@@ -169,6 +171,44 @@ class LocalizedLikertItem(SurveyItemBase):
     ui: Literal["radio", "slider"] = "radio"
 
 
+class LocalizedGridRow(BaseModel):
+    """One statement of a Likert grid. See `GridRow`."""
+
+    id: UUID = Field(default_factory=uuid4)
+    text: LocalizedText = Field(default_factory=dict)
+    required: bool = True
+
+
+class LocalizedLikertGridItem(SurveyItemBase):
+    type: Literal["likert_grid"] = "likert_grid"
+    options: list[LocalizedOption]
+    rows: list[LocalizedGridRow]
+
+
+def _merge_grid(
+    base: LikertGridItem,
+    items: Mapping[str, SurveyItem | None],
+    merge: _Merge,
+    where: str,
+) -> LocalizedLikertGridItem:
+    texts = merge.texts(
+        {
+            language: [row.text for row in item.rows]
+            for language, item in items.items()
+            if isinstance(item, LikertGridItem)
+        },
+        f"{where}.survey_item.rows",
+    )
+    return LocalizedLikertGridItem(
+        **base.model_dump(exclude={"type", "options", "rows"}),
+        options=_merge_options(items, merge, where),
+        rows=[
+            LocalizedGridRow(id=row.id, text=text, required=row.required)
+            for row, text in zip(base.rows, texts or [])
+        ],
+    )
+
+
 class LocalizedSliderItem(SurveyItemBase):
     type: Literal["slider"] = "slider"
     min: int | float
@@ -182,6 +222,7 @@ LocalizedSurveyItem = Annotated[
     LocalizedRadioItem
     | LocalizedCheckboxItem
     | LocalizedLikertItem
+    | LocalizedLikertGridItem
     | LocalizedSliderItem
     | NumberItem
     | DateItem
@@ -191,6 +232,9 @@ LocalizedSurveyItem = Annotated[
 ]
 
 type _LocalizedChoice = LocalizedRadioItem | LocalizedCheckboxItem | LocalizedLikertItem
+# The items a condition can match an option of. A grid has options too, but
+# its answer is a rating per row, which conditions cannot read (yet).
+_LOCALIZED_CHOICES = (LocalizedRadioItem, LocalizedCheckboxItem, LocalizedLikertItem)
 type _Choice = RadioItem | CheckboxItem | LikertItem
 
 _CHOICE_ITEMS: dict[type[_LocalizedChoice], type[_Choice]] = {
@@ -216,6 +260,22 @@ def _render_survey_item(
                         for option in item.options
                     ],
                 }
+            )
+        case LocalizedLikertGridItem():
+            return LikertGridItem(
+                **item.model_dump(exclude={"type", "options", "rows"}),
+                options=[
+                    _pick_localized_text(option.text, languages)
+                    for option in item.options
+                ],
+                rows=[
+                    GridRow(
+                        id=row.id,
+                        text=_pick_localized_text(row.text, languages),
+                        required=row.required,
+                    )
+                    for row in item.rows
+                ],
             )
         case LocalizedSliderItem():
             return SliderItem.model_validate(
@@ -255,6 +315,8 @@ def _merge_survey_item(
                     "options": _merge_options(same, merge, where),
                 }
             )
+        case LikertGridItem():
+            return _merge_grid(base, same, merge, where)
         case SliderItem():
             return LocalizedSliderItem.model_validate(
                 {
@@ -544,6 +606,11 @@ class LocalizedQuestion(BaseModel):
             case LocalizedRadioItem() | LocalizedCheckboxItem() | LocalizedLikertItem():
                 for n, option in enumerate(self.survey_item.options):
                     yield f"{where}.survey_item.options[{n}]", option.text
+            case LocalizedLikertGridItem():
+                for n, option in enumerate(self.survey_item.options):
+                    yield f"{where}.survey_item.options[{n}]", option.text
+                for n, row in enumerate(self.survey_item.rows):
+                    yield f"{where}.survey_item.rows[{n}].text", row.text
             case LocalizedSliderItem():
                 if self.survey_item.min_label is not None:
                     yield f"{where}.survey_item.min_label", self.survey_item.min_label
@@ -590,8 +657,8 @@ class LocalizedQuestion(BaseModel):
                 ),
             }
         )
-        if (options := getattr(question.survey_item, "options", None)) is not None:
-            merge.options[question.id] = options
+        if isinstance(question.survey_item, _LOCALIZED_CHOICES):
+            merge.options[question.id] = question.survey_item.options
         return question
 
 
@@ -738,15 +805,25 @@ class LocalizedInterviewGuide(BaseModel):
 
     @model_validator(mode="after")
     def _validate_renders(self):
+        grids = {
+            question.id: question.survey_item
+            for section in self.question_sections
+            for question in section.questions
+            if isinstance(question.survey_item, LocalizedLikertGridItem)
+        }
         option_ids = [
             option.id
             for options in self._options_by_question().values()
             for option in options
+        ] + [
+            option.id
+            for grid in grids.values()
+            for option in [*grid.options, *grid.rows]
         ]
         if duplicates := sorted(
             {str(i) for i in option_ids if option_ids.count(i) > 1}
         ):
-            raise ValueError(f"Duplicate option id(s): {duplicates}")
+            raise ValueError(f"Duplicate option or row id(s): {duplicates}")
 
         owned = {
             option.id: question_id
@@ -759,6 +836,12 @@ class LocalizedInterviewGuide(BaseModel):
                     question.conditions.conditions if question.conditions else []
                 ):
                     read = condition.question_context.question_id
+                    if read in grids:
+                        raise ValueError(
+                            f"question_sections[{n_section}].questions[{n_question}] "
+                            "has a condition reading a Likert grid, which conditions "
+                            "cannot read"
+                        )
                     for evaluation in condition.evaluation:
                         if (
                             evaluation.option_id is not None
@@ -783,10 +866,7 @@ class LocalizedInterviewGuide(BaseModel):
             question.id: question.survey_item.options
             for section in self.question_sections
             for question in section.questions
-            if isinstance(
-                question.survey_item,
-                LocalizedRadioItem | LocalizedCheckboxItem | LocalizedLikertItem,
-            )
+            if isinstance(question.survey_item, _LOCALIZED_CHOICES)
         }
 
     def texts(self) -> Iterator[tuple[str, LocalizedText]]:

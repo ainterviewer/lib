@@ -5,7 +5,9 @@ from ainterviewer.agents.prompts.agent_prompts import AnsweringAgentPrompts
 from ainterviewer.interview_guides import SurveyItem
 from ainterviewer.interview_guides.survey_items import (
     CHECKBOX_SEPARATOR,
+    LikertGridItem,
     create_survey_answer_model,
+    grid_answer,
 )
 from ainterviewer.lpm.types import Message
 from ainterviewer.synthesize.interviewees import InterviewSubject
@@ -76,7 +78,9 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
         if SurveyAnswerModel:
             response = await self.chat_api(messages, response_format=SurveyAnswerModel)  # ty:ignore[no-matching-overload]
 
-            if isinstance(response.answer, str):
+            if isinstance(survey_item, LikertGridItem):
+                message = grid_answer(survey_item, response.answer)
+            elif isinstance(response.answer, str):
                 message = response.answer
             elif isinstance(response.answer, list):
                 message = CHECKBOX_SEPARATOR.join(response.answer)
