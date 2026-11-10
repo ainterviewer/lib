@@ -3,7 +3,10 @@ from random import uniform
 from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.prompts.agent_prompts import AnsweringAgentPrompts
 from ainterviewer.interview_guides import SurveyItem
-from ainterviewer.interview_guides.survey_items import create_survey_answer_model
+from ainterviewer.interview_guides.survey_items import (
+    CHECKBOX_SEPARATOR,
+    create_survey_answer_model,
+)
 from ainterviewer.lpm.types import Message
 from ainterviewer.synthesize.interviewees import InterviewSubject
 from ainterviewer.types import LanguageCode, MessageRole
@@ -76,7 +79,7 @@ class AnsweringAgent(BaseAgent[AnsweringAgentPrompts]):
             if isinstance(response.answer, str):
                 message = response.answer
             elif isinstance(response.answer, list):
-                message = ", ".join(response.answer)
+                message = CHECKBOX_SEPARATOR.join(response.answer)
             else:
                 message = str(response.answer)
         else:

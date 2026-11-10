@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import date, datetime, time
 from typing import Annotated, Any, Literal
 
@@ -45,6 +45,50 @@ class CheckboxItem(SurveyItemBase):
             return True
 
         return all(x in self.options for x in answer)
+
+
+#: What a checkbox selection is joined with when it is submitted as one answer.
+CHECKBOX_SEPARATOR = ", "
+
+
+def _normalize_option(value: str) -> str:
+    return " ".join(value.split()).casefold()
+
+
+def split_checkbox_answer(answer: str, options: Sequence[str]) -> list[str]:
+    """Undo the `CHECKBOX_SEPARATOR` join a checkbox selection is stored as.
+
+    An option may itself contain a comma ("Yes, often"), so the answer is not
+    split blindly: a run of comma-separated parts that together spell one of
+    `options` is kept whole, the longest run first. The parts that spell no
+    option are what the respondent typed into "Other", which may hold commas
+    of its own, so they are joined back into a single value, placed last.
+
+    Options are recognised on whitespace-collapsed, case-folded text; the
+    values are returned as they appear in the answer.
+    """
+    parts = answer.split(",")
+    known = {_normalize_option(option) for option in options}
+    longest = max((option.count(",") for option in options), default=0) + 1
+
+    values: list[str] = []
+    other: list[str] = []
+    start = 0
+    while start < len(parts):
+        for end in range(min(len(parts), start + longest), start, -1):
+            candidate = ",".join(parts[start:end]).strip()
+            if candidate and _normalize_option(candidate) in known:
+                values.append(candidate)
+                start = end
+                break
+        else:
+            if parts[start].strip():
+                other.append(parts[start].strip())
+            start += 1
+
+    if other:
+        values.append(CHECKBOX_SEPARATOR.join(other))
+    return values
 
 
 class LikertItem(SurveyItemBase):

@@ -17,6 +17,7 @@ from ainterviewer.interview_guides.survey_items import (
     SurveyItemBase,
     TimeItem,
     create_survey_answer_model,
+    split_checkbox_answer,
 )
 
 # ── RadioItem ────────────────────────────────────────────────────────────────
@@ -440,3 +441,41 @@ class TestSurveyItemUnion:
         # was never added to one would silently be unparseable.
         members = _union_members(SurveyItem) | _union_members(LocalizedSurveyItem)
         assert _subclasses(SurveyItemBase) <= members
+
+
+# ── split_checkbox_answer ────────────────────────────────────────────────────
+
+
+class TestSplitCheckboxAnswer:
+    def test_plain_options(self):
+        assert split_checkbox_answer("a, b", ["a", "b", "c"]) == ["a", "b"]
+
+    def test_option_with_comma_kept_whole(self):
+        options = ["Yes, often", "Yes, rarely", "No"]
+        assert split_checkbox_answer("Yes, often, No", options) == [
+            "Yes, often",
+            "No",
+        ]
+
+    def test_longest_option_wins(self):
+        # "a" and "a, b" are both options; the answer chose the longer one.
+        assert split_checkbox_answer("a, b", ["a", "a, b"]) == ["a, b"]
+
+    def test_write_in_with_commas_is_one_value(self):
+        assert split_checkbox_answer("a, red, green and blue", ["a", "b"]) == [
+            "a",
+            "red, green and blue",
+        ]
+
+    def test_matches_case_and_whitespace_insensitively(self):
+        assert split_checkbox_answer("YES,  often", ["Yes, often"]) == ["YES,  often"]
+
+    def test_empty_answer(self):
+        assert split_checkbox_answer("", ["a"]) == []
+
+    def test_round_trips_the_separator(self):
+        from ainterviewer.interview_guides.survey_items import CHECKBOX_SEPARATOR
+
+        options = ["Yes, often", "No", "Maybe, later"]
+        chosen = ["Maybe, later", "Yes, often"]
+        assert split_checkbox_answer(CHECKBOX_SEPARATOR.join(chosen), options) == chosen
