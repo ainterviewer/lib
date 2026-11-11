@@ -29,7 +29,12 @@ from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide, Question
 from ainterviewer.interview_guides.history import HistoryMessage, Turn
 from ainterviewer.interview_guides.types import ConditionAction, SecurityAction
-from ainterviewer.types import MessageRole, MessageType
+from ainterviewer.types import (
+    InterviewEndReason,
+    InterviewStatus,
+    MessageRole,
+    MessageType,
+)
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -862,3 +867,49 @@ class TestResumeAtIntervention:
 
         # Q2 is the rest of the section the intervention skipped.
         assert asked == ["Q3?"]
+
+
+# ── End reason ─────────────────────────────────────────────────────────────
+
+
+def _end_reason(harness: Harness) -> InterviewEndReason | None:
+    (completed,) = [
+        call
+        for call in harness.db.update_interview_status.call_args_list
+        if call.kwargs.get("status") == InterviewStatus.COMPLETED
+    ]
+    return completed.kwargs["end_reason"]
+
+
+class TestEndReason:
+    @pytest.mark.anyio
+    async def test_finished(self):
+        harness = Harness()
+        harness.interviewer.interview_guide.introduction = ""
+
+        await harness.interviewer.interview()
+
+        assert _end_reason(harness) == InterviewEndReason.FINISHED
+
+    @pytest.mark.anyio
+    async def test_ended_by_a_condition(self):
+        harness = Harness()
+        harness.interviewer.interview_guide.introduction = ""
+
+        async def end_interview():
+            raise EndInterviewCondition
+
+        harness.patch("handle_sections", end_interview)
+
+        await harness.interviewer.interview()
+
+        assert _end_reason(harness) == InterviewEndReason.CONDITION
+
+    @pytest.mark.anyio
+    async def test_ended_by_the_security_check(self):
+        harness = Harness(assessments=[{"self_harm": 0.9}])
+        harness.interviewer.interview_guide.introduction = ""
+
+        await harness.interviewer.interview()
+
+        assert _end_reason(harness) == InterviewEndReason.SECURITY

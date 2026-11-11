@@ -12,6 +12,7 @@ from ainterviewer.interview_guides.types import SecurityAction
 from ainterviewer.types import (
     EmbeddingKind,
     Feedback,
+    InterviewEndReason,
     InterviewStatus,
     LanguageCode,
     MessageRole,
@@ -127,7 +128,11 @@ class PersistenceProtocol(Protocol):
         interview_id: UUID4,
         status: InterviewStatus,
         time_spent: int = 0,
-    ): ...
+        end_reason: InterviewEndReason | None = None,
+    ):
+        """Record the interview's status. `end_reason` is given only with
+        `InterviewStatus.COMPLETED`."""
+        ...
 
     def update_interview_guide(
         self,

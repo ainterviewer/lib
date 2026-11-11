@@ -77,7 +77,13 @@ from ainterviewer.interview_guides.types import (
     SecurityAction,
 )
 from ainterviewer.lpm.types import CustomToken
-from ainterviewer.types import InterviewStatus, LanguageCode, MessageRole, MessageType
+from ainterviewer.types import (
+    InterviewEndReason,
+    InterviewStatus,
+    LanguageCode,
+    MessageRole,
+    MessageType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -470,6 +476,7 @@ class AInterviewer:
         if not interview_history and (intro := self.interview_guide.introduction):
             await self.handle_intro(intro)
 
+        end_reason = InterviewEndReason.FINISHED
         try:
             if interview_history:
                 # Inside the try, as resuming may act on a security intervention.
@@ -477,6 +484,11 @@ class AInterviewer:
 
             await self.handle_sections()
         except EndInterviewCondition:
+            end_reason = (
+                InterviewEndReason.SECURITY
+                if self.ended_by_security_check
+                else InterviewEndReason.CONDITION
+            )
             # Raised by a condition that ends the interview, i.e. missing
             # consent
 
@@ -527,6 +539,7 @@ class AInterviewer:
             self.interview_id,
             status=InterviewStatus.COMPLETED,
             time_spent=self.time_spent,
+            end_reason=end_reason,
         )
 
         self.interview_history.is_finished = True

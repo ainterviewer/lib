@@ -99,6 +99,23 @@ class InterviewStatus(StrEnum):
     COMPLETED = "completed"
 
 
+class InterviewEndReason(StrEnum):
+    """Why a completed interview ended.
+
+    Every ending sets `InterviewStatus.COMPLETED`; this is what tells them
+    apart, e.g. so a panel can be told a respondent finished rather than was
+    screened out.
+    """
+
+    #: The respondent went through the whole guide.
+    FINISHED = "finished"
+    #: A condition in the guide ended it early (a screen-out, or consent
+    #: declined).
+    CONDITION = "condition"
+    #: The security check ended it.
+    SECURITY = "security"
+
+
 class EmbeddingKind(StrEnum):
     """The unit of text an embedding vector represents.
 
