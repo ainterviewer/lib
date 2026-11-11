@@ -9,7 +9,7 @@ license = "AGPL-3.0-only"
 license_files = ["LICENSE"]
 
 dependencies = [
-  "any-llm-sdk[gemini,openai,openrouter,vllm]>=1.13.0",
+  "any-llm-sdk[gemini,openai,openrouter,vllm]>=1.50.0",
   "jinja2>=3.1.6",
   "polars>=1.35.2",
   "pyarrow>=22.0.0",
