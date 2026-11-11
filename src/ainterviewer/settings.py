@@ -73,8 +73,10 @@ class LLMSettings(BaseModel):
     # without a provider prefix, and allows HTTPS and path prefixes.
     vllm_base_url: str | None = None
 
-    available_models: list[str] = Field(default_factory=lambda: ["gpt-5-mini"])
-    default_model: str = "gpt-5-mini"
+    available_models: list[str] = Field(
+        default_factory=lambda: ["openrouter:openai/gpt-oss-120b"]
+    )
+    default_model: str = "openrouter:openai/gpt-oss-120b"
 
     demo_models: list[str] | None = Field(None, validate_default=True)
     default_demo_model: str | None = Field(None, validate_default=True)
