@@ -4,6 +4,17 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.6] - 2026-11-11
+
+### Features
+
+- (interviews) Record why a completed interview ended
+
+### Internal
+
+- (deps) Bump any-llm-sdk to 1.50.0
+- (deps) Refresh lockfile
+
 ## [0.7.5] - 2026-11-11
 
 ### Bug Fixes
