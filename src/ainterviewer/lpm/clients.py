@@ -148,7 +148,7 @@ async def chat[T: BaseModel](
         )
 
     if response_format:
-        return chat_completion.choices[0].message.parsed  # ty:ignore[unresolved-attribute]
+        return chat_completion.choices[0].message.parsed  # ty:ignore[missing-attribute]
 
     # TODO:
     # - Use the returned log probs

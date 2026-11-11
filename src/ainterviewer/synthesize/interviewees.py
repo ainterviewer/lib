@@ -101,7 +101,7 @@ class CommunicationTraits(BaseModel):
     style: list[str]
     tone: list[str]
 
-    def __iter__(self) -> Iterator[tuple[str, Any]]:  # ty:ignore[invalid-method-override]
+    def __iter__(self) -> Iterator[tuple[str, Any]]:  # ty:ignore[incompatible-method-override]
         yield from self.__dict__.items()
 
 

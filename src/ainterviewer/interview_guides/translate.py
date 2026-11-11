@@ -1,6 +1,6 @@
 import asyncio
 from collections import defaultdict
-from typing import Any, cast
+from typing import Any
 
 from pydantic import BaseModel, ValidationError, create_model
 
@@ -32,7 +32,7 @@ def _build_translation_batch_model(size: int) -> type[BaseModel]:
         )
         for i in range(size)
     }
-    return cast(type[BaseModel], create_model(f"TranslationBatch_{size}", **fields))
+    return create_model(f"TranslationBatch_{size}", **fields)
 
 
 async def _translate_batch(
