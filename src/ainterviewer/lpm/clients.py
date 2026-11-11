@@ -20,6 +20,21 @@ from ainterviewer.utils import encode_image
 _DUMMY_MESSAGES: list[Message] = [{"role": MessageRole.USER, "content": "Hello"}]
 
 
+# Provider routing for OpenRouter models that need it, keyed by the model name
+# without the `openrouter:` prefix. Any other model is left to OpenRouter's own
+# routing: a preferred provider that does not serve the model only adds a
+# failed attempt before the fallback.
+OPENROUTER_PROVIDERS: dict[str, dict[str, Any]] = {
+    "openai/gpt-oss-120b": {"order": ["deepinfra"]},
+}
+
+
+def openrouter_model_kwargs(model: str) -> dict[str, Any]:
+    """The extra request arguments `model` takes on OpenRouter."""
+    provider = OPENROUTER_PROVIDERS.get(model.removeprefix("openrouter:"))
+    return {"extra_body": {"provider": provider}} if provider else {}
+
+
 @overload
 async def chat[T: BaseModel](
     messages: list[Message],
@@ -77,9 +92,9 @@ async def chat[T: BaseModel](
     if model.startswith("openrouter:"):
         chat_completion = await chat(
             model=model,
-            extra_body={"provider": {"order": ["deepinfra"]}},
             api_key=settings.secrets.openrouter_api_key.get_secret_value(),
             reasoning_effort="low",
+            **openrouter_model_kwargs(model),
         )
     elif model.startswith("openai:"):
         chat_completion = await chat(
