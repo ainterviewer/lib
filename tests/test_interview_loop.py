@@ -214,3 +214,41 @@ async def test_skip_probes_before_the_question_still_asks_it():
         q.main_question.question.message
         for q in interviewer.interview_history[0].questions
     ] == ["First?", "Second?", "Third?"]
+
+
+# ── check_if_answered ───────────────────────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_already_answered_is_checked_from_the_second_question_on():
+    guide = InterviewGuide.model_validate(
+        {
+            "framing": "Framing",
+            "question_sections": [
+                {
+                    "description": "Section",
+                    "questions": [
+                        {
+                            "main_question": f"Q{i}?",
+                            "max_probes_n": 0,
+                            "check_if_answered": True,
+                        }
+                        for i in range(3)
+                    ],
+                }
+            ],
+        }
+    )
+    respondent = Respondent({f"Q{i}?": ["a"] for i in range(3)})
+    interviewer = _interviewer(guide, respondent)
+    checked = []
+
+    async def has_question_been_answered(question):
+        checked.append(question)
+        return False
+
+    interviewer.has_question_been_answered = has_question_been_answered
+
+    await interviewer.handle_sections()
+
+    assert checked == ["Q1?", "Q2?"]

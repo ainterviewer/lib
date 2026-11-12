@@ -882,8 +882,10 @@ class AInterviewer:
                         # shift every later question's index there.
                         skip_probes = True
 
+            # The first question of a section is asked as written; from the
+            # second on, it may be reformulated if already answered.
             if (
-                self.interview_history.current_question_index
+                self.interview_history.current_question_index is not None
                 and question.check_if_answered
                 and await self.has_question_been_answered(question.main_question)
             ):
