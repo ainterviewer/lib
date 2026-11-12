@@ -948,7 +948,7 @@ class AInterviewer:
 
                 question_references.append(answer)
 
-            question_text = question_text.format(*[question_references])
+            question_text = question_text.format(*question_references)
 
         message = await self.preprocess_message(question_text)
 
