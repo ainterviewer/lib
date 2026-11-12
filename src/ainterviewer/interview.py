@@ -634,31 +634,11 @@ class AInterviewer:
                 if last_question.survey_item is None:
                     self.start_security_check(last_question, last_section.description)
 
-            # The rules a question carries about its own answer are checked once
-            # that answer is in, before any probe -- as `handle_question` does.
-            # A session that stopped there never got to them.
-            main_answer = self.interview_history.current_question.main_question.answer
-            if (
-                (conditions := last_question.conditions)
-                and self.interview_history.current_probe_index == 0
-                and main_answer is not None
-                and main_answer.message not in CustomToken
-                and any(
-                    condition.question_context.question_index
-                    == (section_index, question_index)
-                    for condition in conditions.conditions
-                )
-            ):
-                # A security intervention takes precedence over the guide's
-                # conditions.
-                await self.resolve_security_check()
-                await self.check_conditions(
-                    conditions, carrier=(section_index, question_index)
-                )
-
-            if self.should_probe(last_question):
-                await self.probe(last_question, last_section.description)
-            await self.resolve_security_check()
+            await self.finish_question(
+                last_question,
+                last_section.description,
+                carrier=(section_index, question_index),
+            )
 
             self.resume_from_history = True
         except SkipProbesCondition:
@@ -883,37 +863,28 @@ class AInterviewer:
         self,
         question: Question,
         section_description: str,
-        question_index: int | None = None,
+        question_index: int,
     ):
         question_reformulated = False
-        check_condition_after = False
         skip_probes = False
         # Which question the rule hangs off, as opposed to the ones it reads.
         # Only the guide records that, so it has to travel with the check or it
         # is lost by the time the evaluation is written down.
-        condition_carrier = (
-            (self.interview_history.current_section_index, question_index)
-            if question_index is not None
-            else None
-        )
+        carrier = (self.interview_history.current_section_index, question_index)
+        # A rule on the question's own answer waits for that answer; every
+        # other rule is checked before the question is asked.
+        check_condition_after = self.reads_own_answer(question.conditions, carrier)
 
         try:
-            if conditions := question.conditions:
-                for condition in conditions.conditions:
-                    if self.should_check_condition_after_question(condition):
-                        check_condition_after = True
-
-                if not check_condition_after:
-                    try:
-                        await self.check_conditions(
-                            conditions, carrier=condition_carrier
-                        )
-                    except SkipProbesCondition:
-                        # Raised before the question is asked, so the question
-                        # still is -- only its probes are skipped. Letting it
-                        # escape would drop the question from the history and
-                        # shift every later question's index there.
-                        skip_probes = True
+            if (conditions := question.conditions) and not check_condition_after:
+                try:
+                    await self.check_conditions(conditions, carrier=carrier)
+                except SkipProbesCondition:
+                    # Raised before the question is asked, so the question
+                    # still is -- only its probes are skipped. Letting it
+                    # escape would drop the question from the history and
+                    # shift every later question's index there.
+                    skip_probes = True
 
             # The first question of a section is asked as written; from the
             # second on, it may be reformulated if already answered.
@@ -950,16 +921,9 @@ class AInterviewer:
             if question.survey_item is None:
                 self.start_security_check(question, section_description)
 
-            if conditions is not None and check_condition_after:
-                # A security intervention takes precedence over the guide's
-                # conditions.
-                await self.resolve_security_check()
-                await self.check_conditions(conditions, carrier=condition_carrier)
-
-            if not skip_probes and self.should_probe(question):
-                await self.probe(question, section_description)
-
-            await self.resolve_security_check()
+            await self.finish_question(
+                question, section_description, carrier=carrier, probe=not skip_probes
+            )
 
         except SkipProbesCondition:
             pass
@@ -1152,19 +1116,53 @@ class AInterviewer:
         # TODO: Move sleep to frontend
         await asyncio.sleep(2.5)
 
-    def should_check_condition_after_question(self, condition: Condition):
-        section, question = condition.question_context.question_index
-        return bool(
-            section == self.interview_history.current_section_index
-            and (
-                question - 1 == self.interview_history.current_question_index
-                or question == 0
-                and self.interview_history.current_question_index is None
-            )
+    @staticmethod
+    def reads_own_answer(conditions: Conditions | None, carrier: QuestionIndex) -> bool:
+        """Whether any of a question's rules reads that question's own answer,
+        `carrier` being the question's position in the guide."""
+        return conditions is not None and any(
+            condition.question_context.question_index == carrier
+            for condition in conditions.conditions
         )
 
+    async def finish_question(
+        self,
+        question: Question,
+        section_description: str,
+        carrier: QuestionIndex,
+        probe: bool = True,
+    ) -> None:
+        """Everything owed once the main answer is in: the question's rules on
+        its own answer, then its probes. Shared by the live and the resumed
+        path, so the two cannot drift apart.
+
+        Starting the security check on the answer is left to the caller, which
+        alone knows whether the answer just came in. Raises the condition
+        exceptions; what they mean is the caller's to decide.
+        """
+        main_answer = self.interview_history.current_question.main_question.answer
+
+        if (
+            (conditions := question.conditions) is not None
+            and self.reads_own_answer(conditions, carrier)
+            # A resumed interview may have stopped after probing began, and
+            # then the rules have been checked already.
+            and self.interview_history.current_probe_index == 0
+            and main_answer is not None
+            and main_answer.message not in CustomToken
+        ):
+            # A security intervention takes precedence over the guide's
+            # conditions.
+            await self.resolve_security_check()
+            await self.check_conditions(conditions, carrier=carrier)
+
+        if probe and self.should_probe(question):
+            await self.probe(question, section_description)
+
+        await self.resolve_security_check()
+
     async def check_conditions(
-        self, conditions: Conditions, carrier: tuple[int, int] | None = None
+        self, conditions: Conditions, carrier: QuestionIndex
     ) -> None:
         condition_contexts = [
             self.get_condition_context(condition) for condition in conditions.conditions
@@ -1184,7 +1182,7 @@ class AInterviewer:
             # "<section>:<question>", both zero-based, matching the indices on a
             # message. A rule checked before its question is asked is written
             # against the *previous* question's last message.
-            context=f"{carrier[0]}:{carrier[1]}" if carrier else None,
+            context=f"{carrier[0]}:{carrier[1]}",
         )
 
         if condition_triggered:
