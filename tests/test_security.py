@@ -185,7 +185,7 @@ class Harness:
         history.add_answer(HistoryMessage(message=answer))
         return answer
 
-    async def can_probe(self, question: Question) -> bool:
+    async def can_probe(self, question: Question, section_description: str) -> bool:
         return bool(self.probe_answers)
 
     async def generate_probe(self, **kwargs) -> str:

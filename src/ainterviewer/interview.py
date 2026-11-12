@@ -1383,7 +1383,7 @@ class AInterviewer:
 
         self.probing_time = time.time()
 
-        while await self.can_probe(question):
+        while await self.can_probe(question, section_description):
             transcript = self.interview_history.get_transcript(
                 probing_context=question.probing_context
             )
@@ -1461,7 +1461,7 @@ class AInterviewer:
 
         return probe
 
-    async def can_probe(self, question: Question) -> bool:
+    async def can_probe(self, question: Question, section_description: str) -> bool:
         if (
             question.max_probes_n is not None
             and self.interview_history.current_probe_index >= question.max_probes_n
@@ -1481,7 +1481,9 @@ class AInterviewer:
 
             if (
                 question.check_if_exhausted
-                and await self.has_main_question_been_exhausted(question)
+                and await self.has_main_question_been_exhausted(
+                    question, section_description
+                )
             ):
                 return False
 
@@ -1510,7 +1512,9 @@ class AInterviewer:
 
         return response
 
-    async def has_main_question_been_exhausted(self, question: Question):
+    async def has_main_question_been_exhausted(
+        self, question: Question, section_description: str
+    ) -> bool:
         start_time = time.time()
         transcript = self.interview_history.current_question.transcribe(
             with_descriptions=True
@@ -1518,7 +1522,7 @@ class AInterviewer:
 
         context = json.dumps(
             {
-                "section_description": question.description,
+                "section_description": section_description,
                 "question_description": question.description,
                 "main_question": question.main_question,
             }

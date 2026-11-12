@@ -1,6 +1,7 @@
 """The interview loop's own bookkeeping: what a question is asked with, and
 what a resumed interview does with the question it stopped at."""
 
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
@@ -9,6 +10,7 @@ import pytest
 
 from ainterviewer.exceptions import EndInterviewCondition
 from ainterviewer.interview_guides import InterviewGuide, TimedMessage
+from ainterviewer.interview_guides.history import HistoryMessage, Turn
 from ainterviewer.types import MessageRole
 from tests.test_condition_branches import SKIP, Respondent, _interviewer, _reads
 from tests.test_history import StoredMessage
@@ -392,3 +394,35 @@ async def test_timed_message_counts_time_from_earlier_sessions():
     assert [m.message for m in interviewer.interview_history.timed_messages] == [
         "Halfway"
     ]
+
+
+# ── Exhaustion ──────────────────────────────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_exhaustion_is_judged_with_the_section_description():
+    guide = _plain_guide()
+    interviewer = _interviewer(guide, Respondent({}))
+    question = guide.question_sections[0].questions[0]
+    history = interviewer.interview_history
+    history.add_section("Section")
+    history.add_question(
+        question_description="About the first",
+        main_question=Turn(question=HistoryMessage(message="First?")),
+    )
+    contexts = []
+
+    async def classify(
+        text: str,
+        next_question_instruction: str,
+        interview_history: str | None = None,
+        classification_examples=None,
+    ) -> bool:
+        contexts.append(json.loads(text))
+        return False
+
+    interviewer.classification_agent.classify = classify
+
+    await interviewer.has_main_question_been_exhausted(question, "The section")
+
+    assert contexts[0]["section_description"] == "The section"
