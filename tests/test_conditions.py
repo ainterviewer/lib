@@ -86,6 +86,38 @@ class TestEvaluateSingle:
         ev = ConditionEvaluation(trigger_value="18", comparison_operator=">=")
         assert _evaluate_single("not a number", ev) is False
 
+    @pytest.mark.parametrize(
+        ("operator", "answer", "expected"),
+        [
+            (">=", "Agree", True),
+            (">=", "Strongly agree", True),
+            (">=", "Neutral", False),
+            (">", "Agree", False),
+            ("<", "Disagree", True),
+            ("<=", "agree ", True),
+        ],
+    )
+    def test_scale_compares_places(self, operator, answer, expected):
+        ev = ConditionEvaluation(
+            trigger_value="Agree",
+            comparison_operator=operator,
+            scale=["Disagree", "Neutral", "Agree", "Strongly agree"],
+        )
+        assert _evaluate_single(answer, ev) is expected
+
+    def test_scale_answer_off_the_scale_is_no_match(self):
+        ev = ConditionEvaluation(
+            trigger_value="Agree", comparison_operator="<", scale=["Disagree", "Agree"]
+        )
+        assert _evaluate_single("Maybe", ev) is False
+
+    def test_scale_orders_options_that_look_like_numbers_by_place(self):
+        # "10" comes first on this scale, so it is below "2" despite the number.
+        ev = ConditionEvaluation(
+            trigger_value="2", comparison_operator="<", scale=["10", "2"]
+        )
+        assert _evaluate_single("10", ev) is True
+
 
 # ── evaluate_match_condition ────────────────────────────────────────────────
 

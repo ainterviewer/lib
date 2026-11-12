@@ -98,6 +98,14 @@ class ConditionEvaluation(BaseModel):
 
     For numeric comparisons (e.g., age >= 18):
         ConditionEvaluation(trigger_value="18", comparison_operator=">=")
+
+    For a Likert answer compared by its place on the scale (e.g., at least
+    "Agree"), give the scale's options in order:
+        ConditionEvaluation(
+            trigger_value="Agree",
+            comparison_operator=">=",
+            scale=["Disagree", "Neutral", "Agree", "Strongly agree"],
+        )
     """
 
     trigger_value: str | int | float = Field(
@@ -105,7 +113,11 @@ class ConditionEvaluation(BaseModel):
     )
     comparison_operator: Literal["==", "<", "<=", ">", ">="] = Field(
         default="==",
-        description="Comparison operator. '==' for pattern matching, others for numeric/date comparison.",
+        description="Comparison operator. '==' for pattern matching, others for numeric/date comparison, or for comparing places on `scale`.",
+    )
+    scale: list[str] | None = Field(
+        default=None,
+        description="The Likert item's options in order, first to last. Set, the answer and `trigger_value` are compared by their place on it rather than as numbers.",
     )
     combine_next: Literal["AND", "OR"] | None = Field(
         default=None,
@@ -268,6 +280,9 @@ def _evaluate_single(context: str, evaluation: ConditionEvaluation) -> bool:
     For pattern matching (==): context is split by '|' (for multi-select values)
     and checks if trigger_value matches any of the values (case-insensitive).
 
+    For an ordinal comparison (a `scale` is given): compares the places of
+    the answer and trigger_value on the scale. An answer not on it is no match.
+
     For numeric comparison: compares float values.
     """
     if evaluation.comparison_operator == "==":
@@ -277,6 +292,17 @@ def _evaluate_single(context: str, evaluation: ConditionEvaluation) -> bool:
 
         return trigger in context_values
 
+    op = comparison_operators[evaluation.comparison_operator]
+
+    if evaluation.scale is not None:
+        scale = [option.strip().casefold() for option in evaluation.scale]
+        try:
+            answer = scale.index(context.strip().casefold())
+            trigger = scale.index(str(evaluation.trigger_value).strip().casefold())
+        except ValueError:
+            return False
+        return op(answer, trigger)
+
     # Numeric comparison
     try:
         context_value = float(context)
@@ -285,5 +311,4 @@ def _evaluate_single(context: str, evaluation: ConditionEvaluation) -> bool:
         # If conversion fails, try date comparison or return False
         return False
 
-    op = comparison_operators[evaluation.comparison_operator]
     return op(context_value, trigger_value)

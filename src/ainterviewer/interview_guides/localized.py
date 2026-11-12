@@ -16,13 +16,15 @@ Conditions are shared like the rest of the structure. One that matches a
 choice answer names the option by id (`LocalizedConditionEvaluation.option_id`)
 rather than by its text, so it holds in every language and survives the option
 being reworded or reordered; rendering writes that option's text into
-`trigger_value`, which is what the evaluator compares answers against.
+`trigger_value`, which is what the evaluator compares answers against. A Likert
+option compared with `<`, `>` and the like also renders the item's options in
+order into `scale`, so the answer is compared by its place on the scale.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Annotated, Literal
+from typing import Annotated, Literal, NamedTuple
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, EmailStr, Field, ValidationError, model_validator
@@ -394,7 +396,8 @@ class LocalizedConditionEvaluation(BaseModel):
     Exactly one of `option_id` and `trigger_value` is set. A classification
     instruction, a pattern or a number to compare against is a `trigger_value`
     shared by every language: the classifier reads answers in any language,
-    and a number is a number.
+    and a number is a number. An option is matched with '==', except a Likert
+    option, which may also be compared by its place on the scale.
     """
 
     option_id: UUID | None = Field(
@@ -412,8 +415,6 @@ class LocalizedConditionEvaluation(BaseModel):
     def _one_trigger(self):
         if (self.option_id is None) == (self.trigger_value is None):
             raise ValueError("Set exactly one of option_id and trigger_value")
-        if self.option_id is not None and self.comparison_operator != "==":
-            raise ValueError("An option can only be matched with '=='")
         return self
 
 
@@ -433,22 +434,46 @@ class LocalizedCondition(BaseModel):
         return self
 
 
+class _ConditionOption(NamedTuple):
+    """An option a condition can name, as rendering needs it."""
+
+    text: LocalizedText
+    # Its Likert item's options in order, or None for a radio or checkbox
+    # option, which has no order to compare by.
+    scale: list[LocalizedText] | None
+
+
 class LocalizedConditions(BaseModel):
     conditions: list[LocalizedCondition]
     action: ConditionAction
 
     def render(
-        self, options: Mapping[UUID, LocalizedText], languages: Sequence[str]
+        self, options: Mapping[UUID, _ConditionOption], languages: Sequence[str]
     ) -> Conditions:
-        def trigger(evaluation: LocalizedConditionEvaluation) -> str | int | float:
-            if evaluation.option_id is None:
-                assert evaluation.trigger_value is not None
-                return evaluation.trigger_value
+        def option(evaluation: LocalizedConditionEvaluation) -> _ConditionOption:
+            assert evaluation.option_id is not None
             if evaluation.option_id not in options:
                 raise ValueError(
                     f"A condition names option {evaluation.option_id}, which does not exist"
                 )
-            return _pick_localized_text(options[evaluation.option_id], languages)
+            return options[evaluation.option_id]
+
+        def trigger(evaluation: LocalizedConditionEvaluation) -> str | int | float:
+            if evaluation.option_id is None:
+                assert evaluation.trigger_value is not None
+                return evaluation.trigger_value
+            return _pick_localized_text(option(evaluation).text, languages)
+
+        def scale(evaluation: LocalizedConditionEvaluation) -> list[str] | None:
+            if evaluation.option_id is None or evaluation.comparison_operator == "==":
+                return None
+            options = option(evaluation).scale
+            if options is None:
+                raise ValueError(
+                    "A condition compares a choice option by order, which only "
+                    "a Likert option has"
+                )
+            return [_pick_localized_text(text, languages) for text in options]
 
         return Conditions(
             action=self.action,
@@ -461,6 +486,7 @@ class LocalizedConditions(BaseModel):
                                 exclude={"option_id", "trigger_value"}
                             ),
                             trigger_value=trigger(evaluation),
+                            scale=scale(evaluation),
                         )
                         for evaluation in condition.evaluation
                     ],
@@ -474,9 +500,9 @@ class LocalizedConditions(BaseModel):
         cls, conditions: Conditions, merge: _Merge, where: str
     ) -> LocalizedConditions:
         """Take the structure language's conditions, naming an option wherever
-        a match trigger is one of the read question's options. Other
-        languages' triggers are translations of the same option and are not
-        read."""
+        a match trigger is one of the read question's options: matched with
+        '==', or compared on a Likert scale. Other languages' triggers are
+        translations of the same option and are not read."""
 
         def evaluation(
             condition: Condition, evaluation: ConditionEvaluation
@@ -486,7 +512,10 @@ class LocalizedConditions(BaseModel):
             if (
                 options
                 and condition.trigger_type == ConditionTrigger.MATCH
-                and evaluation.comparison_operator == "=="
+                and (
+                    evaluation.comparison_operator == "=="
+                    or evaluation.scale is not None
+                )
             ):
                 key = str(value).strip().casefold()
                 for option in options:
@@ -494,13 +523,16 @@ class LocalizedConditions(BaseModel):
                     if text.strip().casefold() == key:
                         return LocalizedConditionEvaluation(
                             option_id=option.id,
+                            comparison_operator=evaluation.comparison_operator,
                             combine_next=evaluation.combine_next,
                         )
                 merge.report.append(
                     f"{where}: trigger {value!r} is none of the read question's "
                     "options; kept as a pattern shared by every language"
                 )
-            return LocalizedConditionEvaluation(**evaluation.model_dump())
+            return LocalizedConditionEvaluation(
+                **evaluation.model_dump(exclude={"scale"})
+            )
 
         return cls(
             action=conditions.action,
@@ -568,7 +600,7 @@ class LocalizedQuestion(BaseModel):
         return data
 
     def render(
-        self, options: Mapping[UUID, LocalizedText], languages: Sequence[str]
+        self, options: Mapping[UUID, _ConditionOption], languages: Sequence[str]
     ) -> Question:
         return Question.model_validate(
             {
@@ -672,7 +704,7 @@ class LocalizedQuestionSection(BaseModel):
     ai_generated_questions: GeneratedQuestions = GeneratedQuestions()
 
     def render(
-        self, options: Mapping[UUID, LocalizedText], languages: Sequence[str]
+        self, options: Mapping[UUID, _ConditionOption], languages: Sequence[str]
     ) -> QuestionSection[Question]:
         return QuestionSection[Question](
             id=self.id,
@@ -830,6 +862,12 @@ class LocalizedInterviewGuide(BaseModel):
             for question_id, options in self._options_by_question().items()
             for option in options
         }
+        likerts = {
+            question.id
+            for section in self.question_sections
+            for question in section.questions
+            if isinstance(question.survey_item, LocalizedLikertItem)
+        }
         for n_section, section in enumerate(self.question_sections):
             for n_question, question in enumerate(section.questions):
                 for condition in (
@@ -851,6 +889,16 @@ class LocalizedInterviewGuide(BaseModel):
                                 f"question_sections[{n_section}].questions[{n_question}] "
                                 "has a condition naming an option that is not one of "
                                 "the question it reads"
+                            )
+                        if (
+                            evaluation.option_id is not None
+                            and evaluation.comparison_operator != "=="
+                            and read not in likerts
+                        ):
+                            raise ValueError(
+                                f"question_sections[{n_section}].questions[{n_question}] "
+                                "has a condition comparing an option by order, which "
+                                "only a Likert option has"
                             )
 
         languages = sorted(self.languages())
@@ -901,9 +949,16 @@ class LocalizedInterviewGuide(BaseModel):
         of `fallback` that has, else is empty."""
         languages = [language, *fallback]
         options = {
-            option.id: option.text
-            for options in self._options_by_question().values()
-            for option in options
+            option.id: _ConditionOption(
+                text=option.text,
+                scale=[o.text for o in item.options]
+                if isinstance(item, LocalizedLikertItem)
+                else None,
+            )
+            for section in self.question_sections
+            for question in section.questions
+            if isinstance(item := question.survey_item, _LOCALIZED_CHOICES)
+            for option in item.options
         }
         return InterviewGuide(
             framing=_pick_localized_text(self.framing, languages),

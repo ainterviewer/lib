@@ -7,6 +7,7 @@ on a choice holds in every language because it names the option, not its
 wording.
 """
 
+from typing import Literal
 from uuid import uuid4
 
 import pytest
@@ -124,8 +125,9 @@ class TestFieldsMirrorTheRenderedModels:
         assert set(source.model_fields) == set(rendered.model_fields) - derived
 
     def test_evaluation_adds_only_the_option(self):
-        assert set(LocalizedConditionEvaluation.model_fields) == set(
-            ConditionEvaluation.model_fields
+        # `scale` is rendered from the option's Likert item.
+        assert set(LocalizedConditionEvaluation.model_fields) == (
+            set(ConditionEvaluation.model_fields) - {"scale"}
         ) | {"option_id"}
 
 
@@ -364,6 +366,94 @@ class TestValidation:
             }
         )
         assert source.max_probes_n == rendered.max_probes_n == 0
+
+
+def _likert_guide(
+    operator: Literal["==", "<", "<=", ">", ">="], *, likert: bool = True
+) -> LocalizedInterviewGuide:
+    """A Likert question (or a radio one, with `likert=False`) in EN and DA,
+    and a question skipped when its answer compares to "Agree"."""
+    texts = [
+        {"EN": "Disagree", "DA": "Uenig"},
+        {"EN": "Neutral", "DA": "Neutral"},
+        {"EN": "Agree", "DA": "Enig"},
+        {"EN": "Strongly agree", "DA": "Meget enig"},
+    ]
+    options = [LocalizedOption(text=text) for text in texts]
+    scale = LocalizedQuestion(
+        main_question={"EN": "Do you agree?", "DA": "Er du enig?"},
+        survey_item=loc.LocalizedLikertItem(options=options)
+        if likert
+        else LocalizedRadioItem(options=options),
+    )
+    gated = LocalizedQuestion(
+        main_question={"EN": "Why not?", "DA": "Hvorfor ikke?"},
+        conditions=LocalizedConditions(
+            action=ConditionAction.SKIP_QUESTION,
+            conditions=[
+                LocalizedCondition(
+                    question_context=QuestionContext(
+                        question_index=(0, 0), question_id=scale.id
+                    ),
+                    evaluation=[
+                        LocalizedConditionEvaluation(
+                            option_id=options[2].id, comparison_operator=operator
+                        )
+                    ],
+                )
+            ],
+        ),
+    )
+    return LocalizedInterviewGuide.model_validate(
+        {"question_sections": [{"questions": [q.model_dump() for q in (scale, gated)]}]}
+    )
+
+
+class TestLikertOrder:
+    @pytest.mark.anyio
+    async def test_compares_places_in_every_language(self):
+        source = _likert_guide(">=")
+        evaluator = ConditionEvaluator()
+        for language, answer, expected in (
+            ("EN", "Strongly agree", True),
+            ("EN", "Neutral", False),
+            ("DA", "Enig", True),
+            ("DA", "Uenig", False),
+        ):
+            gated = source.render(language).question_sections[0].questions[1]
+            assert gated.conditions is not None
+            assert (
+                await evaluator.evaluate_conditions([answer], gated.conditions)
+                is expected
+            )
+
+    def test_renders_the_scale(self):
+        gated = _likert_guide("<").render("DA").question_sections[0].questions[1]
+        assert gated.conditions is not None
+        (evaluation,) = gated.conditions.conditions[0].evaluation
+        assert evaluation.trigger_value == "Enig"
+        assert evaluation.scale == ["Uenig", "Neutral", "Enig", "Meget enig"]
+
+    def test_equals_renders_no_scale(self):
+        gated = _likert_guide("==").render("EN").question_sections[0].questions[1]
+        assert gated.conditions is not None
+        assert gated.conditions.conditions[0].evaluation[0].scale is None
+
+    def test_round_trips_naming_the_option(self):
+        source = _likert_guide(">")
+        again = LocalizedInterviewGuide.from_rendered(
+            {"EN": source.render("EN"), "DA": source.render("DA")}, structure="EN"
+        )
+        assert _dump(again.render("DA")) == _dump(source.render("DA"))
+        conditions = again.question_sections[0].questions[1].conditions
+        assert conditions is not None
+        (evaluation,) = conditions.conditions[0].evaluation
+        assert evaluation.option_id is not None
+        assert evaluation.comparison_operator == ">"
+
+    def test_radio_option_cannot_be_compared_by_order(self):
+        with pytest.raises(ValidationError, match="only a Likert option has"):
+            _likert_guide(">", likert=False)
 
 
 class TestWelcome:
