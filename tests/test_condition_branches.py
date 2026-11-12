@@ -198,7 +198,9 @@ def no_sleep(monkeypatch):
     monkeypatch.setattr("ainterviewer.interview.asyncio.sleep", AsyncMock())
 
 
-def _interviewer(guide: InterviewGuide, respondent: Respondent) -> AInterviewer:
+def _interviewer(
+    guide: InterviewGuide, respondent: Respondent, **kwargs
+) -> AInterviewer:
     io = MagicMock(
         send_data=AsyncMock(side_effect=respondent.send_data),
         receive_message=AsyncMock(side_effect=respondent.receive_message),
@@ -211,6 +213,7 @@ def _interviewer(guide: InterviewGuide, respondent: Respondent) -> AInterviewer:
         agent_configs=AgentConfigs.model_validate({}),
         project_id=uuid.uuid4(),
         interview_id=uuid.uuid4(),
+        **kwargs,
     )
 
 

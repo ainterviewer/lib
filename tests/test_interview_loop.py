@@ -2,12 +2,13 @@
 what a resumed interview does with the question it stopped at."""
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 
 from ainterviewer.exceptions import EndInterviewCondition
-from ainterviewer.interview_guides import InterviewGuide
+from ainterviewer.interview_guides import InterviewGuide, TimedMessage
 from ainterviewer.types import MessageRole
 from tests.test_condition_branches import SKIP, Respondent, _interviewer, _reads
 from tests.test_history import StoredMessage
@@ -372,3 +373,22 @@ async def test_resume_probes_a_question_with_probing():
     )
 
     assert probed == ["First?"]
+
+
+# ── Timed messages ──────────────────────────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_timed_message_counts_time_from_earlier_sessions():
+    guide = _plain_guide(max_probes_n=0)
+    guide.timed_messages = [TimedMessage(message="Halfway", time=150)]
+    respondent = Respondent({"First?": ["a"], "Second?": ["a"]})
+    interviewer = _interviewer(guide, respondent, previous_time_spent=100)
+    # 60 seconds into this session, 160 into the interview.
+    interviewer.interview_started = datetime.now(UTC) - timedelta(seconds=60)
+
+    await interviewer.handle_sections()
+
+    assert [m.message for m in interviewer.interview_history.timed_messages] == [
+        "Halfway"
+    ]

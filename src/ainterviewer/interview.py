@@ -123,6 +123,8 @@ class AInterviewer:
                 if previous_time_spent <= timed_message.time
             ]
 
+        self.previous_time_spent: int = previous_time_spent
+
         self.io: IOProtocol = io
         self.db: PersistenceProtocol = db
 
@@ -247,8 +249,8 @@ class AInterviewer:
 
     @property
     def time_spent(self) -> int:
-        time_spent = (datetime.now(UTC) - self.interview_started).seconds
-        return time_spent
+        """Seconds spent in this session; the backend adds it to the total."""
+        return int((datetime.now(UTC) - self.interview_started).total_seconds())
 
     async def _emit_chunk(self, chunk: EmbeddingChunk | None) -> None:
         """Hand a chunk to the embedder, if there is one and there is a chunk.
@@ -1029,16 +1031,7 @@ class AInterviewer:
 
         message = await self.preprocess_message(question_text)
 
-        if self.interview_guide.timed_messages:
-            remaining = []
-
-            for tm in self.interview_guide.timed_messages:
-                if self.time_spent > tm.time:
-                    await self.send_timed_message(tm)
-                else:
-                    remaining.append(tm)
-
-            self.interview_guide.timed_messages = remaining
+        await self.send_due_timed_messages()
 
         history_message = HistoryMessage(message=message)
 
@@ -1084,16 +1077,7 @@ class AInterviewer:
     async def ask_probe(self, question: Question, probe: str):
         message = await self.preprocess_message(probe)
 
-        if self.interview_guide.timed_messages:
-            remaining = []
-
-            for tm in self.interview_guide.timed_messages:
-                if self.time_spent > tm.time:
-                    await self.send_timed_message(tm)
-                else:
-                    remaining.append(tm)
-
-            self.interview_guide.timed_messages = remaining
+        await self.send_due_timed_messages()
 
         history_message = HistoryMessage(message=message)
 
@@ -1117,6 +1101,26 @@ class AInterviewer:
         # the interview history?
 
         return answer
+
+    async def send_due_timed_messages(self) -> None:
+        """Sends every timed message whose time has come.
+
+        Timed from the start of the interview, not of this session: a resumed
+        interview has `previous_time_spent` behind it already.
+        """
+        if not self.interview_guide.timed_messages:
+            return
+
+        elapsed = self.previous_time_spent + self.time_spent
+        remaining = []
+
+        for tm in self.interview_guide.timed_messages:
+            if elapsed > tm.time:
+                await self.send_timed_message(tm)
+            else:
+                remaining.append(tm)
+
+        self.interview_guide.timed_messages = remaining
 
     async def send_timed_message(self, timed_message: TimedMessage):
         # TODO:
