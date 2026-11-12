@@ -618,6 +618,31 @@ class AInterviewer:
                 if answer == CustomToken.skip_question:
                     raise SkipQuestionException
 
+                if last_question.survey_item is None:
+                    self.start_security_check(last_question, last_section.description)
+
+            # The rules a question carries about its own answer are checked once
+            # that answer is in, before any probe -- as `handle_question` does.
+            # A session that stopped there never got to them.
+            main_answer = self.interview_history.current_question.main_question.answer
+            if (
+                (conditions := last_question.conditions)
+                and self.interview_history.current_probe_index == 0
+                and main_answer is not None
+                and main_answer.message not in CustomToken
+                and any(
+                    condition.question_context.question_index
+                    == (section_index, question_index)
+                    for condition in conditions.conditions
+                )
+            ):
+                # A security intervention takes precedence over the guide's
+                # conditions.
+                await self.resolve_security_check()
+                await self.check_conditions(
+                    conditions, carrier=(section_index, question_index)
+                )
+
             await self.probe(last_question, last_section.description)
             await self.resolve_security_check()
 
@@ -628,7 +653,10 @@ class AInterviewer:
             self.resume_from_history = True
             self.skip_resumed_section = True
         except SkipQuestionCondition:
-            await self.handle_skip_question_exception(last_question)
+            # Only raised by a rule on the question's own answer, so the
+            # question has been asked and is in the history already: like
+            # `handle_question`, skipping it now just means no probes.
+            self.resume_from_history = True
         except SkipQuestionException:
             # The respondent skipped the question the history stopped at, so
             # the interview goes on after it -- not from the top of its section.

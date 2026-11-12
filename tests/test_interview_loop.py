@@ -6,8 +6,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from ainterviewer.exceptions import EndInterviewCondition
 from ainterviewer.interview_guides import InterviewGuide
-from tests.test_condition_branches import Respondent, _interviewer
+from ainterviewer.types import MessageRole
+from tests.test_condition_branches import Respondent, _interviewer, _reads
+from tests.test_history import StoredMessage
 
 
 @pytest.fixture(autouse=True)
@@ -71,3 +74,90 @@ async def test_references_fill_in_their_answers_in_order():
     await _interviewer(guide, respondent).handle_sections()
 
     assert respondent.asked[-1] == "Ann from Aarhus?"
+
+
+# ── Resuming at a question with a rule on its own answer ─────────────────────
+
+CONSENT, NEXT = uuid.uuid4(), uuid.uuid4()
+
+
+def _consent_guide(action: str) -> InterviewGuide:
+    return InterviewGuide.model_validate(
+        {
+            "framing": "Framing",
+            "question_sections": [
+                {
+                    "description": "Consent",
+                    "questions": [
+                        {
+                            "id": CONSENT,
+                            "main_question": "Consent?",
+                            "survey_item": {"type": "radio", "options": ["Ja", "Nej"]},
+                            "conditions": {
+                                "action": action,
+                                "conditions": [_reads(CONSENT, (0, 0), "Nej")],
+                            },
+                        },
+                        {"id": NEXT, "main_question": "Next?", "max_probes_n": 0},
+                    ],
+                }
+            ],
+        }
+    )
+
+
+def _resumed(guide: InterviewGuide, answers: dict[str, list[str]]):
+    respondent = Respondent(answers)
+    # The question was shown in the earlier session.
+    respondent.asked.append("Consent?")
+    return _interviewer(guide, respondent), respondent
+
+
+ASKED = StoredMessage("Consent?", MessageRole.ASSISTANT)
+ANSWERED = [ASKED, StoredMessage("Nej", MessageRole.USER)]
+
+
+@pytest.mark.anyio
+async def test_rule_on_the_pending_answer_is_checked():
+    interviewer, _ = _resumed(_consent_guide("end_interview"), {"Consent?": ["Nej"]})
+
+    with pytest.raises(EndInterviewCondition):
+        await interviewer.process_history([ASKED])
+
+
+@pytest.mark.anyio
+async def test_rule_on_an_answer_given_before_the_break_is_checked():
+    interviewer, _ = _resumed(_consent_guide("end_interview"), {})
+
+    with pytest.raises(EndInterviewCondition):
+        await interviewer.process_history(ANSWERED)
+
+
+@pytest.mark.anyio
+async def test_rule_that_does_not_fire_carries_on():
+    interviewer, respondent = _resumed(
+        _consent_guide("end_interview"), {"Consent?": ["Ja"], "Next?": ["Sure"]}
+    )
+
+    await interviewer.process_history([ASKED])
+    await interviewer.handle_sections()
+
+    assert respondent.asked == ["Consent?", "Next?"]
+
+
+@pytest.mark.anyio
+async def test_skip_on_the_pending_answer_does_not_duplicate_the_question():
+    interviewer, respondent = _resumed(
+        _consent_guide("skip_question"), {"Next?": ["Sure"]}
+    )
+
+    await interviewer.process_history(ANSWERED)
+    await interviewer.handle_sections()
+
+    history = interviewer.interview_history
+    assert len(history.sections) == 1
+    assert [q.main_question.question.message for q in history[0].questions] == [
+        "Consent?",
+        "Next?",
+    ]
+    assert respondent.asked == ["Consent?", "Next?"]
