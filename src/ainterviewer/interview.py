@@ -580,9 +580,20 @@ class AInterviewer:
         if message.is_introduction:
             return
 
-        await self.send_progress(questions_asked=self.interview_history.n_questions - 1)
+        # Clamped: a timed message can be all there is before the first question.
+        await self.send_progress(
+            questions_asked=max(self.interview_history.n_questions - 1, 0)
+        )
 
         intervention = self.last_security_intervention(interview_history)
+
+        if intervention is None and self.is_settled(message):
+            # Nothing is owed on the message the history stopped at, so the
+            # interview goes on with the question after it. A timed message
+            # can come before the first section has been entered, and then
+            # there is nothing to resume within.
+            self.resume_from_history = bool(self.interview_history.sections)
+            return
 
         if intervention is not None:
             # Sent outside the interview structure, so the question it
@@ -643,7 +654,8 @@ class AInterviewer:
                     conditions, carrier=(section_index, question_index)
                 )
 
-            await self.probe(last_question, last_section.description)
+            if self.should_probe(last_question):
+                await self.probe(last_question, last_section.description)
             await self.resolve_security_check()
 
             self.resume_from_history = True
@@ -663,6 +675,25 @@ class AInterviewer:
             self.resume_from_history = True
         finally:
             self.cancel_security_check()
+
+    @staticmethod
+    def is_settled(message) -> bool:
+        """True when the stored message the history stopped at needs neither
+        an answer nor probes, as `handle_question` would have moved on from it:
+
+        - a timed message, sent outside the interview structure just before
+          the next question or probe was;
+        - a question skipped by a condition, which was never shown;
+        - a message that takes no answer;
+        - the respondent's skip.
+        """
+        if message.section is None or message.main_question is None:
+            return True
+
+        if message.role == MessageRole.ASSISTANT:
+            return message.skipped_by_condition or not message.can_answer
+
+        return message.content == CustomToken.skip_question
 
     @staticmethod
     def should_probe(question: Question) -> bool:

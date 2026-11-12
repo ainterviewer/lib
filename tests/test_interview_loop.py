@@ -9,7 +9,7 @@ import pytest
 from ainterviewer.exceptions import EndInterviewCondition
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.types import MessageRole
-from tests.test_condition_branches import Respondent, _interviewer, _reads
+from tests.test_condition_branches import SKIP, Respondent, _interviewer, _reads
 from tests.test_history import StoredMessage
 
 
@@ -252,3 +252,123 @@ async def test_already_answered_is_checked_from_the_second_question_on():
     await interviewer.handle_sections()
 
     assert checked == ["Q1?", "Q2?"]
+
+
+# ── Resuming where nothing is owed ──────────────────────────────────────────
+
+
+def _plain_guide(**first) -> InterviewGuide:
+    return InterviewGuide.model_validate(
+        {
+            "framing": "Framing",
+            "question_sections": [
+                {
+                    "description": "Section",
+                    "questions": [
+                        {"main_question": "First?", **first},
+                        {"main_question": "Second?", "max_probes_n": 0},
+                    ],
+                }
+            ],
+        }
+    )
+
+
+async def _resume(guide: InterviewGuide, stored: list[StoredMessage]):
+    respondent = Respondent({"Second?": ["a"]})
+    interviewer = _interviewer(guide, respondent)
+    probed = []
+
+    async def probe(question, section_description):
+        probed.append(question.main_question)
+
+    interviewer.probe = probe
+
+    await interviewer.process_history(stored)
+    await interviewer.handle_sections()
+
+    return interviewer, respondent, probed
+
+
+FIRST_ASKED = StoredMessage("First?", MessageRole.ASSISTANT)
+
+
+@pytest.mark.anyio
+async def test_resume_after_a_question_skipped_by_a_condition():
+    _, respondent, probed = await _resume(
+        _plain_guide(),
+        [StoredMessage("First?", MessageRole.ASSISTANT, skipped_by_condition=True)],
+    )
+
+    # Not waited on: the respondent never saw it.
+    assert respondent.asked == ["Second?"]
+    assert probed == []
+
+
+@pytest.mark.anyio
+async def test_resume_after_a_message_that_takes_no_answer():
+    _, respondent, probed = await _resume(
+        _plain_guide(can_answer=False),
+        [StoredMessage("First?", MessageRole.ASSISTANT, can_answer=False)],
+    )
+
+    assert respondent.asked == ["Second?"]
+    assert probed == []
+
+
+@pytest.mark.anyio
+async def test_resume_after_the_respondent_skipped():
+    _, respondent, probed = await _resume(
+        _plain_guide(), [FIRST_ASKED, StoredMessage(SKIP, MessageRole.USER)]
+    )
+
+    assert respondent.asked == ["Second?"]
+    assert probed == []
+
+
+@pytest.mark.anyio
+async def test_resume_after_a_timed_message():
+    timed = StoredMessage(
+        "Halfway", MessageRole.ASSISTANT, section=None, main_question=None, timed=True
+    )
+    interviewer, respondent, _ = await _resume(
+        _plain_guide(), [FIRST_ASKED, StoredMessage("a", MessageRole.USER), timed]
+    )
+
+    assert respondent.asked == ["Second?"]
+    assert len(interviewer.interview_history.timed_messages) == 1
+
+
+@pytest.mark.anyio
+async def test_resume_after_a_timed_message_before_any_question():
+    timed = StoredMessage(
+        "Hello", MessageRole.ASSISTANT, section=None, main_question=None, timed=True
+    )
+    respondent = Respondent({"First?": ["a"], "Second?": ["a"]})
+    interviewer = _interviewer(_plain_guide(max_probes_n=0), respondent)
+
+    await interviewer.process_history([timed])
+    await interviewer.handle_sections()
+
+    assert respondent.asked == ["First?", "Second?"]
+
+
+@pytest.mark.anyio
+async def test_resume_does_not_probe_a_question_without_probing():
+    _, respondent, probed = await _resume(
+        _plain_guide(max_probes_n=None),
+        [FIRST_ASKED, StoredMessage("a", MessageRole.USER)],
+    )
+
+    assert respondent.asked == ["Second?"]
+    assert probed == []
+
+
+@pytest.mark.anyio
+async def test_resume_probes_a_question_with_probing():
+    _, _, probed = await _resume(
+        _plain_guide(max_probes_n=2),
+        [FIRST_ASKED, StoredMessage("a", MessageRole.USER)],
+    )
+
+    assert probed == ["First?"]
