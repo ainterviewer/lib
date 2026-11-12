@@ -161,3 +161,56 @@ async def test_skip_on_the_pending_answer_does_not_duplicate_the_question():
         "Next?",
     ]
     assert respondent.asked == ["Consent?", "Next?"]
+
+
+# ── A rule that skips probes before its question is asked ────────────────────
+
+FIRST, SECOND, THIRD = (uuid.uuid4() for _ in range(3))
+
+
+@pytest.mark.anyio
+async def test_skip_probes_before_the_question_still_asks_it():
+    radio = {"type": "radio", "options": ["Ja", "Nej"]}
+    guide = InterviewGuide.model_validate(
+        {
+            "framing": "Framing",
+            "question_sections": [
+                {
+                    "description": "Section",
+                    "questions": [
+                        {"id": FIRST, "main_question": "First?", "survey_item": radio},
+                        {
+                            "id": SECOND,
+                            "main_question": "Second?",
+                            "max_probes_n": 2,
+                            "conditions": {
+                                "action": "skip_probes",
+                                "conditions": [_reads(FIRST, (0, 0), "Ja")],
+                            },
+                        },
+                        {"id": THIRD, "main_question": "Third?", "survey_item": radio},
+                    ],
+                }
+            ],
+        }
+    )
+    respondent = Respondent(
+        {"First?": ["Ja"], "Second?": ["Because"], "Third?": ["Nej"]}
+    )
+    interviewer = _interviewer(guide, respondent)
+    probed = []
+
+    async def probe(question, section_description):
+        probed.append(question.main_question)
+
+    interviewer.probe = probe
+
+    await interviewer.handle_sections()
+
+    assert respondent.asked == ["First?", "Second?", "Third?"]
+    assert probed == []
+    # Every question keeps the index it has in the guide.
+    assert [
+        q.main_question.question.message
+        for q in interviewer.interview_history[0].questions
+    ] == ["First?", "Second?", "Third?"]

@@ -665,6 +665,12 @@ class AInterviewer:
             self.cancel_security_check()
 
     @staticmethod
+    def should_probe(question: Question) -> bool:
+        """Whether the guide asks for probes on this question at all; how many
+        is up to `can_probe`."""
+        return bool(question.max_probes_n or question.max_probes_time)
+
+    @staticmethod
     def last_security_intervention(
         interview_history: list,
     ) -> tuple[SecurityIntervention, SecurityOverride | None] | None:
@@ -848,6 +854,7 @@ class AInterviewer:
     ):
         question_reformulated = False
         check_condition_after = False
+        skip_probes = False
         # Which question the rule hangs off, as opposed to the ones it reads.
         # Only the guide records that, so it has to travel with the check or it
         # is lost by the time the evaluation is written down.
@@ -864,7 +871,16 @@ class AInterviewer:
                         check_condition_after = True
 
                 if not check_condition_after:
-                    await self.check_conditions(conditions, carrier=condition_carrier)
+                    try:
+                        await self.check_conditions(
+                            conditions, carrier=condition_carrier
+                        )
+                    except SkipProbesCondition:
+                        # Raised before the question is asked, so the question
+                        # still is -- only its probes are skipped. Letting it
+                        # escape would drop the question from the history and
+                        # shift every later question's index there.
+                        skip_probes = True
 
             if (
                 self.interview_history.current_question_index
@@ -905,7 +921,7 @@ class AInterviewer:
                 await self.resolve_security_check()
                 await self.check_conditions(conditions, carrier=condition_carrier)
 
-            if question.max_probes_n or question.max_probes_time:
+            if not skip_probes and self.should_probe(question):
                 await self.probe(question, section_description)
 
             await self.resolve_security_check()
