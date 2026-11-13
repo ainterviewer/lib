@@ -18,6 +18,7 @@ from ainterviewer.interview_guides.questions import Question, QuestionBase
 from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
 from ainterviewer.interview_guides.shuffle import shuffle_items
+from ainterviewer.interview_guides.survey_items import ShuffleableOptions
 from ainterviewer.interview_guides.variables import (
     BUILTIN_VARIABLES,
     extract_placeholders,
@@ -279,7 +280,8 @@ class InterviewGuide(InterviewGuideBase[Question]):
     def shuffle(self):
         """Shuffles sections and questions in the interview guide, based on
         their configuration, keeping every question a condition reads before
-        the question the condition gates (see `shuffle_items`)."""
+        the question the condition gates (see `shuffle_items`), and draws the
+        order of each choice item's options that asks for one."""
         section_of = {
             question.id: n_section
             for n_section, section in enumerate(self.question_sections)
@@ -306,6 +308,11 @@ class InterviewGuide(InterviewGuideBase[Question]):
                     if read in position and gated in position
                 },
             )
+
+        for section in self.question_sections:
+            for question in section.questions:
+                if isinstance(question.survey_item, ShuffleableOptions):
+                    question.survey_item.draw_option_order()
 
         self.index_questions()
         self.sync_question_refs()

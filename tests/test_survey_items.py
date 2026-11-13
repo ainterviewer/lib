@@ -41,6 +41,20 @@ class TestRadioItem:
         assert item.with_other is False
 
 
+class TestOptionOrder:
+    @pytest.mark.parametrize("order", [[0, 0, 1], [0, 1], [0, 1, 3]])
+    def test_must_be_a_permutation_of_the_options(self, order):
+        with pytest.raises(ValidationError):
+            RadioItem(options=["a", "b", "c"], option_order=order)
+
+    def test_survives_json(self):
+        item = CheckboxItem(
+            options=["a", "b", "c"], shuffle_options=True, option_order=[2, 0, 1]
+        )
+        assert CheckboxItem.model_validate_json(item.model_dump_json()) == item
+        assert item.shown_options == ["c", "a", "b"]
+
+
 # ── CheckboxItem ─────────────────────────────────────────────────────────────
 
 
@@ -440,7 +454,13 @@ class TestSurveyItemUnion:
         # The discriminator only guards members of the unions; a new item that
         # was never added to one would silently be unparseable.
         members = _union_members(SurveyItem) | _union_members(LocalizedSurveyItem)
-        assert _subclasses(SurveyItemBase) <= members
+        # A shared base without a `type` of its own is no item.
+        items = {
+            cls
+            for cls in _subclasses(SurveyItemBase)
+            if issubclass(cls, SurveyItemBase) and "type" in cls.model_fields
+        }
+        assert items <= members
 
 
 # ── split_checkbox_answer ────────────────────────────────────────────────────

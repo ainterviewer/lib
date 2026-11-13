@@ -159,12 +159,20 @@ class LocalizedRadioItem(SurveyItemBase):
     type: Literal["radio"] = "radio"
     options: list[LocalizedOption]
     with_other: bool = False
+    shuffle_options: bool = Field(
+        False,
+        description="Show the options in a random order, drawn once per interview.",
+    )
 
 
 class LocalizedCheckboxItem(SurveyItemBase):
     type: Literal["checkbox"] = "checkbox"
     options: list[LocalizedOption]
     with_other: bool = False
+    shuffle_options: bool = Field(
+        False,
+        description="Show the options in a random order, drawn once per interview.",
+    )
 
 
 class LocalizedLikertItem(SurveyItemBase):
@@ -313,7 +321,9 @@ def _merge_survey_item(
         case RadioItem() | CheckboxItem() | LikertItem():
             return _LOCALIZED_CHOICE_ITEMS[type(base)].model_validate(
                 {
-                    **base.model_dump(exclude={"options"}),
+                    # The order drawn for one interview is not part of the
+                    # guide.
+                    **base.model_dump(exclude={"options", "option_order"}),
                     "options": _merge_options(same, merge, where),
                 }
             )

@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import json
+import random
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, time
 from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, create_model, validate_call
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    create_model,
+    model_validator,
+    validate_call,
+)
 
 
 class SurveyItemBase(BaseModel):
@@ -18,12 +26,60 @@ class SurveyItemBase(BaseModel):
 validate_strict = validate_call(config=ConfigDict(strict=True))
 
 
+class ShuffleableOptions(SurveyItemBase):
+    """A choice item whose options may be shown in a random order.
+
+    The order is drawn once per interview (`InterviewGuide.shuffle`) and kept
+    beside `options` rather than applied to it: `options` stays in authored
+    order, because analysis places an answer by its position there -- that is
+    how the same choice in two languages counts as one. "Other" is not among
+    the options, and stays last.
+    """
+
+    options: list[str]
+
+    shuffle_options: bool = Field(
+        False,
+        description="Show the options in a random order, drawn once per interview.",
+    )
+    option_order: list[int] | None = Field(
+        None,
+        description="The order the options are shown in, as positions in "
+        "`options`. Set per interview when `shuffle_options` is on; unset, "
+        "they are shown as authored.",
+    )
+
+    @model_validator(mode="after")
+    def _check_option_order(self):
+        if self.option_order is not None and sorted(self.option_order) != list(
+            range(len(self.options))
+        ):
+            raise ValueError(
+                "option_order must hold each position in options exactly once"
+            )
+        return self
+
+    def draw_option_order(self) -> None:
+        """Draw this interview's order, or clear it when shuffling is off."""
+        self.option_order = (
+            random.sample(range(len(self.options)), len(self.options))
+            if self.shuffle_options
+            else None
+        )
+
+    @property
+    def shown_options(self) -> list[str]:
+        """The options in the order the respondent sees them."""
+        if self.option_order is None:
+            return list(self.options)
+        return [self.options[n] for n in self.option_order]
+
+
 # TODO:
 # Let options be a keyword of {label: value} pairs
 # Make labels and values referable in the next question
-class RadioItem(SurveyItemBase):
+class RadioItem(ShuffleableOptions):
     type: Literal["radio"] = "radio"
-    options: list[str]
 
     with_other: bool = False
 
@@ -35,9 +91,8 @@ class RadioItem(SurveyItemBase):
         return answer in self.options
 
 
-class CheckboxItem(SurveyItemBase):
+class CheckboxItem(ShuffleableOptions):
     type: Literal["checkbox"] = "checkbox"
-    options: list[str]
 
     with_other: bool = False
 
