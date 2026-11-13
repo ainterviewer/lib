@@ -47,6 +47,7 @@ from ainterviewer.interfaces import (
     PersistenceProtocol,
     SecurityIntervention,
     SecurityOverride,
+    StoredMessage,
 )
 from ainterviewer.interview_guides import (
     Condition,
@@ -667,7 +668,7 @@ class AInterviewer:
                 if override == SecurityOverride.ACCEPT:
                     self.apply_security_action(security_intervention.action)
 
-            elif message.role == "assistant" and message.can_answer:
+            elif message.role == MessageRole.ASSISTANT and message.can_answer:
                 answer = await self.receive_data(can_skip=last_question.can_skip)
 
                 if answer == CustomToken.skip_question:
@@ -692,9 +693,9 @@ class AInterviewer:
             self.resume_from_history = True
             self.skip_resumed_section = True
         except SkipQuestionCondition:
-            # Only raised by a rule on the question's own answer, so the
-            # question has been asked and is in the history already: like
-            # `handle_question`, skipping it now just means no probes.
+            # Only raised by a rule on the question's own answer, in
+            # `finish_question`, so the question has been asked and is in the
+            # history already: skipping it now just means no probes.
             self.resume_from_history = True
         except SkipQuestionException:
             # The respondent skipped the question the history stopped at, so
@@ -733,7 +734,7 @@ class AInterviewer:
         return True
 
     @staticmethod
-    def is_settled(message) -> bool:
+    def is_settled(message: StoredMessage) -> bool:
         """True when the stored message the history stopped at needs neither
         an answer nor probes, as `handle_question` would have moved on from it:
 

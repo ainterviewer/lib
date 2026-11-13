@@ -121,6 +121,23 @@ class IOProtocol(Protocol):
         ...
 
 
+class StoredMessage(Protocol):
+    """A message as stored by the `PersistenceProtocol` and handed back to
+    resume an interview. The stored row's own class lives with whoever stores
+    it, not in this library.
+
+    Only the fields `AInterviewer.is_settled` reads so far; the rest of the
+    resume path still takes the rows untyped.
+    """
+
+    content: str
+    role: MessageRole
+    section: int | None
+    main_question: int | None
+    can_answer: bool
+    skipped_by_condition: bool
+
+
 class PersistenceProtocol(Protocol):
     def update_interview_status(
         self,
