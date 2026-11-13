@@ -172,12 +172,13 @@ def test_condition_reading_a_later_question_is_reported():
         ]
     )
 
-    assert guide.condition_order_errors() == [
-        (
-            "Question 1.1 has a condition on question 1.2, which is asked after it.\n"
-            "Move question 1.2 above question 1.1, or change the condition."
-        )
-    ]
+    [error] = guide.condition_order_errors()
+    assert error.message == (
+        "Question 1.1 has a condition on question 1.2, which is asked after it."
+    )
+    assert error.fix == "Move question 1.2 above question 1.1, or change the condition."
+    assert error.question_id == guide.question_sections[0].questions[0].id
+    assert error.field == "conditions"
 
 
 def test_conditions_reading_earlier_or_own_questions_are_valid():

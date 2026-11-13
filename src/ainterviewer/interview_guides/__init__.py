@@ -3,6 +3,7 @@ from ainterviewer.interview_guides.conditions import (
     ConditionAction,
     ConditionEvaluator,
 )
+from ainterviewer.interview_guides.errors import GuideError, validation_errors
 from ainterviewer.interview_guides.interview_guide import (
     InterviewGuide,
     InterviewMessage,
@@ -41,6 +42,7 @@ __all__ = [
     "DateItem",
     "DatetimeItem",
     "GridRow",
+    "GuideError",
     "Image",
     "InterviewGuide",
     "InterviewMessage",
@@ -60,4 +62,5 @@ __all__ = [
     "TimedMessage",
     "Video",
     "fill_variables_in_message",
+    "validation_errors",
 ]

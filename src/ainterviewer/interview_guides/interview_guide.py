@@ -13,6 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
+from ainterviewer.interview_guides.errors import GuideError
 from ainterviewer.interview_guides.questions import Question, QuestionBase
 from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
@@ -239,9 +240,8 @@ class InterviewGuide(InterviewGuideBase[Question]):
             if (read := condition.question_context.question_id) != question.id
         ]
 
-    def condition_order_errors(self) -> list[str]:
-        """Conditions that read a question placed after the one they gate, as
-        messages for whoever edits the guide.
+    def condition_order_errors(self) -> list[GuideError]:
+        """Conditions that read a question placed after the one they gate.
 
         Such a condition can never be evaluated -- the answer it reads does not
         exist yet -- and its absence is what lets `shuffle` fall back to the
@@ -249,8 +249,8 @@ class InterviewGuide(InterviewGuideBase[Question]):
         validation, so interview copies shuffled before the constraint existed
         still load.
 
-        Questions are named as the editor numbers them, "Question 5.2"
-        counting from 1. Each message is the problem, a newline, then the fix.
+        Each error is in the gated question's conditions, and names questions
+        as the editor numbers them, "Question 5.2" counting from 1.
         """
         positions = {
             question.id: (n_section + 1, n_question + 1)
@@ -262,15 +262,17 @@ class InterviewGuide(InterviewGuideBase[Question]):
             read_at, gated_at = positions[read], positions[gated]
             if read_at <= gated_at:
                 continue
-            read_no, gated_no = (
-                ".".join(map(str, read_at)),
-                ".".join(map(str, gated_at)),
-            )
+            read_no = ".".join(map(str, read_at))
+            gated_no = ".".join(map(str, gated_at))
             errors.append(
-                f"Question {gated_no} has a condition on question {read_no}, "
-                "which is asked after it.\n"
-                f"Move question {read_no} above question {gated_no}, "
-                "or change the condition."
+                GuideError(
+                    message=f"Question {gated_no} has a condition on question "
+                    f"{read_no}, which is asked after it.",
+                    fix=f"Move question {read_no} above question {gated_no}, "
+                    "or change the condition.",
+                    question_id=gated,
+                    field="conditions",
+                )
             )
         return errors
 
