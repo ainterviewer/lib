@@ -240,28 +240,38 @@ class InterviewGuide(InterviewGuideBase[Question]):
         ]
 
     def condition_order_errors(self) -> list[str]:
-        """Conditions that read a question placed after the one they gate.
+        """Conditions that read a question placed after the one they gate, as
+        messages for whoever edits the guide.
 
         Such a condition can never be evaluated -- the answer it reads does not
         exist yet -- and its absence is what lets `shuffle` fall back to the
         authored order. Checked when a guide is saved rather than on
         validation, so interview copies shuffled before the constraint existed
         still load.
+
+        Questions are named as the editor numbers them, "Question 5.2"
+        counting from 1. Each message is the problem, a newline, then the fix.
         """
         positions = {
-            question.id: (n_section, n_question)
+            question.id: (n_section + 1, n_question + 1)
             for n_section, section in enumerate(self.question_sections)
             for n_question, question in enumerate(section.questions)
         }
         errors = []
         for read, gated in self.condition_dependencies():
-            (read_s, read_q), (gated_s, gated_q) = positions[read], positions[gated]
-            if (read_s, read_q) > (gated_s, gated_q):
-                errors.append(
-                    f"question_sections[{gated_s}].questions[{gated_q}] has a "
-                    f"condition reading question_sections[{read_s}]"
-                    f".questions[{read_q}], which comes after it"
-                )
+            read_at, gated_at = positions[read], positions[gated]
+            if read_at <= gated_at:
+                continue
+            read_no, gated_no = (
+                ".".join(map(str, read_at)),
+                ".".join(map(str, gated_at)),
+            )
+            errors.append(
+                f"Question {gated_no} has a condition on question {read_no}, "
+                "which is asked after it.\n"
+                f"Move question {read_no} above question {gated_no}, "
+                "or change the condition."
+            )
         return errors
 
     def shuffle(self):
