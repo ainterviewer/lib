@@ -1,6 +1,7 @@
 """The interview loop's own bookkeeping: what a question is asked with, and
 what a resumed interview does with the question it stopped at."""
 
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -453,6 +454,82 @@ async def test_timed_message_counts_time_from_earlier_sessions():
     assert [m.message for m in interviewer.interview_history.timed_messages] == [
         "Halfway"
     ]
+
+
+def _stored_rows(interviewer) -> list[StoredMessage]:
+    """What the interviewer wrote to the database, as a resume reads it."""
+    fields = (
+        "section",
+        "main_question",
+        "sub_question",
+        "timed",
+        "can_answer",
+        "skipped_by_condition",
+    )
+    rows = []
+    for call in interviewer.db.insert_message.call_args_list:
+        kwargs = call.kwargs
+        rows.append(
+            StoredMessage(
+                kwargs["content"],
+                kwargs["role"],
+                **{field: kwargs[field] for field in fields if field in kwargs},
+            )
+        )
+    return rows
+
+
+@pytest.mark.anyio
+async def test_session_cancelled_after_a_timed_message_resumes_at_the_probe(
+    monkeypatch,
+):
+    async def sleep(seconds):
+        # The pause that lets a timed message be read before what follows: a
+        # reconnect cancels the old session while it waits.
+        if seconds == 2.5:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr("ainterviewer.interview.asyncio.sleep", sleep)
+
+    guide = _plain_guide(max_probes_n=2)
+    respondent = Respondent({"First?": ["a"]})
+    interviewer = _interviewer(guide, respondent)
+    interviewer.interview_started = datetime.now(UTC) - timedelta(seconds=60)
+
+    async def generate_probe(section_description, question, transcript):
+        # Falls due between the main question and its first probe.
+        guide.timed_messages = [TimedMessage(message="Halfway", time=30)]
+        return "Why?"
+
+    interviewer.generate_probe = generate_probe
+
+    with pytest.raises(asyncio.CancelledError):
+        await interviewer.handle_sections()
+
+    # The probe was never sent, but it was stored with the timed message.
+    assert respondent.asked == ["First?", "Halfway"]
+    stored = _stored_rows(interviewer)
+    assert [(row.content, row.timed) for row in stored[-2:]] == [
+        ("Halfway", True),
+        ("Why?", False),
+    ]
+
+    resumed_respondent = Respondent({"Why?": ["Because"]})
+    # Replayed from the stored history on reconnect.
+    resumed_respondent.asked.extend(["First?", "Why?"])
+    resumed = _interviewer(_plain_guide(max_probes_n=2), resumed_respondent)
+    probed = []
+
+    async def probe(question, section_description):
+        probed.append(question.main_question)
+
+    resumed.probe = probe
+
+    await resumed.process_history(stored)
+
+    # The probe is answered, and probing goes on with the budget left.
+    assert resumed_respondent.answers["Why?"] == []
+    assert probed == ["First?"]
 
 
 # ── Exhaustion ──────────────────────────────────────────────────────────────
