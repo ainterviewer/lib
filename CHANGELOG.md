@@ -4,6 +4,30 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.8] - 2026-11-13
+
+### Features
+
+- (guide) Say which question a guide error is in
+
+### Bug Fixes
+
+- (guide) Name questions in condition order errors as the editor numbers them
+- (interviews) Fill question references with each referenced answer
+- (interviews) Check a resumed question's rules on its own answer
+- (interviews) Still ask a question whose probes a rule skips
+- (interviews) Check if the second question of a section was answered
+- (interviews) Resume past messages that need no answer
+- (interviews) Time timed messages from the start of the interview
+- (interviews) Judge exhaustion with the section's description
+- (interviews) Keep a skipped question's probes skipped on resume
+- (interviews) Lose no probes when a reconnect cuts a timed message short
+
+### Internal
+
+- (interviews) Share what follows a main answer across paths
+- (interviews) Type the stored message a resume settles on
+
 ## [0.7.7] - 2026-11-12
 
 ### Features
