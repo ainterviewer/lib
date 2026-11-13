@@ -219,6 +219,65 @@ async def test_skip_probes_before_the_question_still_asks_it():
     ] == ["First?", "Second?", "Third?"]
 
 
+def _skip_probes_guide() -> InterviewGuide:
+    radio = {"type": "radio", "options": ["Ja", "Nej"]}
+    return InterviewGuide.model_validate(
+        {
+            "framing": "Framing",
+            "question_sections": [
+                {
+                    "description": "Section",
+                    "questions": [
+                        {"id": FIRST, "main_question": "First?", "survey_item": radio},
+                        {
+                            "id": SECOND,
+                            "main_question": "Second?",
+                            "max_probes_n": 2,
+                            "conditions": {
+                                "action": "skip_probes",
+                                "conditions": [_reads(FIRST, (0, 0), "Ja")],
+                            },
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+
+
+async def _resumed_at_second(first_answer: str) -> list[str]:
+    respondent = Respondent({"Second?": ["Because"]})
+    # Shown in the earlier session.
+    respondent.asked.extend(["First?", "Second?"])
+    interviewer = _interviewer(_skip_probes_guide(), respondent)
+    probed = []
+
+    async def probe(question, section_description):
+        probed.append(question.main_question)
+
+    interviewer.probe = probe
+
+    await interviewer.process_history(
+        [
+            StoredMessage("First?", MessageRole.ASSISTANT),
+            StoredMessage(first_answer, MessageRole.USER),
+            StoredMessage("Second?", MessageRole.ASSISTANT, main_question=1),
+        ]
+    )
+
+    return probed
+
+
+@pytest.mark.anyio
+async def test_skip_probes_before_the_question_holds_on_resume():
+    assert await _resumed_at_second("Ja") == []
+
+
+@pytest.mark.anyio
+async def test_skip_probes_that_did_not_fire_still_probes_on_resume():
+    assert await _resumed_at_second("Nej") == ["Second?"]
+
+
 # ── check_if_answered ───────────────────────────────────────────────────────
 
 

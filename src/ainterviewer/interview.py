@@ -634,10 +634,13 @@ class AInterviewer:
                 if last_question.survey_item is None:
                     self.start_security_check(last_question, last_section.description)
 
+            carrier = (section_index, question_index)
+
             await self.finish_question(
                 last_question,
                 last_section.description,
-                carrier=(section_index, question_index),
+                carrier=carrier,
+                probe=await self.probes_survive_resume(last_question, carrier),
             )
 
             self.resume_from_history = True
@@ -657,6 +660,35 @@ class AInterviewer:
             self.resume_from_history = True
         finally:
             self.cancel_security_check()
+
+    async def probes_survive_resume(
+        self, question: Question, carrier: QuestionIndex
+    ) -> bool:
+        """Whether a resumed question may still be probed.
+
+        A skip_probes rule checked before the question was asked leaves no
+        trace in the stored messages -- `handle_question` keeps its outcome in a
+        local -- so a resumed interview checks it again. Only the outcome
+        skip_probes can have had and still let the question be asked; rules
+        with any other action had not fired, or the question would not be in
+        the history. Once probing began, the rule had not fired either.
+        """
+        conditions = question.conditions
+
+        if (
+            conditions is None
+            or conditions.action != ConditionAction.SKIP_PROBES
+            or self.reads_own_answer(conditions, carrier)
+            or self.interview_history.current_probe_index != 0
+        ):
+            return True
+
+        try:
+            await self.check_conditions(conditions, carrier=carrier)
+        except SkipProbesCondition:
+            return False
+
+        return True
 
     @staticmethod
     def is_settled(message) -> bool:
