@@ -4,6 +4,12 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.9] - 2026-11-13
+
+### Features
+
+- (guide) Shuffle the options of single and multiple choice items
+
 ## [0.7.8] - 2026-11-13
 
 ### Features
