@@ -11,6 +11,7 @@ from any_llm import acompletion
 from any_llm.types.completion import ChatCompletion
 from pydantic import BaseModel
 
+from ainterviewer.exceptions import StructuredOutputError
 from ainterviewer.lpm.types import CustomToken, Message, Temperature
 from ainterviewer.lpm.utils import map_system_to_user
 from ainterviewer.settings import settings
@@ -148,7 +149,14 @@ async def chat[T: BaseModel](
         )
 
     if response_format:
-        return chat_completion.choices[0].message.parsed  # ty:ignore[missing-attribute]
+        reply = chat_completion.choices[0].message
+        parsed = getattr(reply, "parsed", None)
+        if parsed is None:
+            reason = getattr(reply, "refusal", None) or "no parsable output"
+            raise StructuredOutputError(
+                f"{model} returned no {response_format.__name__}: {reason}"
+            )
+        return parsed
 
     # TODO:
     # - Use the returned log probs

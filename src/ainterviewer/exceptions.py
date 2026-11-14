@@ -44,3 +44,8 @@ class MissingEnvironmentVariable(Exception):
 
 class ClassificationError(Exception):
     pass
+
+
+class StructuredOutputError(Exception):
+    """The model was asked for structured output and returned none: it refused,
+    or the provider handed back nothing that parsed."""
