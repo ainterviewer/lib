@@ -4,6 +4,22 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.10] - 2026-11-14
+
+### Features
+
+- (guide) Give generated guides, sections and questions the interviewer's question-writing guidance
+
+### Bug Fixes
+
+- (guide) Keep a generated question's probe time limit as a time limit
+- (guide) Keep generated questions from repeating what earlier sections asked
+- (guide) Tell the generator that the introduction and outro take no questions
+
+### Internal
+
+- (guide) Show the guide agent the guide as its text, as JSON
+
 ## [0.7.9] - 2026-11-13
 
 ### Features
