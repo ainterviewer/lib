@@ -8,7 +8,7 @@ Please generate a new {{ interview_guide_component }} based on the following con
 ```
 {% if current_section %}
 ## Current Section
-You are generating a main question for the following section. Make sure the question fits this section's purpose and does not duplicate questions already present in it.
+You are generating a main question for the following section. Make sure the question fits this section's purpose, and that it does not repeat anything already asked in this or any earlier section: the questions in the guide, and every question and follow-up in the transcript below. A new wording of a topic the interviewee has already answered, or declined to answer, is a repetition too.
 
 ```json
 {{ current_section }}
