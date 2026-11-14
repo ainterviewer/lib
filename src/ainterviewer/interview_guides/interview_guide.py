@@ -16,7 +16,10 @@ from pydantic.json_schema import SkipJsonSchema
 from ainterviewer.interview_guides.errors import GuideError
 from ainterviewer.interview_guides.questions import Question, QuestionBase
 from ainterviewer.interview_guides.references import QuestionIndex
-from ainterviewer.interview_guides.sections import QuestionSection
+from ainterviewer.interview_guides.sections import (
+    SECTION_PROMPT_FIELDS,
+    QuestionSection,
+)
 from ainterviewer.interview_guides.shuffle import shuffle_items
 from ainterviewer.interview_guides.survey_items import ShuffleableOptions
 from ainterviewer.interview_guides.variables import (
@@ -143,6 +146,19 @@ class InterviewGuide(InterviewGuideBase[Question]):
         super().__init__(**data)
 
         self.index_questions()
+
+    def prompt_json(self) -> str:
+        """The guide as JSON for an LLM prompt: its framing, introduction, outro
+        and sections, each section as `QuestionSection.prompt_json` shows it."""
+        return self.model_dump_json(
+            include={
+                "framing": True,
+                "introduction": True,
+                "outro": True,
+                "question_sections": {"__all__": SECTION_PROMPT_FIELDS},
+            },
+            exclude_none=True,
+        )
 
     @model_validator(mode="after")
     def _validate_ids(self):

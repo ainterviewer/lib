@@ -26,16 +26,34 @@ SECTION = QuestionSection(
 )
 GUIDE = InterviewGuide(framing="A study of commuting.", question_sections=[SECTION])
 GENERATED = QuestionBase(main_question="How do you get to work?", max_probes_n=None)
+# What the stubbed LLM answers, by the kind of part asked for: a guide holds
+# sections, a section holds questions, and a question is `GENERATED`.
+ANSWERS = {
+    "InterviewGuideTemplate": {
+        "framing": "Commuting",
+        "introduction": "Hello",
+        "question_sections": [
+            {"description": "Travel", "questions": [GENERATED.model_dump()]}
+        ],
+    },
+    "QuestionSectionTemplate": {
+        "description": "Travel",
+        "questions": [GENERATED.model_dump()],
+    },
+}
 
 
 @pytest.fixture
 def sent(monkeypatch) -> list[list]:
-    """Stub the LLM: answer with `GENERATED` and record the messages sent."""
+    """Stub the LLM, recording the messages sent."""
     calls: list[list] = []
 
     async def chat(messages, model, response_format, **kwargs):
         calls.append(messages)
-        return response_format.model_validate(GENERATED.model_dump())
+        title = response_format.model_config.get("title")
+        return response_format.model_validate(
+            ANSWERS.get(title, GENERATED.model_dump())
+        )
 
     monkeypatch.setattr(generate, "chat", chat)
     monkeypatch.setattr("ainterviewer.agents.base.chat", chat)
@@ -66,3 +84,22 @@ def test_guide_agent_sets_each_probe_limit_on_its_own_field(sent):
     )
 
     assert (question.max_probes_n, question.max_probes_time) == (2, 90)
+
+
+def prompts(messages) -> tuple[str, str]:
+    """The (system, user) prompt of one LLM call."""
+    (system, user) = messages
+    return system["content"], user["content"]
+
+
+def test_guide_agent_shows_the_guide_and_section_as_their_text(sent):
+    agent = GuideAgent(model="openai:test", language="EN")
+
+    asyncio.run(agent.generate_main_question("Interviewer: Hello", GUIDE, SECTION))
+    asyncio.run(agent.generate_question_section("Interviewer: Hello", GUIDE))
+
+    for call in sent:
+        _, user = prompts(call)
+        assert GUIDE.prompt_json() in user
+        assert str(SECTION.id) not in user
+    assert SECTION.prompt_json() in prompts(sent[0])[1]

@@ -6,6 +6,20 @@ from pydantic import BaseModel, Field, field_validator
 
 from ainterviewer.interview_guides.questions import QuestionBase, QuestionBaseExtended
 
+# What a prompt is shown of a section: its text and the kind of each survey
+# item, not ids, flags or probing settings, which only cost the model tokens.
+SECTION_PROMPT_FIELDS = {
+    "description": True,
+    "questions": {
+        "__all__": {
+            "main_question": True,
+            "description": True,
+            "probes": True,
+            "survey_item": {"type"},
+        }
+    },
+}
+
 
 class GeneratedQuestions(BaseModel):
     n: int = 0
@@ -33,6 +47,10 @@ class QuestionSection[Q: QuestionBase](QuestionSectionBase[Q]):
         description="Should the section be included in shuffling?",
     )
     ai_generated_questions: GeneratedQuestions = GeneratedQuestions()
+
+    def prompt_json(self) -> str:
+        """The section as JSON for an LLM prompt: see `SECTION_PROMPT_FIELDS`."""
+        return self.model_dump_json(include=SECTION_PROMPT_FIELDS, exclude_none=True)
 
 
 class QuestionSectionTemplate(QuestionSectionBase[QuestionBase]):

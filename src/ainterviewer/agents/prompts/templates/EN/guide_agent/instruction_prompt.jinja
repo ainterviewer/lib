@@ -3,12 +3,16 @@ Please generate a new {{ interview_guide_component }} based on the following con
 # Context
 
 ## Interview Guide
+```json
 {{ interview_guide }}
+```
 {% if current_section %}
 ## Current Section
 You are generating a main question for the following section. Make sure the question fits this section's purpose and does not duplicate questions already present in it.
 
+```json
 {{ current_section }}
+```
 {% endif %}
 ## Transcript:
 {{ interview_transcript }}

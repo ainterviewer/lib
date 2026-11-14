@@ -279,8 +279,8 @@ class GuideAgentPrompts(BasePrompts):
         return self.get_template("guide_agent/instruction_prompt.jinja").render(
             interview_guide_component="main question",
             interview_transcript=interview_transcript,
-            interview_guide=interview_guide,
-            current_section=section,
+            interview_guide=interview_guide.prompt_json(),
+            current_section=section.prompt_json(),
             translation=self.translation,
             interview_guide_component_schema=QuestionBase.model_json_schema(),
         )
@@ -293,7 +293,7 @@ class GuideAgentPrompts(BasePrompts):
         return self.get_template("guide_agent/instruction_prompt.jinja").render(
             interview_guide_component="question section",
             interview_transcript=interview_transcript,
-            interview_guide=interview_guide,
+            interview_guide=interview_guide.prompt_json(),
             # A whole section is being generated, so there is no current one. The
             # template is shared with `generate_question_prompt` and renders under
             # StrictUndefined, so this must be passed explicitly.
