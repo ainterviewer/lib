@@ -4,6 +4,13 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.11] - 2026-11-14
+
+### Bug Fixes
+
+- (llm) Raise when a structured response has nothing parsed
+- (interview) Clean up the prompt for questions generated mid-interview
+
 ## [0.7.10] - 2026-11-14
 
 ### Features
