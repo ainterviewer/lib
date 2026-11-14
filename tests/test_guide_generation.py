@@ -176,3 +176,13 @@ def test_guide_agent_shows_the_guide_and_section_as_their_text(sent):
         assert GUIDE.prompt_json() in user
         assert str(SECTION.id) not in user
     assert SECTION.prompt_json() in prompts(sent[0])[1]
+
+
+def test_a_generated_guide_keeps_questions_out_of_its_introduction_and_outro(sent):
+    asyncio.run(generate.generate_interview_guide("Commuting", "openai:test"))
+    _, user = prompts(sent[0])
+    guidelines, schema = user.split("# Response Schema")
+
+    assert "neither may contain a question" in guidelines
+    # The schema the model fills in says so too, field by field.
+    assert schema.count("must not ask them anything") == 2

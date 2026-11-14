@@ -37,7 +37,7 @@ class InterviewGuideBase[Q: QuestionBase](BaseModel):
     )
     introduction: str | SkipJsonSchema[InterviewMessage] = Field(
         "",
-        description="An introduction to the interview. Displayed to the interviewee as the first message. They whon't be able to respond to this message.",
+        description="An introduction to the interview. Displayed to the interviewee as the first message. They won't be able to respond to this message, so it must not ask them anything: the first question comes from the first section.",
     )
     question_sections: list[QuestionSection[Q]] = Field(
         default_factory=list,
@@ -45,7 +45,7 @@ class InterviewGuideBase[Q: QuestionBase](BaseModel):
     )
     outro: str | SkipJsonSchema[InterviewMessage] | None = Field(
         None,
-        description="An outro message for the interview. Displayed to the interviewee as the last message they will see. They will not be able to answer this message.",
+        description="An outro message for the interview. Displayed to the interviewee as the last message they will see. They will not be able to answer this message, so it must not ask them anything.",
     )
     # TODO: Should this kind of message instead be specified in the condition?
     alt_outro: SkipJsonSchema[str | None] = Field(
