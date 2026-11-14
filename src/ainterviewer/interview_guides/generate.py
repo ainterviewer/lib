@@ -1,7 +1,21 @@
+"""Interview-guide parts written by an LLM to a researcher's instructions.
+
+These run before any interview -- the dashboard's generate buttons and its
+guide assistant call them. They share the guide agent's system prompt, which
+holds what makes a good interview question, with `GuideAgent`, which writes
+sections and questions mid-interview from the transcript instead.
+"""
+
 import asyncio
 import json
+from functools import cache
 from pathlib import Path
+from typing import Literal
 
+from pydantic import BaseModel
+
+from ainterviewer.agents.prompts.agent_prompts import GuideAgentPrompts
+from ainterviewer.agents.prompts.get_prompts import get_agent_prompts
 from ainterviewer.interview_guides.interview_guide import (
     InterviewGuide,
     InterviewGuideTemplate,
@@ -12,44 +26,58 @@ from ainterviewer.interview_guides.questions import QuestionBaseExtended
 from ainterviewer.interview_guides.sections import QuestionSectionBaseExtendedTemplate
 from ainterviewer.lpm.clients import chat
 from ainterviewer.lpm.types import Message, MessageRole
+from ainterviewer.types import LanguageCode
 
-_DUMMY_PROMPT = "Create an interview guide targeted at participants of the IC2S2 computational social science conference. The interview guide should be structured to gather insights on the participants' experiences, motivations, and challenges in computational social science research."
+
+@cache
+def _prompts(language: LanguageCode) -> GuideAgentPrompts:
+    return get_agent_prompts("GuideAgent", lang=language)
+
+
+async def _generate[T: BaseModel](
+    component: Literal["interview guide", "question section", "main question"],
+    instructions: str,
+    model: str,
+    schema: type[T],
+    language: LanguageCode | None,
+    guide: InterviewGuide | None = None,
+    section: QuestionSection[Question] | None = None,
+) -> T:
+    prompts = _prompts(language or "EN")
+    messages = [
+        Message(role=MessageRole.SYSTEM, content=prompts.system_prompt),
+        Message(
+            role=MessageRole.USER,
+            content=prompts.generate_from_instructions_prompt(
+                component,
+                instructions,
+                schema,
+                interview_guide=guide,
+                section=section,
+            ),
+        ),
+    ]
+    return await chat(messages=messages, model=model, response_format=schema)
 
 
 async def generate_interview_guide(
     prompt: str,
     model: str,
     *,
-    output_path: str | None,
+    output_path: str | None = None,
+    language: LanguageCode | None = None,
 ) -> InterviewGuide:
-    """Generate an interview guide based on the InterviewGuideTemplate structure and a given prompt."""
-    messages = [
-        Message(
-            role=MessageRole.SYSTEM,
-            content=(
-                "Create an interview guide in a json format to be used by an AI interviewer for a social science qualitative interview, based on the information provided by the user. "
-                "Make the section and question descriptions and framing elaborate so that the interviewer can understand the context and purpose of the interview and each section and question. "
-                "Unless anything else is specified, the interview guide should contain about 2-3 sections, each with about 1-3 questions."
-            ),
-        ),
-        Message(
-            role=MessageRole.USER,
-            content=prompt,
-        ),
-    ]
-
-    template = await chat(
-        messages=messages,
-        model=model,
-        response_format=InterviewGuideTemplate,
+    """A whole interview guide, written to `prompt` in `language` (English by
+    default), and saved to `output_path` as JSON when one is given."""
+    template = await _generate(
+        "interview guide", prompt, model, InterviewGuideTemplate, language
     )
-
     interview_guide = InterviewGuide.model_validate(template.model_dump())
 
     if output_path:
         await asyncio.to_thread(
             Path(output_path).write_text,
-            json.dumps(interview_guide.model_dump(), indent=4),
+            json.dumps(interview_guide.model_dump(mode="json"), indent=4),
         )
 
     return interview_guide
@@ -59,41 +87,21 @@ async def generate_section(
     instruction: str,
     model: str,
     guide: InterviewGuide,
+    *,
+    language: LanguageCode | None = None,
 ) -> QuestionSection[Question]:
-    """Generate a question section based on the QuestionSectionTemplate structure and an instruction."""
-
-    # TODO:
-    # - It should be possible to provide constraints to i.e. the number of
-    # questions generated and probably also total time spent.
-
-    messages = [
-        Message(
-            role=MessageRole.SYSTEM,
-            content=(
-                "Create a new question section in a json format to be used by an AI interviewer for a social science qualitative interview, based on the information provided by the user. "
-                "Make the section and question descriptions elaborate so that the interviewer can understand the context and purpose of each section and question. "
-                "Unless anything else is specified, the section should contains about 1-3 questions."
-            ),
-        ),
-        Message(
-            role=MessageRole.USER,
-            content=(
-                f"# Instructions:\n{instruction}\n\n"
-                f"# Interview Guide Context\n\n{guide}\n\n"
-                f"# Response Schema\n\nRespond in the following format:\n```\n{QuestionSectionBaseExtendedTemplate.model_json_schema()}\n```\n"
-            ),
-        ),
-    ]
-
-    template = await chat(
-        messages=messages,
-        model=model,
-        response_format=QuestionSectionBaseExtendedTemplate,
+    """A new section for `guide`, written to `instruction` in `language`."""
+    # TODO: Let the caller constrain the number of questions, and probably the
+    # total time spent.
+    template = await _generate(
+        "question section",
+        instruction,
+        model,
+        QuestionSectionBaseExtendedTemplate,
+        language,
+        guide=guide,
     )
-
-    question_section = QuestionSection[Question].model_validate(template.model_dump())
-
-    return question_section
+    return QuestionSection[Question].model_validate(template.model_dump())
 
 
 async def generate_question(
@@ -103,37 +111,20 @@ async def generate_question(
     section: QuestionSection[Question] | None = None,
     max_probes_n: int | None = None,
     max_probes_time: int | None = None,
+    *,
+    language: LanguageCode | None = None,
 ) -> Question:
-    """Generate a question based on the QuestionBase structure and an instruction."""
-    messages = [
-        Message(
-            role=MessageRole.SYSTEM,
-            content=(
-                "Create a new question in a json format to be used by an AI interviewer for a social science qualitative interview, based on the information provided by the user. "
-                "Make the question description elaborate so that the interviewer can understand the context and purpose of the question. "
-            ),
-        ),
-        Message(
-            role=MessageRole.USER,
-            content=(
-                f"# Instructions:\n{instructions}\n\n"
-                f"# Interview Guide Context\n\n{guide}\n\n"
-                + (
-                    f"# Relevant Section\n\nThe new question will be added to the end of this specific section\n```\n{section}\n```\n\n"
-                    if section
-                    else ""
-                )
-                + f"# Response Schema\n\nRespond in the following format:\n```\n{QuestionBaseExtended.model_json_schema()}\n```\n"
-            ),
-        ),
-    ]
-
-    base = await chat(
-        messages=messages,
-        model=model,
-        response_format=QuestionBaseExtended,
+    """A new question for `guide`, written to `instructions` in `language`, to
+    go at the end of `section` when one is given."""
+    base = await _generate(
+        "main question",
+        instructions,
+        model,
+        QuestionBaseExtended,
+        language,
+        guide=guide,
+        section=section,
     )
-
     question = Question.model_validate(base.model_dump())
 
     if max_probes_n is not None:

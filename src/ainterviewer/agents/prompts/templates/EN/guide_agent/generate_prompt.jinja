@@ -1,0 +1,39 @@
+Please generate a new {{ interview_guide_component }} for a qualitative social science interview conducted by an AI interviewer, following the researcher's instructions.
+
+# Instructions
+{{ instructions }}
+{% if interview_guide %}
+# Interview Guide
+The interview guide so far:
+
+```json
+{{ interview_guide }}
+```
+{% endif %}{% if current_section %}
+# Current Section
+The new question will be added to the end of this section. Make sure it fits the section's purpose and does not duplicate the questions already in it.
+
+```json
+{{ current_section }}
+```
+{% endif %}
+# Guidelines
+{% if interview_guide_component == "interview guide" -%}
+- Unless the instructions say otherwise, the guide should contain about 2-3 sections, each with about 1-3 questions
+{% elif interview_guide_component == "question section" -%}
+- Unless the instructions say otherwise, the section should contain about 1-3 questions
+- Avoid repeating questions or topics the interview guide already covers
+{% else -%}
+- Avoid repeating questions or topics the interview guide already covers
+{% endif -%}
+- Make the descriptions elaborate, so that the interviewer understands the context and purpose of each section and question
+- Reply only with the {{ interview_guide_component }} itself, without any commentary
+{% if translation %}
+Write all of its text in {{ translation }}.
+{% endif %}
+# Response Schema
+Respond in the following format:
+
+```
+{{ interview_guide_component_schema | json }}
+```

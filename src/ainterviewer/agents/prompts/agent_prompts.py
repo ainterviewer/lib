@@ -7,9 +7,10 @@ They are not supposed to be imported directly,
 
 import json
 from abc import ABC, abstractmethod
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from jinja2 import BaseLoader, Environment, PackageLoader, StrictUndefined, Template
+from pydantic import BaseModel
 
 from ainterviewer.agents.config import ProbingPromptSlots
 from ainterviewer.agents.types import DiceStrategy
@@ -300,6 +301,25 @@ class GuideAgentPrompts(BasePrompts):
             current_section=None,
             translation=self.translation,
             interview_guide_component_schema=QuestionSectionTemplate.model_json_schema(),
+        )
+
+    def generate_from_instructions_prompt(
+        self,
+        component: Literal["interview guide", "question section", "main question"],
+        instructions: str,
+        schema: type[BaseModel],
+        interview_guide: InterviewGuide | None = None,
+        section: QuestionSection[Question] | None = None,
+    ) -> str:
+        """The prompt for a guide part written to a researcher's instructions,
+        before any interview: the dashboard's generators and its assistant."""
+        return self.get_template("guide_agent/generate_prompt.jinja").render(
+            interview_guide_component=component,
+            instructions=instructions,
+            interview_guide=interview_guide.prompt_json() if interview_guide else None,
+            current_section=section.prompt_json() if section else None,
+            translation=self.translation,
+            interview_guide_component_schema=schema.model_json_schema(),
         )
 
 

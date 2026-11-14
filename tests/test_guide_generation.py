@@ -92,6 +92,79 @@ def prompts(messages) -> tuple[str, str]:
     return system["content"], user["content"]
 
 
+def guide_agent_system_prompt() -> str:
+    return GuideAgent(model="openai:test", language="EN").prompts.system_prompt
+
+
+def test_the_guide_reaches_the_prompt_as_its_text(sent):
+    asyncio.run(
+        generate.generate_question("Ask about the commute", "openai:test", GUIDE)
+    )
+    _, user = prompts(sent[0])
+
+    assert GUIDE.prompt_json() in user
+    assert "What brought you here?" in user
+    # No ids, settings or Python repr: only what a writer of questions needs.
+    assert str(SECTION.id) not in user
+    assert "max_probes_n" not in user.split("# Response Schema")[0]
+    assert "QuestionSection[" not in user
+
+
+def test_generators_share_the_guide_agents_system_prompt(sent):
+    asyncio.run(generate.generate_section("Travel", "openai:test", GUIDE))
+    asyncio.run(generate.generate_interview_guide("Commuting", "openai:test"))
+
+    assert {prompts(call)[0] for call in sent} == {guide_agent_system_prompt()}
+
+
+@pytest.mark.parametrize(
+    ("generator", "kind", "sections"),
+    [
+        (
+            lambda: generate.generate_interview_guide("Commuting", "openai:test"),
+            "interview guide",
+            "2-3 sections",
+        ),
+        (
+            lambda: generate.generate_section("Travel", "openai:test", GUIDE),
+            "question section",
+            "1-3 questions",
+        ),
+    ],
+    ids=["guide", "section"],
+)
+def test_each_part_asks_for_its_own_kind(sent, generator, kind, sections):
+    result = asyncio.run(generator())
+    _, user = prompts(sent[0])
+
+    assert user.startswith(f"Please generate a new {kind}")
+    assert sections in user
+    assert result.model_dump()  # the answer validated into the part
+
+
+def test_a_question_for_a_section_is_shown_that_section(sent):
+    asyncio.run(
+        generate.generate_question("Ask more", "openai:test", GUIDE, section=SECTION)
+    )
+    asyncio.run(generate.generate_question("Ask more", "openai:test", GUIDE))
+    (_, with_section), (_, without) = (prompts(call) for call in sent)
+
+    assert "# Current Section" in with_section
+    assert SECTION.prompt_json() in with_section
+    assert "# Current Section" not in without
+
+
+def test_generators_write_in_the_language_asked_for(sent):
+    asyncio.run(generate.generate_section("Travel", "openai:test", GUIDE))
+    asyncio.run(
+        generate.generate_section("Travel", "openai:test", GUIDE, language="DA")
+    )
+    (_, english), (_, danish) = (prompts(call) for call in sent)
+
+    assert "Write all of its text in" not in english
+    assert "Write all of its text in Danish." in danish
+
+
 def test_guide_agent_shows_the_guide_and_section_as_their_text(sent):
     agent = GuideAgent(model="openai:test", language="EN")
 
