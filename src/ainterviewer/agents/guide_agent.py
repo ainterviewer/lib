@@ -49,7 +49,7 @@ class GuideAgent(BaseAgent[GuideAgentPrompts]):
             question.max_probes_n = max_probes_n
 
         if max_probes_time is not None:
-            question.max_probes_n = max_probes_time
+            question.max_probes_time = max_probes_time
 
         return question
 
