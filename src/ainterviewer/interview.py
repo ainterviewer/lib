@@ -1562,6 +1562,10 @@ class AInterviewer:
             suggested_probes=suggested_probes,
             probe_number=self.interview_history.current_probe_index + 1,
             max_probes=question.max_probes_n,
+            previous_probes=[
+                probe.question.message
+                for probe in self.interview_history.current_question.probes
+            ],
         )
 
         return probe

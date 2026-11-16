@@ -20,6 +20,17 @@ Please ask a question based on the following instructions.
 ## Suggested probes:
 {{ suggested_probes }}
 {% endif %}
+{#- NOTE: these probes are also in interview_transcript; they're repeated here
+    because the flat Q/A transcript does not mark which questions are follow-ups
+    to the current main question. Preferred long-term fix: label probes in the
+    transcript itself (e.g. an opt-in flag on transcribe(), like
+    with_survey_labels) and drop this section. #}
+{%- if previous_probes %}
+## Follow-ups already asked for this main question:
+{% for probe in previous_probes -%}
+- {{ probe }}
+{% endfor %}
+{%- endif %}
 {%- if max_probes %}
 ## Probing budget
 This is follow-up {{ probe_number }} of {{ max_probes }} for this main question{% if probe_number < max_probes %} ({{ max_probes - probe_number }} remaining after this one){% endif %}.
@@ -28,6 +39,9 @@ This is follow-up {{ probe_number }} of {{ max_probes }} for this main question{
 - Ask a new, relevant follow-up question based on the transcript{% if suggested_probes %} and suggested probes{% endif %}
 {%- if suggested_probes %}
 - If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+{%- if previous_probes %}
+- Your question must target something that none of the follow-ups already asked for this main question covered; a reworded version of one of them counts as a repeat{% endif %}
+- If the respondent's last answer was brief, vague or evasive, approach the topic from a different angle (e.g. a concrete example, a specific moment, a consequence) rather than restating the question
 {%- if max_probes and probe_number >= max_probes %}
 - This is the last follow-up for this main question: ask about the most important thing still unexplored or unclear{% endif %}
 {% for instruction in instructions -%}

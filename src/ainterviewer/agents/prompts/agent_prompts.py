@@ -150,10 +150,13 @@ class ProbingAgentPrompts(BasePrompts):
         few_shot_examples: list[str] | None = None,
         probe_number: int | None = None,
         max_probes: int | None = None,
+        previous_probes: list[str] | None = None,
     ) -> str:
         """Render the general probing prompt. `probe_number` is the 1-based
         index of the probe being generated and `max_probes` the question's
-        limit; the budget is only shown when both are given."""
+        limit; the budget is only shown when both are given.
+        `previous_probes` are the follow-ups already asked for the current
+        main question, listed so the agent does not ask them again."""
         return self.get_template("probing_agent/instruction_prompt.jinja").render(
             interview_framing=interview_framing,
             section_description=section_description,
@@ -166,6 +169,7 @@ class ProbingAgentPrompts(BasePrompts):
             instructions=self.prompt_slots.instructions,
             probe_number=probe_number,
             max_probes=max_probes if probe_number else None,
+            previous_probes=previous_probes,
         )
 
     STRATEGY_TEMPLATE_MAP: ClassVar[dict[DiceStrategy, str]] = {
