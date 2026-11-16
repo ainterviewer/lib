@@ -1560,6 +1560,8 @@ class AInterviewer:
             main_question=question.main_question,
             transcript=transcript,
             suggested_probes=suggested_probes,
+            probe_number=self.interview_history.current_probe_index + 1,
+            max_probes=question.max_probes_n,
         )
 
         return probe

@@ -19,11 +19,17 @@ Please ask a question based on the following instructions.
 {% if suggested_probes %}
 ## Suggested probes:
 {{ suggested_probes }}
-
-{% endif -%}
+{% endif %}
+{%- if max_probes %}
+## Probing budget
+This is follow-up {{ probe_number }} of {{ max_probes }} for this main question{% if probe_number < max_probes %} ({{ max_probes - probe_number }} remaining after this one){% endif %}.
+{% endif %}
 # Probing instructions
 - Ask a new, relevant follow-up question based on the transcript{% if suggested_probes %} and suggested probes{% endif %}
-{% if suggested_probes %}- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+{%- if suggested_probes %}
+- If using a suggested probe from the above suggestions, paraphrase it to fit naturally within the chat interview{% endif %}
+{%- if max_probes and probe_number >= max_probes %}
+- This is the last follow-up for this main question: ask about the most important thing still unexplored or unclear{% endif %}
 {% for instruction in instructions -%}
 - {{ instruction }}
 {% endfor -%}

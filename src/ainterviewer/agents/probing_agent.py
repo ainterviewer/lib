@@ -96,6 +96,8 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         main_question: str,
         transcript: str,
         suggested_probes: str | None,
+        probe_number: int | None = None,
+        max_probes: int | None = None,
     ) -> str:
         probing_prompt = self.prompts.generate_probing_prompt(
             interview_framing=self.interview_framing,
@@ -105,6 +107,8 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             interview_transcript=transcript,
             suggested_probes=suggested_probes,
             few_shot_examples=self.few_shot_examples,
+            probe_number=probe_number,
+            max_probes=max_probes,
         )
 
         messages = self.messages + [
