@@ -188,6 +188,44 @@ class LikertGridItem(SurveyItemBase):
     options: list[str]
     rows: list[GridRow]
 
+    shuffle_rows: bool = Field(
+        False,
+        description="Show the rows in a random order, drawn once per interview.",
+    )
+    row_order: list[int] | None = Field(
+        None,
+        description="The order the rows are shown in, as positions in `rows`. "
+        "Set per interview when `shuffle_rows` is on; unset, they are shown "
+        "as authored.",
+    )
+
+    @model_validator(mode="after")
+    def _check_row_order(self):
+        if self.row_order is not None and sorted(self.row_order) != list(
+            range(len(self.rows))
+        ):
+            raise ValueError("row_order must hold each position in rows exactly once")
+        return self
+
+    def draw_row_order(self) -> None:
+        """Draw this interview's row order, or clear it when shuffling is off.
+
+        Like `ShuffleableOptions.option_order`, the order is kept beside
+        `rows` rather than applied to it: the answer, its description and
+        analysis all read the rows in authored order."""
+        self.row_order = (
+            random.sample(range(len(self.rows)), len(self.rows))
+            if self.shuffle_rows
+            else None
+        )
+
+    @property
+    def shown_rows(self) -> list[GridRow]:
+        """The rows in the order the respondent sees them."""
+        if self.row_order is None:
+            return list(self.rows)
+        return [self.rows[n] for n in self.row_order]
+
     @validate_strict
     def validate_answer(self, answer: dict[str, str]):
         rows = {str(row.id): row for row in self.rows}

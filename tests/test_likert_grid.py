@@ -219,3 +219,54 @@ def test_duplicate_row_ids_are_refused():
     rows[1]["id"] = rows[0]["id"]
     with pytest.raises(ValueError, match="Duplicate"):
         LocalizedInterviewGuide.model_validate(data)
+
+
+# ── Row order ────────────────────────────────────────────────────────────────
+
+
+def _grid_of(guide: InterviewGuide) -> LikertGridItem:
+    grid = guide.question_sections[0].questions[0].survey_item
+    assert isinstance(grid, LikertGridItem)
+    return grid
+
+
+def test_shuffled_rows_get_an_order_and_keep_their_authored_list():
+    guide = _guide(_item().model_copy(update={"shuffle_rows": True}))
+    seen = set()
+    for _ in range(100):
+        guide.shuffle()
+        grid = _grid_of(guide)
+        assert grid.row_order is not None
+        # The answer and analysis read the rows in authored order.
+        assert [row.id for row in grid.rows] == [row.id for row in ROWS]
+        assert sorted(grid.row_order) == [0, 1, 2]
+        assert grid.shown_rows == [grid.rows[n] for n in grid.row_order]
+        seen.add(tuple(grid.row_order))
+    assert len(seen) > 1
+
+
+def test_rows_not_asked_to_shuffle_keep_no_order():
+    guide = _guide(_item().model_copy(update={"row_order": [2, 0, 1]}))
+    guide.shuffle()
+    grid = _grid_of(guide)
+    assert grid.row_order is None
+    assert grid.shown_rows == grid.rows
+
+
+@pytest.mark.parametrize("order", [[0, 1], [0, 1, 1], [0, 1, 3]])
+def test_a_row_order_must_place_each_row_once(order):
+    with pytest.raises(ValueError, match="row_order"):
+        LikertGridItem(options=SCALE, rows=ROWS, row_order=order)
+
+
+def test_shuffle_rows_survives_localizing_and_the_drawn_order_does_not():
+    english = _guide(_item().model_copy(update={"shuffle_rows": True}))
+    english.shuffle()
+    assert _grid_of(english).row_order is not None
+    guide = LocalizedInterviewGuide.from_rendered({"EN": english}, structure="EN")
+    grid = guide.question_sections[0].questions[0].survey_item
+    assert isinstance(grid, LocalizedLikertGridItem)
+    assert grid.shuffle_rows
+    rendered = _grid_of(guide.render("EN"))
+    assert rendered.shuffle_rows
+    assert rendered.row_order is None

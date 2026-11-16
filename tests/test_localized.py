@@ -45,6 +45,7 @@ from ainterviewer.interview_guides.media import Image
 from ainterviewer.interview_guides.references import Reference
 from ainterviewer.interview_guides.survey_items import (
     CheckboxItem,
+    LikertGridItem,
     LikertItem,
     SliderItem,
 )
@@ -115,6 +116,7 @@ class TestFieldsMirrorTheRenderedModels:
             (LocalizedRadioItem, RadioItem, {"option_order"}),
             (loc.LocalizedCheckboxItem, CheckboxItem, {"option_order"}),
             (loc.LocalizedLikertItem, LikertItem, set()),
+            (loc.LocalizedLikertGridItem, LikertGridItem, {"row_order"}),
             (loc.LocalizedSliderItem, SliderItem, set()),
             (LocalizedCondition, Condition, set()),
             (loc.LocalizedConsent, Consent, set()),

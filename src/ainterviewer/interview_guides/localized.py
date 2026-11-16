@@ -193,6 +193,10 @@ class LocalizedLikertGridItem(SurveyItemBase):
     type: Literal["likert_grid"] = "likert_grid"
     options: list[LocalizedOption]
     rows: list[LocalizedGridRow]
+    shuffle_rows: bool = Field(
+        False,
+        description="Show the rows in a random order, drawn once per interview.",
+    )
 
 
 def _merge_grid(
@@ -210,7 +214,8 @@ def _merge_grid(
         f"{where}.survey_item.rows",
     )
     return LocalizedLikertGridItem(
-        **base.model_dump(exclude={"type", "options", "rows"}),
+        # The order drawn for one interview is not part of the guide.
+        **base.model_dump(exclude={"type", "options", "rows", "row_order"}),
         options=_merge_options(items, merge, where),
         rows=[
             LocalizedGridRow(id=row.id, text=text, required=row.required)
