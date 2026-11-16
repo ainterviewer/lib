@@ -310,6 +310,168 @@ class LikertGridItem(SurveyItemBase):
         )
 
 
+def _json_list(answer: str) -> list | None:
+    """The JSON array `answer` holds, or None when it holds none."""
+    try:
+        data = json.loads(answer)
+    except ValueError:
+        return None
+    return data if isinstance(data, list) else None
+
+
+class ListItem(SurveyItemBase):
+    """Several answers of the respondent's own, given together as one answer:
+    "name the apps you use daily".
+
+    `min_entries` and `max_entries` bound how many; set them equal for a fixed
+    number of entries. The answer is a JSON array of the entries, in the order
+    given, blanks left out (`encode_answer`), read back with `parse_answer` --
+    or as text a person or model can read with `describe_answer`.
+    """
+
+    type: Literal["list"] = "list"
+
+    min_entries: int | None = Field(
+        None,
+        ge=1,
+        description="The fewest entries the answer may hold; unset, one when "
+        "the item is required.",
+    )
+    max_entries: int | None = Field(
+        None,
+        ge=1,
+        description="The most entries the answer may hold; unset, no limit. "
+        "Equal to `min_entries`, the respondent fills a fixed number.",
+    )
+
+    @model_validator(mode="after")
+    def _check_bounds(self):
+        if (
+            self.min_entries is not None
+            and self.max_entries is not None
+            and self.min_entries > self.max_entries
+        ):
+            raise ValueError("min_entries must not exceed max_entries")
+        return self
+
+    @property
+    def fewest(self) -> int:
+        """The fewest entries a submitted answer holds."""
+        return self.min_entries or (1 if self.required else 0)
+
+    @validate_strict
+    def validate_answer(self, answer: list[str]):
+        entries = [entry for entry in answer if entry.strip()]
+        return len(entries) == len(answer) and _within(
+            len(entries), self.fewest, self.max_entries
+        )
+
+    def encode_answer(self, entries: Sequence[str]) -> str:
+        """The answer for `entries`, trimmed, blanks left out."""
+        return json.dumps(
+            [entry.strip() for entry in entries if entry.strip()],
+            ensure_ascii=False,
+        )
+
+    def parse_answer(self, answer: str) -> list[str]:
+        """The entries of a stored answer. Anything that is not such an
+        answer reads as no entries."""
+        data = _json_list(answer) or []
+        return [entry for entry in data if isinstance(entry, str)]
+
+    def describe_answer(self, answer: str) -> str:
+        """The answer as one "- entry" line per entry, for transcripts and
+        models. Text that is not a list answer (a control token) is returned
+        as is."""
+        entries = self.parse_answer(answer)
+        if not entries:
+            return answer
+        return "\n".join(f"- {entry}" for entry in entries)
+
+    def generated_answer(self, answer: Any) -> str:
+        if isinstance(answer, list):
+            return self.encode_answer(answer)
+        return super().generated_answer(answer)
+
+
+class RankingItem(ShuffleableOptions):
+    """The options put in order of preference, answered as one answer.
+
+    With `top_n` set, only that many are ranked: the answer is the respondent's
+    first `top_n` choices, and the rest are left unranked. The answer is a JSON
+    array of the ranked options' texts, first choice first (`encode_answer`),
+    read back with `parse_answer`, as positions in `options` with
+    `ranked_positions` (which is how one choice counts as one across
+    languages), or as text with `describe_answer`.
+    """
+
+    type: Literal["ranking"] = "ranking"
+
+    top_n: int | None = Field(
+        None,
+        ge=1,
+        description="Rank only the first this many options; unset, rank all.",
+    )
+
+    @property
+    def ranked_count(self) -> int:
+        """How many options an answer ranks. A `top_n` beyond the options
+        ranks them all."""
+        if self.top_n is None:
+            return len(self.options)
+        return min(self.top_n, len(self.options))
+
+    @validate_strict
+    def validate_answer(self, answer: list[str]):
+        return (
+            len(answer) == self.ranked_count
+            and len(set(answer)) == len(answer)
+            and all(option in self.options for option in answer)
+        )
+
+    def encode_answer(self, ranked: Sequence[str]) -> str:
+        """The answer for `ranked`, first choice first."""
+        return json.dumps(list(ranked), ensure_ascii=False)
+
+    def parse_answer(self, answer: str) -> list[str]:
+        """The ranked options of a stored answer, first choice first, leaving
+        out any that is not (or no longer) an option. Anything that is not
+        such an answer reads as no ranking."""
+        data = _json_list(answer) or []
+        seen: set[str] = set()
+        ranked = []
+        for option in data:
+            if (
+                isinstance(option, str)
+                and option in self.options
+                and option not in seen
+            ):
+                seen.add(option)
+                ranked.append(option)
+        return ranked
+
+    def ranked_positions(self, answer: str) -> list[int]:
+        """The ranked options of a stored answer as positions in `options`,
+        first choice first."""
+        position = {option: n for n, option in enumerate(self.options)}
+        return [position[option] for option in self.parse_answer(answer)]
+
+    def describe_answer(self, answer: str) -> str:
+        """The answer as "1. option" lines, for transcripts and models. Text
+        that is not a ranking answer (a control token) is returned as is."""
+        ranked = self.parse_answer(answer)
+        if not ranked:
+            return answer
+        return "\n".join(f"{n}. {option}" for n, option in enumerate(ranked, 1))
+
+    def generated_answer(self, answer: Any) -> str:
+        """A generated ranking, a repeated option kept only where it first
+        appears."""
+        if isinstance(answer, list):
+            return self.encode_answer(list(dict.fromkeys(answer))[: self.ranked_count])
+        return super().generated_answer(answer)
+
+
 def _within[T: (int, float, date, datetime, time)](
     value: T, low: T | None, high: T | None
 ) -> bool:
@@ -410,6 +572,8 @@ SurveyItem = Annotated[
     | CheckboxItem
     | LikertItem
     | LikertGridItem
+    | ListItem
+    | RankingItem
     | SliderItem
     | NumberItem
     | DateItem
@@ -455,6 +619,20 @@ def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
                 for n, row in enumerate(survey_item.rows)
             }
             field_type = create_model("GridAnswer", **rows)
+
+        case ListItem():
+            field_type = list[str]
+            kwargs["min_length"] = survey_item.fewest
+            if survey_item.max_entries is not None:
+                kwargs["max_length"] = survey_item.max_entries
+
+        case RankingItem():
+            field_type = list[Literal[tuple(survey_item.options)]]  # ty:ignore[invalid-type-form]
+            kwargs["min_length"] = kwargs["max_length"] = survey_item.ranked_count
+            kwargs["description"] = (
+                "The options in order of preference, first choice first, "
+                "each at most once."
+            )
 
         case SliderItem() | NumberItem():
             field_type = int | float

@@ -1470,13 +1470,17 @@ class AInterviewer:
             if probe.answer and probe.answer.message not in CustomToken
         ]
 
+        # A structured answer (a list, a ranking) is read as its description:
+        # what a classifier can make sense of.
+        main_text = question_context.main_question.answer_text or main_answer.message
+
         match condition.question_context.part:
             case "main":
-                return main_answer.message
+                return main_text
             case "probes":
                 return "\n".join(probe_answers)
             case "both":
-                return "\n".join([main_answer.message, *probe_answers])
+                return "\n".join([main_text, *probe_answers])
             case _:
                 raise ValueError("Invalid part")
 

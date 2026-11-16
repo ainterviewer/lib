@@ -52,8 +52,10 @@ from ainterviewer.interview_guides.survey_items import (
     GridRow,
     LikertGridItem,
     LikertItem,
+    ListItem,
     NumberItem,
     RadioItem,
+    RankingItem,
     SliderItem,
     SurveyItem,
     SurveyItemBase,
@@ -181,6 +183,20 @@ class LocalizedLikertItem(SurveyItemBase):
     ui: Literal["radio", "slider"] = "radio"
 
 
+class LocalizedRankingItem(SurveyItemBase):
+    type: Literal["ranking"] = "ranking"
+    options: list[LocalizedOption]
+    top_n: int | None = Field(
+        None,
+        ge=1,
+        description="Rank only the first this many options; unset, rank all.",
+    )
+    shuffle_options: bool = Field(
+        False,
+        description="Show the options in a random order, drawn once per interview.",
+    )
+
+
 class LocalizedGridRow(BaseModel):
     """One statement of a Likert grid. See `GridRow`."""
 
@@ -238,6 +254,8 @@ LocalizedSurveyItem = Annotated[
     | LocalizedCheckboxItem
     | LocalizedLikertItem
     | LocalizedLikertGridItem
+    | LocalizedRankingItem
+    | ListItem
     | LocalizedSliderItem
     | NumberItem
     | DateItem
@@ -250,15 +268,20 @@ type _LocalizedChoice = LocalizedRadioItem | LocalizedCheckboxItem | LocalizedLi
 # The items a condition can match an option of. A grid has options too, but
 # its answer is a rating per row, which conditions cannot read (yet).
 _LOCALIZED_CHOICES = (LocalizedRadioItem, LocalizedCheckboxItem, LocalizedLikertItem)
-type _Choice = RadioItem | CheckboxItem | LikertItem
 
-_CHOICE_ITEMS: dict[type[_LocalizedChoice], type[_Choice]] = {
+# The items whose options are a flat list of texts, rendered and merged alike.
+# A ranking is one, though conditions cannot read its order (yet).
+type _LocalizedOptionItem = _LocalizedChoice | LocalizedRankingItem
+type _OptionItem = RadioItem | CheckboxItem | LikertItem | RankingItem
+
+_OPTION_ITEMS: dict[type[_LocalizedOptionItem], type[_OptionItem]] = {
     LocalizedRadioItem: RadioItem,
     LocalizedCheckboxItem: CheckboxItem,
     LocalizedLikertItem: LikertItem,
+    LocalizedRankingItem: RankingItem,
 }
-_LOCALIZED_CHOICE_ITEMS: dict[type[_Choice], type[_LocalizedChoice]] = {
-    rendered: local for local, rendered in _CHOICE_ITEMS.items()
+_LOCALIZED_OPTION_ITEMS: dict[type[_OptionItem], type[_LocalizedOptionItem]] = {
+    rendered: local for local, rendered in _OPTION_ITEMS.items()
 }
 
 
@@ -266,8 +289,13 @@ def _render_survey_item(
     item: LocalizedSurveyItem, languages: Sequence[str]
 ) -> SurveyItem:
     match item:
-        case LocalizedRadioItem() | LocalizedCheckboxItem() | LocalizedLikertItem():
-            return _CHOICE_ITEMS[type(item)].model_validate(
+        case (
+            LocalizedRadioItem()
+            | LocalizedCheckboxItem()
+            | LocalizedLikertItem()
+            | LocalizedRankingItem()
+        ):
+            return _OPTION_ITEMS[type(item)].model_validate(
                 {
                     **item.model_dump(exclude={"options"}),
                     "options": [
@@ -323,8 +351,8 @@ def _merge_survey_item(
         )
 
     match base:
-        case RadioItem() | CheckboxItem() | LikertItem():
-            return _LOCALIZED_CHOICE_ITEMS[type(base)].model_validate(
+        case RadioItem() | CheckboxItem() | LikertItem() | RankingItem():
+            return _LOCALIZED_OPTION_ITEMS[type(base)].model_validate(
                 {
                     # The order drawn for one interview is not part of the
                     # guide.
@@ -650,7 +678,12 @@ class LocalizedQuestion(BaseModel):
         for n, wording in enumerate(self.alternative_main_questions or []):
             yield f"{where}.alternative_main_questions[{n}]", wording
         match self.survey_item:
-            case LocalizedRadioItem() | LocalizedCheckboxItem() | LocalizedLikertItem():
+            case (
+                LocalizedRadioItem()
+                | LocalizedCheckboxItem()
+                | LocalizedLikertItem()
+                | LocalizedRankingItem()
+            ):
                 for n, option in enumerate(self.survey_item.options):
                     yield f"{where}.survey_item.options[{n}]", option.text
             case LocalizedLikertGridItem():
@@ -853,7 +886,7 @@ class LocalizedInterviewGuide(BaseModel):
     @model_validator(mode="after")
     def _validate_renders(self):
         grids = {
-            question.id: question.survey_item
+            question.id
             for section in self.question_sections
             for question in section.questions
             if isinstance(question.survey_item, LocalizedLikertGridItem)
@@ -862,11 +895,14 @@ class LocalizedInterviewGuide(BaseModel):
             option.id
             for options in self._options_by_question().values()
             for option in options
-        ] + [
-            option.id
-            for grid in grids.values()
-            for option in [*grid.options, *grid.rows]
         ]
+        for section in self.question_sections:
+            for question in section.questions:
+                match question.survey_item:
+                    case LocalizedLikertGridItem() as grid:
+                        option_ids += [o.id for o in [*grid.options, *grid.rows]]
+                    case LocalizedRankingItem() as ranking:
+                        option_ids += [option.id for option in ranking.options]
         if duplicates := sorted(
             {str(i) for i in option_ids if option_ids.count(i) > 1}
         ):
