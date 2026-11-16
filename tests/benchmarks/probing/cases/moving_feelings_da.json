@@ -1,0 +1,36 @@
+{
+  "description": "An emotional topic where the respondent has already described their feelings; the obvious next probe asks about feelings again.",
+  "language": "DA",
+  "framing": "Interviewet handler om store overgange i livet, såsom at flytte, skifte job eller få børn. Vi er interesserede i, hvordan respondenten har oplevet overgangen, både praktisk og følelsesmæssigt.",
+  "section_description": "Flytning",
+  "question_description": "Konkret oplevelse af den seneste flytning",
+  "suggested_probes": [
+    "Hvordan havde du det med at flytte?",
+    "Hvad var det sværeste ved flytningen?",
+    "Hvordan har du fundet dig til rette det nye sted?"
+  ],
+  "covered_suggestions": [
+    "Hvordan havde du det med at flytte?",
+    "Hvad var det sværeste ved flytningen?"
+  ],
+  "max_probes": 2,
+  "turns": [
+    {
+      "question": "Fortæl om sidste gang du flyttede. Hvad var anledningen, og hvordan forløb det?",
+      "answer": "Jeg flyttede fra Aarhus til København for to år siden, fordi jeg fik et nyt job. Selve flytningen var kaotisk, vi havde lejet en bil, der var alt for lille, så vi måtte køre tre gange."
+    },
+    {
+      "question": "Hvordan havde du det med at skulle forlade Aarhus?",
+      "answer": "Det var ret blandede følelser. Jeg var spændt på det nye job, men det var hårdt at sige farvel til mine venner, og jeg følte mig ret ensom de første måneder i København."
+    }
+  ],
+  "already_given": "Why and where they moved (Aarhus to Copenhagen two years ago, for a new job); how the move went practically (chaotic, a rental car that was too small, three trips); how they felt (mixed: excited about the job, hard to say goodbye to friends, lonely in the first months).",
+  "calibration": {
+    "Hvilke følelser havde du i forbindelse med flytningen?": "REPEAT",
+    "Hvordan oplevede du det følelsesmæssigt at flytte fra Aarhus?": "REPEAT",
+    "Kan du fortælle om en situation, hvor du følte dig særligt ensom i de første måneder?": "ELABORATION",
+    "Hvad var det ved det nye job, som gjorde dig spændt?": "ELABORATION",
+    "Hvordan fandt du din nuværende bolig i København?": "NEW",
+    "Hvordan har dit nye job levet op til dine forventninger?": "NEW"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "description": "The respondent has already given their reasons for choosing the bike and shop; the obvious next probe asks for those reasons again.",
+  "language": "DA",
+  "framing": "Interviewet handler om respondentens forbrugsvalg i hverdagen, med fokus på hvordan de anskaffer større ting som cykler og elektronik. Vi er interesserede i, hvad respondenten konkret gjorde, hvilke hensyn de selv fremhæver, og hvordan de begrunder deres valg.",
+  "section_description": "Køb af cykel",
+  "question_description": "Konkret episode",
+  "suggested_probes": [
+    "Hvorfor endte du med netop den løsning?",
+    "Overvejede du at reparere den gamle eller købe brugt?",
+    "Hvilke andre muligheder overvejede du, hvis nogen?",
+    "Var det en planlagt beslutning, eller skete det mere pludseligt?"
+  ],
+  "covered_suggestions": [
+    "Hvorfor endte du med netop den løsning?",
+    "Overvejede du at reparere den gamle eller købe brugt?",
+    "Hvilke andre muligheder overvejede du, hvis nogen?",
+    "Var det en planlagt beslutning, eller skete det mere pludseligt?"
+  ],
+  "max_probes": 2,
+  "turns": [
+    {
+      "question": "Tænk tilbage på sidste gang du fik en ny cykel. Hvorfor skulle du have en ny, og hvor fik du den fra?",
+      "answer": "Min gamle blev stjålet ved banegården. Jeg købte en brugt cykel hos en lille cykelhandler i nærheden."
+    },
+    {
+      "question": "Hvordan endte du med netop den cykel hos cykelhandleren, og kiggede du på andre cykler eller butikker først?",
+      "answer": "Den var billig, og det var samme mærke som min gamle, som jeg var glad for. Jeg kiggede ikke andre steder, fordi jeg har handlet der før og stoler på dem."
+    }
+  ],
+  "already_given": "Why they needed a new bike (the old one was stolen), where they got it (used, from a small local bike shop), and why they chose that bike and shop: it was cheap, the same brand as the old one they liked, and they trust the shop from earlier purchases, so they did not look elsewhere.",
+  "calibration": {
+    "Hvilke kriterier lagde du vægt på, da du valgte netop den cykel?": "REPEAT",
+    "Hvad var de vigtigste faktorer for dig, da du købte cyklen?": "REPEAT",
+    "Hvad var det ved din gamle cykel af det mærke, som du var så glad for?": "ELABORATION",
+    "Hvad har du oplevet hos den cykelhandler, som gør, at du stoler på dem?": "ELABORATION",
+    "Hvordan tjekkede du cyklens stand, før du købte den?": "NEW",
+    "Har du gjort noget for at undgå, at den nye cykel også bliver stjålet?": "NEW"
+  }
+}

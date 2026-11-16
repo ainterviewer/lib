@@ -1,0 +1,43 @@
+{
+  "description": "Last of three probes after rich answers that already cover the suggested probes (how they learned, what was hard, how they feel now).",
+  "language": "EN",
+  "framing": "This interview explores how people adapt to changes in their working life, in particular new technology. We want to understand what people actually did, what helped or hindered them, and how they experienced it.",
+  "section_description": "Learning new tools at work",
+  "question_description": "A concrete episode of learning a new digital tool at work",
+  "suggested_probes": [
+    "How did you go about learning it?",
+    "Who, if anyone, helped you?",
+    "What was difficult about it?",
+    "How do you feel about the tool now?"
+  ],
+  "covered_suggestions": [
+    "How did you go about learning it?",
+    "Who, if anyone, helped you?",
+    "What was difficult about it?",
+    "How do you feel about the tool now?"
+  ],
+  "max_probes": 3,
+  "turns": [
+    {
+      "question": "Think about the last time you had to start using a new digital tool or system at work. Can you tell me about that?",
+      "answer": "Last spring our team switched from spreadsheets to a project management system. Management decided it pretty much overnight, so we had two weeks to move all our projects over. I mostly learned it by clicking around and watching a few of the vendor's tutorial videos in the evenings."
+    },
+    {
+      "question": "What was the most challenging part of getting used to the new system?",
+      "answer": "Honestly, the hardest part was that nobody agreed on how to use it. Everyone set up their boards differently, so for the first month I couldn't find anything. It was frustrating and I felt less productive than before."
+    },
+    {
+      "question": "How did things change after that first month?",
+      "answer": "A colleague took the initiative and made a shared template for everyone. After that it got much easier. Now I actually prefer it to the spreadsheets, mostly because I can see what everyone else is working on."
+    }
+  ],
+  "already_given": "What the tool was and how it was introduced (management switched overnight, two weeks to migrate); how they learned it (on their own, vendor videos in the evenings); what was hard (no shared conventions, could not find anything, frustrated, less productive); what changed (a colleague made a shared template); how they feel now (prefers it, because they can see others' work).",
+  "calibration": {
+    "What was the most difficult thing about learning the new system?": "REPEAT",
+    "How do you feel about the system today compared to the spreadsheets?": "REPEAT",
+    "Can you give an example of a time in that first month when you couldn't find something you needed?": "ELABORATION",
+    "What made the shared template your colleague created work so well?": "ELABORATION",
+    "Did you have any say in which system was chosen?": "NEW",
+    "How did the switch affect your work with people outside your team?": "NEW"
+  }
+}

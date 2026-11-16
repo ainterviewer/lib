@@ -1,0 +1,35 @@
+{
+  "description": "Terse answers: the temptation is to restate the main question instead of finding a new angle.",
+  "language": "EN",
+  "framing": "This interview is about everyday food habits: what people eat, how they plan meals and what shapes their choices.",
+  "section_description": "Everyday meals",
+  "question_description": "How weekday dinners are decided",
+  "suggested_probes": [
+    "Can you walk me through what happened yesterday evening?",
+    "Who else, if anyone, is involved in deciding?",
+    "What makes it easy or hard to decide?"
+  ],
+  "covered_suggestions": [
+    "Can you walk me through what happened yesterday evening?"
+  ],
+  "max_probes": 2,
+  "turns": [
+    {
+      "question": "How do you usually decide what to have for dinner on a weekday?",
+      "answer": "Depends what's in the fridge really."
+    },
+    {
+      "question": "Could you walk me through what you had for dinner yesterday and how that came about?",
+      "answer": "Pasta. It was quick and we had it."
+    }
+  ],
+  "already_given": "Weekday dinner is decided by what is in the fridge; yesterday they had pasta because it was quick and they had it at home.",
+  "calibration": {
+    "How do you usually decide what to make for dinner during the week?": "REPEAT",
+    "What determines what you end up eating on a normal weekday?": "REPEAT",
+    "You said it was quick: why does speed matter so much on weekday evenings?": "ELABORATION",
+    "What kind of pasta dish was it, and how did you make it?": "ELABORATION",
+    "Does anyone else in your household have a say in what you eat?": "NEW",
+    "Are there any meals you try to avoid on weekdays?": "NEW"
+  }
+}
