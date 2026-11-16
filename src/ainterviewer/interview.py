@@ -1520,8 +1520,9 @@ class AInterviewer:
         transcript: str,
     ):
 
-        if (suggested_probes := question.probes) is not None:
-            suggested_probes = "\n".join("- " + probe for probe in suggested_probes)
+        suggested_probes = None
+        if open_probes := await self.unanswered_suggestions(question, transcript):
+            suggested_probes = "\n".join("- " + probe for probe in open_probes)
 
         if ProbingStrategy.DICE_MASTER_TO_ONE_PROBE in self.config.probing_strategy:
             await self.probing_agent.generate_master_to_one_probe(
@@ -1620,6 +1621,43 @@ class AInterviewer:
         )
 
         return response
+
+    async def unanswered_suggestions(
+        self, question: Question, transcript: str
+    ) -> list[str]:
+        """The question's suggested probes, minus those the respondent has
+        already answered: shown to the probing agent, a suggestion that was
+        answered, asked or not, tends to come back as a reworded repeat.
+
+        Falls back to all of them if the classification fails, so it can
+        never stop the interview from probing.
+        """
+        suggestions = question.probes or []
+        if not suggestions:
+            return []
+
+        start_time = time.time()
+        try:
+            answered = await self.classification_agent.answered_suggestions(
+                transcript=transcript,
+                main_question=question.main_question,
+                suggestions=suggestions,
+            )
+        except Exception:
+            logger.exception("Classifying answered suggestions failed")
+            return suggestions
+
+        self.db.insert_task(
+            message_id=self.interview_history.current_message_id + 1,
+            interview_id=self.interview_id,
+            project_id=self.project_id,
+            task="answered_suggestions",
+            content=json.dumps(suggestions),
+            response=json.dumps(answered),
+            time_spend=int(time.time() - start_time),
+        )
+
+        return [suggestion for suggestion in suggestions if suggestion not in answered]
 
     async def has_main_question_been_exhausted(
         self, question: Question, section_description: str

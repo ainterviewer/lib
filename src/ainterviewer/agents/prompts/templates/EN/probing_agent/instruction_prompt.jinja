@@ -42,8 +42,6 @@ This is follow-up {{ probe_number }} of {{ max_probes }} for this main question{
 {%- if previous_probes %}
 - Your question must target something that none of the follow-ups already asked for this main question covered; a reworded version of one of them counts as a repeat{% endif %}
 - If the respondent's last answer was brief, vague or evasive, approach the topic from a different angle (e.g. a concrete example, a specific moment, a consequence) rather than restating the question
-{%- if max_probes and probe_number >= max_probes %}
-- This is the last follow-up for this main question: ask about the most important thing still unexplored or unclear{% endif %}
 {% for instruction in instructions -%}
 - {{ instruction }}
 {% endfor -%}

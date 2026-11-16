@@ -391,6 +391,20 @@ class ClassificationAgentPrompts(BasePrompts):
             interview_history=interview_history,
         )
 
+    def generate_answered_suggestions_prompt(
+        self,
+        transcript: str,
+        main_question: str,
+        suggestions: list[str],
+    ) -> str:
+        return self.get_template(
+            "classification_agent/answered_suggestions_prompt.jinja"
+        ).render(
+            transcript=transcript,
+            main_question=main_question,
+            suggestions=suggestions,
+        )
+
 
 class VisualAgentPrompts(BasePrompts):
     def __init__(self, *args, **kwargs):

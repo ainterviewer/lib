@@ -1,0 +1,21 @@
+Below is a qualitative interview so far, as a transcript of the interviewer's questions (Q) and the respondent's answers (A). The current main question is the last main question in it, followed by the follow-up questions asked so far:
+"{{ main_question }}"
+
+After the transcript is a numbered list of suggested follow-up questions for the current main question, from the interview guide.
+
+For each suggested question, decide whether the respondent has already answered it, anywhere in the interview, whether or not it was ever asked.
+
+- Judge by what the respondent has made clear, not by whether they addressed the suggestion's exact wording. An answer that follows from what they said counts: someone who says they took the train to work has answered "Did you consider driving or taking public transport?".
+- If a suggestion, or a question close to it, has already been asked and the respondent replied, count it as answered, even if the reply was short or pointed back to something they said earlier ("as I said above").
+- If the respondent has rejected a suggestion's premise, count it as answered: someone who says the flight was long but cheap has answered "How did the high price affect your travel plans?".
+- If a suggestion asks about several things, count it as answered when the respondent's answers settle its main point and asking it would add little.
+- A suggestion the respondent only touched on in passing, and that could still produce clearly new information, is not answered.
+
+Transcript:
+{{ transcript }}
+
+Suggested follow-up questions:
+{% for suggestion in suggestions -%}
+{{ loop.index }}. {{ suggestion }}
+{% endfor %}
+Reply with JSON only, in the form {"answered": [the numbers of the answered suggestions]}.

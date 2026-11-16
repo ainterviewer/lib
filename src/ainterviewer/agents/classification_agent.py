@@ -12,6 +12,11 @@ class BinaryClassificationModel(BaseModel):
     classification: bool
 
 
+class AnsweredSuggestionsModel(BaseModel):
+    #: 1-based numbers of the suggestions the respondent has answered.
+    answered: list[int]
+
+
 def generate_classification_model(
     name: str,
     options: list[str],
@@ -76,6 +81,37 @@ class ClassificationAgent(BaseAgent[ClassificationAgentPrompts]):
         self.logger.info("classification response", context=response)
 
         return response.classification
+
+    async def answered_suggestions(
+        self,
+        transcript: str,
+        main_question: str,
+        suggestions: list[str],
+    ) -> list[str]:
+        """The suggested probes the respondent has already answered somewhere
+        in `transcript`, asked or not, in the order given."""
+        message = self.prompts.generate_answered_suggestions_prompt(
+            transcript, main_question, suggestions
+        )
+
+        self.logger.info("classifying answered suggestions", context=message)
+
+        messages: list[Message] = self.messages + [
+            {"role": MessageRole.USER, "content": message}
+        ]
+
+        response = await self.chat_api(
+            messages, response_format=AnsweredSuggestionsModel
+        )
+
+        self.logger.info("answered suggestions response", context=response)
+
+        numbers = set(response.answered)
+        return [
+            suggestion
+            for number, suggestion in enumerate(suggestions, 1)
+            if number in numbers
+        ]
 
     async def classify_multi(
         self,
