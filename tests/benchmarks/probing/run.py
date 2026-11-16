@@ -50,7 +50,10 @@ from typing import Any
 import httpx
 from jinja2 import ChoiceLoader, DictLoader, PackageLoader
 
-from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
+from ainterviewer.agents.prompts.agent_prompts import (
+    ClassificationAgentPrompts,
+    ProbingAgentPrompts,
+)
 from ainterviewer.settings import settings
 
 HERE = Path(__file__).parent
@@ -104,15 +107,6 @@ class Case:
         )
 
     @property
-    def earlier_interview(self) -> str:
-        """The interview before this question, for the classifier."""
-        earlier = "\n".join(
-            f"Interviewer: {turn['question']}\nRespondent: {turn['answer']}"
-            for turn in self.earlier or []
-        )
-        return earlier or "(nothing)"
-
-    @property
     def transcript(self) -> str:
         """Formatted like `InterviewHistory.get_transcript`."""
         parts = ["Q: " + message for message in self.preceding or []]
@@ -146,28 +140,6 @@ class Case:
             {"role": "system", "content": prompts.system_prompt},
             {"role": "user", "content": user},
         ]
-
-
-CLASSIFY_PROMPT = """Below is a qualitative interview: what was said earlier in the interview, then the current main question and the follow-up questions asked so far, with the respondent's answers. After it is a numbered list of suggested follow-up questions for the current main question, from the interview guide.
-
-For each suggested question, decide whether the respondent has already answered it, anywhere in the interview, whether or not it was ever asked.
-
-- Judge by what the respondent has made clear, not by whether they addressed the suggestion's exact wording. An answer that follows from what they said counts: someone who says they took the train to work has answered "Did you consider driving or taking public transport?".
-- If a suggestion, or a question close to it, has already been asked and the respondent replied, count it as answered, even if the reply was short or pointed back to something they said earlier ("as I said above").
-- If the respondent has rejected a suggestion's premise, count it as answered: someone who says the flight was long but cheap has answered "How did the high price affect your travel plans?".
-- If a suggestion asks about several things, count it as answered when the respondent's answers settle its main point and asking it would add little.
-- A suggestion the respondent only touched on in passing, and that could still produce clearly new information, is not answered.
-
-Earlier in the interview:
-{earlier}
-
-Current main question and follow-ups:
-{interview}
-
-Suggested follow-up questions:
-{suggestions}
-
-Reply with JSON only, in the form {{"answered": [the numbers of the answered suggestions]}}."""
 
 
 JUDGE_PROMPT = """You are evaluating the next follow-up question in a qualitative research interview.
@@ -241,19 +213,23 @@ class Runner:
         the call took."""
         if not case.suggested_probes:
             return set(), 0.0
-        content = CLASSIFY_PROMPT.format(
-            earlier=case.earlier_interview,
-            interview=case.interview,
-            suggestions="\n".join(
-                f"{i}. {probe}" for i, probe in enumerate(case.suggested_probes, 1)
-            ),
+        # The production prompt (`ClassificationAgent.answered_suggestions`),
+        # on the same transcript the probing agent gets.
+        prompts = ClassificationAgentPrompts(lang=case.language)
+        content = prompts.generate_answered_suggestions_prompt(
+            transcript=case.transcript,
+            main_question=case.main_question,
+            suggestions=case.suggested_probes,
         )
         start = time.perf_counter()
         # Temperature 0, like the interview's classification agent.
         reply, _ = await self.complete(
             client,
             self.args.model,
-            [{"role": "user", "content": content}],
+            [
+                {"role": "system", "content": prompts.system_prompt},
+                {"role": "user", "content": content},
+            ],
             0.0,
             "low",
             pin=True,
