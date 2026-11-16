@@ -25,7 +25,6 @@ from ainterviewer.interview_guides.history import (
 from ainterviewer.interview_guides.localized import LocalizedLikertGridItem
 from ainterviewer.interview_guides.survey_items import (
     create_survey_answer_model,
-    grid_answer,
 )
 
 SCALE = ["Very dissatisfied", "Dissatisfied", "Neutral", "Satisfied"]
@@ -92,7 +91,7 @@ def test_a_generated_answer_becomes_the_stored_json():
     response = model.model_validate(
         {"answer": {"row_0": "Satisfied", "row_1": "Neutral"}}
     )
-    assert item.parse_answer(grid_answer(item, response.answer)) == {
+    assert item.parse_answer(item.generated_answer(response.answer)) == {
         ROWS[0].id: "Satisfied",
         ROWS[1].id: "Neutral",
     }

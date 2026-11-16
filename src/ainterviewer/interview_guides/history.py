@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from ainterviewer.interview_guides import InterviewGuide
-from ainterviewer.interview_guides.survey_items import LikertGridItem, SurveyItem
+from ainterviewer.interview_guides.survey_items import SurveyItem
 from ainterviewer.interview_guides.types import ProbingContext
 from ainterviewer.lpm.types import CustomToken
 from ainterviewer.types import MessageType
@@ -48,11 +48,11 @@ class Turn(BaseModel):
 
     @property
     def answer_text(self) -> str | None:
-        """The answer as a reader should see it: a grid's stored JSON becomes
-        one "row: option" line per rated row."""
+        """The answer as a reader should see it: an item that stores an
+        encoding of its answer (a grid's JSON) describes it."""
         if self.answer is None:
             return None
-        if isinstance(self.survey_item, LikertGridItem):
+        if self.survey_item is not None:
             return self.survey_item.describe_answer(self.answer.message)
         return self.answer.message
 

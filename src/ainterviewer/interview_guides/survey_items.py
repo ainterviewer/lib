@@ -16,11 +16,38 @@ from pydantic import (
     validate_call,
 )
 
+#: What a checkbox selection is joined with when it is submitted as one answer.
+CHECKBOX_SEPARATOR = ", "
+
 
 class SurveyItemBase(BaseModel):
+    """What every survey item shares.
+
+    An answer is stored as one string, whatever its item. Most items store
+    the answer as the respondent gave it; an item whose answer has structure
+    (a grid, a list) stores an encoding of it, and overrides the methods here
+    so that callers never need to know which items do.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     required: bool = True
+
+    def describe_answer(self, answer: str) -> str:
+        """The stored answer as text a person or model can read.
+
+        Text that is not an answer of this item (a control token) is returned
+        as is."""
+        return answer
+
+    def generated_answer(self, answer: Any) -> str:
+        """The stored answer for the `answer` field of a
+        `create_survey_answer_model` response."""
+        return str(answer)
+
+    def draw_order(self) -> None:
+        """Draw this interview's random order for whatever the item shuffles,
+        or clear it when shuffling is off. Most items shuffle nothing."""
 
 
 validate_strict = validate_call(config=ConfigDict(strict=True))
@@ -59,7 +86,7 @@ class ShuffleableOptions(SurveyItemBase):
             )
         return self
 
-    def draw_option_order(self) -> None:
+    def draw_order(self) -> None:
         """Draw this interview's order, or clear it when shuffling is off."""
         self.option_order = (
             random.sample(range(len(self.options)), len(self.options))
@@ -103,9 +130,10 @@ class CheckboxItem(ShuffleableOptions):
 
         return all(x in self.options for x in answer)
 
-
-#: What a checkbox selection is joined with when it is submitted as one answer.
-CHECKBOX_SEPARATOR = ", "
+    def generated_answer(self, answer: Any) -> str:
+        if isinstance(answer, list):
+            return CHECKBOX_SEPARATOR.join(answer)
+        return super().generated_answer(answer)
 
 
 def _normalize_option(value: str) -> str:
@@ -207,7 +235,7 @@ class LikertGridItem(SurveyItemBase):
             raise ValueError("row_order must hold each position in rows exactly once")
         return self
 
-    def draw_row_order(self) -> None:
+    def draw_order(self) -> None:
         """Draw this interview's row order, or clear it when shuffling is off.
 
         Like `ShuffleableOptions.option_order`, the order is kept beside
@@ -269,6 +297,16 @@ class LikertGridItem(SurveyItemBase):
             return answer
         return "\n".join(
             f"{row.text}: {values[row.id]}" for row in self.rows if row.id in values
+        )
+
+    def generated_answer(self, answer: Any) -> str:
+        """The stored answer for a `create_survey_answer_model` grid answer,
+        whose fields are the rows by position."""
+        return self.encode_answer(
+            {
+                row.id: getattr(answer, f"row_{n}", None)
+                for n, row in enumerate(self.rows)
+            }
         )
 
 
@@ -407,7 +445,7 @@ def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
 
         case LikertGridItem():
             # One field per row, named by position: row texts are not
-            # identifiers. `grid_answer` maps them back to row ids.
+            # identifiers. `generated_answer` maps them back to row ids.
             scale = Literal[tuple(survey_item.options)]  # ty:ignore[invalid-type-form]
             rows: dict[str, Any] = {
                 f"row_{n}": (
@@ -452,10 +490,3 @@ def create_survey_answer_model(survey_item: SurveyItem) -> SurveyAnswer:
 
     fields: dict[str, Any] = {"answer": (field_type, Field(**kwargs))}
     return create_model("SurveyAnswer", **fields)  # ty:ignore[invalid-return-type]
-
-
-def grid_answer(item: LikertGridItem, answer: BaseModel) -> str:
-    """The stored answer for a `create_survey_answer_model` grid answer."""
-    return item.encode_answer(
-        {row.id: getattr(answer, f"row_{n}", None) for n, row in enumerate(item.rows)}
-    )

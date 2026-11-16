@@ -21,10 +21,6 @@ from ainterviewer.interview_guides.sections import (
     QuestionSection,
 )
 from ainterviewer.interview_guides.shuffle import shuffle_items
-from ainterviewer.interview_guides.survey_items import (
-    LikertGridItem,
-    ShuffleableOptions,
-)
 from ainterviewer.interview_guides.variables import (
     BUILTIN_VARIABLES,
     extract_placeholders,
@@ -331,10 +327,8 @@ class InterviewGuide(InterviewGuideBase[Question]):
 
         for section in self.question_sections:
             for question in section.questions:
-                if isinstance(question.survey_item, ShuffleableOptions):
-                    question.survey_item.draw_option_order()
-                elif isinstance(question.survey_item, LikertGridItem):
-                    question.survey_item.draw_row_order()
+                if question.survey_item is not None:
+                    question.survey_item.draw_order()
 
         self.index_questions()
         self.sync_question_refs()
