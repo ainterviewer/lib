@@ -117,7 +117,7 @@ async def chat[T: BaseModel](
     elif model.startswith("alex:"):
         extra_model_kwargs = {}
 
-        match model:
+        match model.removeprefix("alex:"):
             case "glm-5.3-flash":
                 extra_model_kwargs["reasoning_effort"] = "low"
                 extra_model_kwargs["extra_body"] = {
