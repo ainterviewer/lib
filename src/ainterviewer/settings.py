@@ -73,7 +73,14 @@ class LLMSettings(BaseModel):
     # without a provider prefix, and allows HTTPS and path prefixes.
     vllm_base_url: str | None = None
 
-    available_models: list[str] = Field(
+    # Two lists, so whoever adds a model has to say which it is; a model in
+    # neither is treated as test only.
+    #: Models respondents' answers may be sent to: usable everywhere,
+    #: distributed interviews included.
+    models: list[str] = Field(default_factory=list)
+    #: Models for drafts and test interviews only (manual and synthetic): a
+    #: project whose agents use one cannot be published or distributed.
+    test_only_models: list[str] = Field(
         default_factory=lambda: ["openrouter:openai/gpt-oss-120b"]
     )
     default_model: str = "openrouter:openai/gpt-oss-120b"
@@ -95,21 +102,48 @@ class LLMSettings(BaseModel):
             return self.vllm_base_url.rstrip("/")
         return f"{self.llm_endpoint}/v1"
 
-    @field_validator("available_models")
+    @property
+    def available_models(self) -> list[str]:
+        """Every model a project may configure, the distributable ones first."""
+        return [*self.models, *self.test_only_models]
+
+    def is_test_only(self, model: str) -> bool:
+        """Whether `model` is barred from distributed interviews: anything
+        not in `models`, so a model nobody listed is never distributed."""
+        return model not in self.models
+
+    @model_validator(mode="before")
     @classmethod
-    def unique_models(cls, v: Any):
+    def reject_available_models(cls, data: Any):
+        # Ignoring it (extra="ignore") would silently fall back to the
+        # defaults, under which nothing can be published.
+        if isinstance(data, dict) and "available_models" in data:
+            raise ValueError(
+                "available_models was split into models (usable in distributed "
+                "interviews) and test_only_models"
+            )
+        return data
+
+    @field_validator("models", "test_only_models")
+    @classmethod
+    def unique_models(cls, v: list[str]):
         if len(v) != len(set(v)):
-            raise ValueError("available_models contains duplicate entries")
+            raise ValueError("model lists cannot contain duplicate entries")
 
         return v
 
     @model_validator(mode="after")
     def finalize(self):
+        if both := set(self.models) & set(self.test_only_models):
+            raise ValueError(
+                f"models and test_only_models overlap: {', '.join(sorted(both))}"
+            )
+
         if not self.available_models:
-            raise ValueError("available_models cannot be empty")
+            raise ValueError("models and test_only_models cannot both be empty")
 
         if self.default_model not in self.available_models:
-            raise ValueError("default_model must be one of available_models")
+            raise ValueError("default_model must be one of models or test_only_models")
 
         if self.demo_models is None:
             self.demo_models = list(self.available_models)
