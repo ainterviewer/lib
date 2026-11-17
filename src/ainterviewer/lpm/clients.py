@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from ainterviewer.exceptions import StructuredOutputError
 from ainterviewer.lpm.types import CustomToken, Message, Temperature
 from ainterviewer.lpm.utils import map_system_to_user
-from ainterviewer.settings import settings
+from ainterviewer.settings import api_keys, settings
 from ainterviewer.types import MessageRole
 from ainterviewer.utils import encode_image
 
@@ -93,14 +93,14 @@ async def chat[T: BaseModel](
     if model.startswith("openrouter:"):
         chat_completion = await chat(
             model=model,
-            api_key=settings.secrets.openrouter_api_key.get_secret_value(),
+            api_key=api_keys.openrouter_api_key.get_secret_value(),
             reasoning_effort="low",
             **openrouter_model_kwargs(model),
         )
     elif model.startswith("openai:"):
         chat_completion = await chat(
             model=model,
-            api_key=settings.secrets.openai_api_key.get_secret_value(),
+            api_key=api_keys.openai_api_key.get_secret_value(),
             reasoning_effort="none",
         )
     elif model.startswith("gemini:"):
@@ -112,7 +112,7 @@ async def chat[T: BaseModel](
         chat_completion = await chat(
             messages=messages,
             model=model,
-            api_key=settings.secrets.google_ai_api_key.get_secret_value(),
+            api_key=api_keys.google_ai_api_key.get_secret_value(),
         )
     elif model.startswith("alex:"):
         extra_model_kwargs = {}
@@ -131,7 +131,7 @@ async def chat[T: BaseModel](
         chat_completion = await chat(
             messages=messages,
             model=model.replace("alex:", "openai:"),
-            api_key=settings.secrets.alex_api_key.get_secret_value(),
+            api_key=api_keys.alex_api_key.get_secret_value(),
             api_base="https://inference.alexandra.dk/v1",
             **extra_model_kwargs,
         )
@@ -144,7 +144,7 @@ async def chat[T: BaseModel](
         chat_completion = await chat(
             model="vllm:" + model,
             api_base=server_endpoint,
-            api_key=settings.secrets.vllm_api_key.get_secret_value(),
+            api_key=api_keys.vllm_api_key.get_secret_value(),
             **extra_model_kwargs,
         )
 

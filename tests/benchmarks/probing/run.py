@@ -54,7 +54,7 @@ from ainterviewer.agents.prompts.agent_prompts import (
     ClassificationAgentPrompts,
     ProbingAgentPrompts,
 )
-from ainterviewer.settings import settings
+from ainterviewer.settings import api_keys
 
 HERE = Path(__file__).parent
 TEMPLATE = "probing_agent/instruction_prompt.jinja"
@@ -164,8 +164,7 @@ class Runner:
     def __init__(self, args: argparse.Namespace):
         self.args = args
         self.headers = {
-            "Authorization": "Bearer "
-            + settings.secrets.openrouter_api_key.get_secret_value()
+            "Authorization": "Bearer " + api_keys.openrouter_api_key.get_secret_value()
         }
 
     async def complete(

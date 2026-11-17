@@ -1,0 +1,23 @@
+# Copy to config.toml (git-ignored) and adjust. Every key is optional.
+#
+# No secrets here: they are read from the environment and .env only (see
+# .env.example), and a secret in this file stops startup. A key a table does
+# not know stops it too, so a typo cannot silently fall back to a default.
+
+debug = false
+tzinfo = "Europe/Copenhagen"
+
+[llm]
+# Where models without a provider prefix are sent: a vLLM server.
+llm_host = "0.0.0.0"
+llm_port = 8880
+# vllm_base_url = "https://llm.example.org/v1"
+
+# Models respondents' answers may be sent to: usable everywhere.
+models = []
+# Drafts and test interviews only. A model in neither list counts as test only.
+test_only_models = ["openrouter:openai/gpt-oss-120b"]
+default_model = "openrouter:openai/gpt-oss-120b"
+
+[storage]
+base_path = "storage/"
