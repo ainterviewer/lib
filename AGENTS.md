@@ -20,6 +20,49 @@ History on `main` is linear: no merge commits.
   `git config merge.ff only`, so a stray `git pull` or `git merge` cannot
   create a merge commit.
 
+### Work on a branch in its own worktree
+
+Start a branch in a git worktree, not by switching branches in the main
+checkout. Several features can then be in progress at once, each with its own
+working tree, and moving between them is a `cd`, not a stash. It also keeps
+out of the way of anyone (or any agent session) working in another checkout:
+before you edit, check `git status` in the checkout you're about to touch, and
+if it holds someone else's uncommitted work, start a worktree instead of
+editing beside it.
+
+Worktrees live outside the repos, under `stack/.worktrees/<topic>/`, with
+one directory per repo named as the repo, all on the same branch name. The
+same practice is written up in every repo of the stack that has an AGENTS.md.
+
+```bash
+# From this repo's main checkout:
+git worktree add -b feat/my-change ../.worktrees/my-change/lib main
+# A change that spans repos: the same branch in each, side by side.
+git -C ../backend worktree add -b feat/my-change \
+  ../.worktrees/my-change/backend main
+```
+
+- **Sibling layout matters.** Paths between repos (`../lib`, `../backend`)
+  resolve inside the same topic directory, so the worktrees of one change see
+  each other.
+- **A worktree starts with tracked files only.** There is no `.venv`,
+  `config.toml` or `.env`. Run `uv sync` in it for its own venv, or borrow the
+  main checkout's: `PYTHONPATH=src ../../../lib/.venv/bin/python -m pytest`
+  (the `PYTHONPATH` makes it import this worktree's code, not the main
+  checkout's). Copy config from `config.example.toml` and `.env.example`.
+- **Testing consumers against unreleased lib changes** without touching their
+  pin or venv: from the backend's or proxy's worktree,
+  `PYTHONPATH=../lib/src ../../../backend/.venv/bin/python -m pytest`, and
+  `--extra-search-path ../lib/src` for `ty check`.
+- **Landing.** `main` stays checked out in the main checkout, and git does not
+  let two worktrees check out the same branch, so rebase in the worktree
+  (`git rebase main`), then fast-forward from the main checkout
+  (`git merge --ff-only <branch>`).
+- **Cleaning up.** Once it has landed:
+  `git worktree remove ../.worktrees/<topic>/<repo>` from the main checkout,
+  then `git branch -d <branch>`. `git worktree list` shows what is open;
+  `git worktree prune` forgets a worktree whose directory was deleted by hand.
+
 ## Commits
 
 Commit messages follow Conventional Commits (enforced by the `commit-msg`
