@@ -4,6 +4,22 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.12] - 2026-11-17
+
+### Features
+
+- (interview) Tell the probing agent how many follow-ups remain
+- (interview) Show the probing agent its earlier follow-ups to avoid repeats
+- (survey) Shuffle a Likert grid's rows
+- (interview) Leave suggested probes the respondent has already answered out of the probing prompt
+- (survey) Add list and ranking items
+
+### Internal
+
+- (probing) Add a benchmark for probes that repeat what was said
+- (probing) Classify answered suggestions with the production prompt
+- (survey) Let each item describe its own answer
+
 ## [0.7.11] - 2026-11-14
 
 ### Bug Fixes
