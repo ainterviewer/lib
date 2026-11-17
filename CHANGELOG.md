@@ -4,6 +4,22 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.13] - 2026-11-17
+
+### Breaking Changes
+
+- (settings) A config that still sets `available_models` fails to load,
+rather than being ignored and falling back to defaults under which nothing
+could be published. Move its entries into `models` and `test_only_models`.
+
+### Features
+
+- (settings) Split the model list into models and test_only_models [**breaking**]
+
+### Bug Fixes
+
+- (lpm) Apply the per-model settings of alex: models
+
 ## [0.7.12] - 2026-11-17
 
 ### Features
