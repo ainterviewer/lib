@@ -4,6 +4,12 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.15] - 2026-11-17
+
+### Bug Fixes
+
+- (settings) Print no values in settings validation errors
+
 ## [0.7.14] - 2026-11-17
 
 ### Breaking Changes
