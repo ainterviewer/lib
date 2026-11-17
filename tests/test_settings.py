@@ -1,12 +1,14 @@
 import pytest
 from pydantic import ValidationError
 
+from ainterviewer import settings as settings_module
 from ainterviewer.settings import (
     ApiKeys,
     ConfigError,
     ConfigSettings,
     ConfigWarning,
     LLMSettings,
+    SecretSettings,
     Settings,
 )
 
@@ -137,3 +139,37 @@ def test_tables_of_the_other_readers_are_not_warned_about(config_toml, recwarn):
     Settings()
 
     assert not [w for w in recwarn if issubclass(w.category, ConfigWarning)]
+
+
+# Settings errors print no values: the environment they read holds the secrets.
+
+
+def test_a_settings_error_does_not_print_the_value(config_toml, monkeypatch):
+    config_toml("")
+    monkeypatch.setenv("LLM__LLM_PORT", "leaked-value")
+    monkeypatch.setenv("LLM__UNKNOWN", "leaked-extra")
+
+    with pytest.raises(ValidationError) as error:
+        Settings()
+
+    assert "llm_port" in str(error.value)
+    assert "leaked-value" not in str(error.value)
+    assert "leaked-extra" not in str(error.value)
+
+
+def test_a_secret_settings_error_does_not_print_the_value(monkeypatch):
+    # Subclassing registers the class's fields as secret names; keep that
+    # from outliving the test.
+    monkeypatch.setattr(
+        settings_module, "_secret_classes", list(settings_module._secret_classes)
+    )
+
+    class _Secrets(SecretSettings):
+        count: int = 0
+
+    monkeypatch.setenv("COUNT", "leaked-secret")
+
+    with pytest.raises(ValidationError) as error:
+        _Secrets()
+
+    assert "leaked-secret" not in str(error.value)

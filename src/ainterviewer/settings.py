@@ -78,6 +78,13 @@ def BaseSettingsConfigDict(**kwargs) -> SettingsConfigDict:
         validate_assignment=True,
         frozen=True,
         env_file_encoding="utf-8",
+        # Settings validate the environment and .env, which hold the secrets,
+        # and a validation error prints the values it refused: one model
+        # handed lines it did not expect dumps them all to the log. The error
+        # still names the field and what it expected. Pydantic honours this
+        # on the outermost model only, which is why it lives here, on every
+        # settings class, rather than on the sections.
+        hide_input_in_errors=True,
     )
     return SettingsConfigDict(**{**defaults, **kwargs})
 
