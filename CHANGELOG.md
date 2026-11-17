@@ -4,6 +4,20 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.7.14] - 2026-11-17
+
+### Breaking Changes
+
+- (settings) `settings.secrets` is gone; the provider keys are
+`ainterviewer.settings.api_keys` (class `ApiKeys`), under the same
+environment variables. A config file holding a secret, or a table key
+nothing reads, now fails startup.
+
+### Internal
+
+- Work on each branch in its own worktree
+- (settings) Read secrets from the environment only [**breaking**]
+
 ## [0.7.13] - 2026-11-17
 
 ### Breaking Changes
