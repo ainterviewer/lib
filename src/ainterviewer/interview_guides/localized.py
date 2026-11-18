@@ -35,6 +35,7 @@ from ainterviewer.interview_guides.conditions import (
     ConditionEvaluation,
     QuestionContext,
 )
+from ainterviewer.interview_guides.errors import GuideError
 from ainterviewer.interview_guides.extra import Consent, Welcome
 from ainterviewer.interview_guides.interview_guide import (
     InterviewGuide,
@@ -969,6 +970,26 @@ class LocalizedInterviewGuide(BaseModel):
             except ValidationError as error:
                 raise ValueError(f"{language or 'The guide'}: {error}") from None
         return self
+
+    def empty_question_errors(self) -> list[GuideError]:
+        """Questions with no text to ask, in any language.
+
+        Checked when a guide is saved rather than on validation, as
+        `InterviewGuide.condition_order_errors` is, so guides and interview
+        copies saved before the check existed still load. Names questions as
+        the editor numbers them, "Question 5.2" counting from 1.
+        """
+        return [
+            GuideError(
+                message=f"Question {n_section + 1}.{n_question + 1} has no text.",
+                fix="Write the question, or delete it.",
+                question_id=question.id,
+                field="main_question",
+            )
+            for n_section, section in enumerate(self.question_sections)
+            for n_question, question in enumerate(section.questions)
+            if not any(text.strip() for text in question.main_question.values())
+        ]
 
     def _options_by_question(self) -> dict[UUID, list[LocalizedOption]]:
         return {

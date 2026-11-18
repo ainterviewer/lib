@@ -52,3 +52,26 @@ def test_an_error_in_a_section_names_and_points_at_it():
     assert error.message.startswith("Section 1, shuffle: ")
     assert str(error.section_id) == data["question_sections"][0]["id"]
     assert error.question_id is None
+
+
+# ── LocalizedInterviewGuide.empty_question_errors ────────────────────────────
+
+
+def test_a_question_with_no_text_in_any_language_is_reported():
+    data = _data()
+    data["question_sections"][1]["questions"][0]["main_question"] = {"EN": "  "}
+    guide = LocalizedInterviewGuide.model_validate(data)
+
+    [error] = guide.empty_question_errors()
+
+    assert error.message == "Question 2.1 has no text."
+    assert error.question_id == guide.question_sections[1].questions[0].id
+    assert error.field == "main_question"
+
+
+def test_a_question_written_in_one_language_has_text():
+    data = _data()
+    data["question_sections"][0]["questions"][0]["main_question"] = {"DA": "a"}
+    guide = LocalizedInterviewGuide.model_validate(data)
+
+    assert guide.empty_question_errors() == []
