@@ -8,7 +8,7 @@ Examples:
   just bump minor --rc
   just bump stable")]
 [group("Release")]
-bump TYPE RC="": && publish
+bump TYPE RC="": confirm-clean && publish
     #!/usr/bin/env bash
     uv run prek -a
 
@@ -86,3 +86,14 @@ publish-artifacts:
         --title "${TAG}" \
         --notes-file "${NOTES}" \
         "${PRERELEASE[@]}"
+
+# Prompt before releasing over uncommitted (or untracked) changes.
+[private]
+confirm-clean:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$(git status --porcelain)" ]; then
+        git status --short
+        read -rp "There are uncommitted changes. Continue? [y/N] " answer
+        [[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted." >&2; exit 1; }
+    fi
