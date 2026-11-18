@@ -4,6 +4,22 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.0] - 2026-11-18
+
+### Breaking Changes
+
+- (conditions) `Question.conditions` is `list[Condition]` instead of
+`Conditions | None`. `Conditions` is renamed `Condition`, and its
+`conditions` field `blocks`; the old `Condition` is `ConditionBlock`.
+The same goes for the localized models. `ConditionEvaluator`'s
+`evaluate_conditions` is `evaluate_condition` and its
+`evaluate_condition` is `evaluate_block`. Stored guides must be
+migrated.
+
+### Features
+
+- (conditions) Let a question carry several conditions [**breaking**]
+
 ## [0.7.15] - 2026-11-17
 
 ### Bug Fixes
