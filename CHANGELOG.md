@@ -4,6 +4,18 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.1] - 2026-11-18
+
+### Breaking Changes
+
+- (interview) `PersistenceProtocol.insert_message` takes
+`timed_message_id` in place of `timed`, and a stored message is read as timed
+by its `timed_message_id`.
+
+### Features
+
+- (interview) Send each timed message once, and as a modal when asked [**breaking**]
+
 ## [0.8.0] - 2026-11-18
 
 ### Breaking Changes
