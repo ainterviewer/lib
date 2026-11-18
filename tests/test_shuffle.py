@@ -16,8 +16,8 @@ import pytest
 from ainterviewer.interview_guides import InterviewGuide, Question
 from ainterviewer.interview_guides.conditions import (
     Condition,
+    ConditionBlock,
     ConditionEvaluation,
-    Conditions,
     QuestionContext,
 )
 from ainterviewer.interview_guides.sections import QuestionSection
@@ -49,18 +49,20 @@ def _gated(name: str, read: Question | UUID, *, shuffle: bool = True) -> Questio
         id=own_id,
         main_question=name,
         shuffle=shuffle,
-        conditions=Conditions(
-            action=ConditionAction.SKIP_QUESTION,
-            conditions=[
-                Condition(
-                    question_context=QuestionContext(
-                        question_index=(0, 0),
-                        question_id=read if isinstance(read, UUID) else read.id,
-                    ),
-                    evaluation=[ConditionEvaluation(trigger_value="no")],
-                )
-            ],
-        ),
+        conditions=[
+            Condition(
+                action=ConditionAction.SKIP_QUESTION,
+                blocks=[
+                    ConditionBlock(
+                        question_context=QuestionContext(
+                            question_index=(0, 0),
+                            question_id=read if isinstance(read, UUID) else read.id,
+                        ),
+                        evaluation=[ConditionEvaluation(trigger_value="no")],
+                    )
+                ],
+            )
+        ],
     )
 
 

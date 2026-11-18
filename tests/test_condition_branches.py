@@ -20,9 +20,9 @@ from ainterviewer.interview import AInterviewer
 from ainterviewer.interview_guides import InterviewGuide
 from ainterviewer.interview_guides.conditions import (
     Condition,
+    ConditionBlock,
     ConditionEvaluation,
     ConditionEvaluator,
-    Conditions,
     QuestionContext,
     combine,
 )
@@ -54,8 +54,8 @@ def test_combine_is_kleene(left, operator, right, expected):
     assert combine(left, operator, right) is expected
 
 
-def _condition(value: str, negated: bool = False, combine_next=None) -> Condition:
-    return Condition(
+def _block(value: str, negated: bool = False, combine_next=None) -> ConditionBlock:
+    return ConditionBlock(
         question_context=QuestionContext(
             question_index=(0, 0), question_id=uuid.uuid4()
         ),
@@ -72,30 +72,30 @@ class TestUnknownContext:
 
     @pytest.mark.anyio
     async def test_unanswered_is_unknown(self, evaluator):
-        assert await evaluator.evaluate_condition(None, _condition("Nej")) is None
+        assert await evaluator.evaluate_block(None, _block("Nej")) is None
 
     @pytest.mark.anyio
     async def test_negating_unknown_stays_unknown(self, evaluator):
-        condition = _condition("Nej", negated=True)
-        assert await evaluator.evaluate_condition(None, condition) is None
+        condition = _block("Nej", negated=True)
+        assert await evaluator.evaluate_block(None, condition) is None
 
     @pytest.mark.anyio
     async def test_or_decided_by_the_answered_side(self, evaluator):
-        conditions = Conditions(
+        condition = Condition(
             action=ConditionAction.SKIP_QUESTION,
-            conditions=[_condition("Ja", combine_next="OR"), _condition("Nej")],
+            blocks=[_block("Ja", combine_next="OR"), _block("Nej")],
         )
-        assert await evaluator.evaluate_conditions(["Ja", None], conditions) is True
-        assert await evaluator.evaluate_conditions(["Nej", None], conditions) is None
+        assert await evaluator.evaluate_condition(["Ja", None], condition) is True
+        assert await evaluator.evaluate_condition(["Nej", None], condition) is None
 
     @pytest.mark.anyio
     async def test_and_does_not_fire_on_unknown(self, evaluator):
-        conditions = Conditions(
+        condition = Condition(
             action=ConditionAction.SKIP_QUESTION,
-            conditions=[_condition("Ja", combine_next="AND"), _condition("Nej")],
+            blocks=[_block("Ja", combine_next="AND"), _block("Nej")],
         )
-        assert await evaluator.evaluate_conditions(["Ja", None], conditions) is None
-        assert await evaluator.evaluate_conditions(["Nej", None], conditions) is False
+        assert await evaluator.evaluate_condition(["Ja", None], condition) is None
+        assert await evaluator.evaluate_condition(["Nej", None], condition) is False
 
 
 # ── The interview loop ──────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ def _reads(question_id: uuid.UUID, index, value: str, combine_next=None) -> dict
 
 
 def _skip_if(*conditions: dict) -> dict:
-    return {"action": "skip_question", "conditions": list(conditions)}
+    return {"action": "skip_question", "blocks": list(conditions)}
 
 
 def _guide(**q1_overrides) -> InterviewGuide:
@@ -136,13 +136,13 @@ def _guide(**q1_overrides) -> InterviewGuide:
                             "id": Q2,
                             "main_question": "Vil du gerne have børn?",
                             "survey_item": radio,
-                            "conditions": _skip_if(_reads(Q1, (0, 0), "Ja")),
+                            "conditions": [_skip_if(_reads(Q1, (0, 0), "Ja"))],
                         },
                         {
                             "id": Q3,
                             "main_question": "Vil du gerne have flere børn?",
                             "survey_item": radio,
-                            "conditions": _skip_if(_reads(Q1, (0, 0), "Nej")),
+                            "conditions": [_skip_if(_reads(Q1, (0, 0), "Nej"))],
                         },
                     ],
                 },
@@ -153,19 +153,23 @@ def _guide(**q1_overrides) -> InterviewGuide:
                             "id": Q4,
                             "main_question": "Hvad betyder mest for at få børn?",
                             "max_probes_n": 0,
-                            "conditions": _skip_if(
-                                _reads(Q1, (0, 0), "Ja", combine_next="OR"),
-                                _reads(Q2, (0, 1), "Nej"),
-                            ),
+                            "conditions": [
+                                _skip_if(
+                                    _reads(Q1, (0, 0), "Ja", combine_next="OR"),
+                                    _reads(Q2, (0, 1), "Nej"),
+                                )
+                            ],
                         },
                         {
                             "id": Q5,
                             "main_question": "Hvad betyder mest for at få flere børn?",
                             "max_probes_n": 0,
-                            "conditions": _skip_if(
-                                _reads(Q1, (0, 0), "Nej", combine_next="OR"),
-                                _reads(Q3, (0, 2), "Nej"),
-                            ),
+                            "conditions": [
+                                _skip_if(
+                                    _reads(Q1, (0, 0), "Nej", combine_next="OR"),
+                                    _reads(Q3, (0, 2), "Nej"),
+                                )
+                            ],
                         },
                     ],
                 },
@@ -199,7 +203,10 @@ def no_sleep(monkeypatch):
 
 
 def _interviewer(
-    guide: InterviewGuide, respondent: Respondent, **kwargs
+    guide: InterviewGuide,
+    respondent: Respondent,
+    db: MagicMock | None = None,
+    **kwargs,
 ) -> AInterviewer:
     io = MagicMock(
         send_data=AsyncMock(side_effect=respondent.send_data),
@@ -207,7 +214,7 @@ def _interviewer(
     )
     return AInterviewer(
         io=io,
-        db=MagicMock(),
+        db=db or MagicMock(),
         interview_guide=guide,
         config=InterviewConfig.model_validate({}),
         agent_configs=AgentConfigs.model_validate({}),

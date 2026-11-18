@@ -196,18 +196,20 @@ def test_untranslated_rows_and_options_are_reported_missing():
 
 def test_a_condition_cannot_read_a_grid():
     data = _localized().model_dump(mode="json")
-    data["question_sections"][0]["questions"][1]["conditions"] = {
-        "action": "skip_question",
-        "conditions": [
-            {
-                "question_context": {
-                    "question_index": [0, 0],
-                    "question_id": str(uuid.UUID(int=10)),
-                },
-                "evaluation": [{"trigger_value": "x"}],
-            }
-        ],
-    }
+    data["question_sections"][0]["questions"][1]["conditions"] = [
+        {
+            "action": "skip_question",
+            "blocks": [
+                {
+                    "question_context": {
+                        "question_index": [0, 0],
+                        "question_id": str(uuid.UUID(int=10)),
+                    },
+                    "evaluation": [{"trigger_value": "x"}],
+                }
+            ],
+        }
+    ]
     with pytest.raises(ValueError, match="Likert grid"):
         LocalizedInterviewGuide.model_validate(data)
 

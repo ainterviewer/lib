@@ -199,12 +199,12 @@ class InterviewGuide(InterviewGuideBase[Question]):
         for n_section, section in enumerate(self.question_sections):
             for n_question, question in enumerate(section.questions):
                 label = f"question_sections[{n_section}].questions[{n_question}]"
-                conditions = (
-                    question.conditions.conditions if question.conditions else []
-                )
-
-                for condition in conditions:
-                    ctx = condition.question_context
+                for block in (
+                    block
+                    for condition in question.conditions
+                    for block in condition.blocks
+                ):
+                    ctx = block.question_context
                     ctx.question_index = resolve(ctx.question_id, f"{label} condition")
 
                 for reference in question.references or []:
@@ -250,10 +250,9 @@ class InterviewGuide(InterviewGuideBase[Question]):
             (read, question.id)
             for section in self.question_sections
             for question in section.questions
-            for condition in (
-                question.conditions.conditions if question.conditions else []
-            )
-            if (read := condition.question_context.question_id) != question.id
+            for condition in question.conditions
+            for block in condition.blocks
+            if (read := block.question_context.question_id) != question.id
         ]
 
     def condition_order_errors(self) -> list[GuideError]:

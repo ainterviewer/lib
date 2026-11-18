@@ -31,8 +31,8 @@ from pydantic import BaseModel, EmailStr, Field, ValidationError, model_validato
 
 from ainterviewer.interview_guides.conditions import (
     Condition,
+    ConditionBlock,
     ConditionEvaluation,
-    Conditions,
     QuestionContext,
 )
 from ainterviewer.interview_guides.extra import Consent, Welcome
@@ -461,7 +461,7 @@ class LocalizedConditionEvaluation(BaseModel):
         return self
 
 
-class LocalizedCondition(BaseModel):
+class LocalizedConditionBlock(BaseModel):
     question_context: QuestionContext
     evaluation: list[LocalizedConditionEvaluation]
     negated: bool = False
@@ -486,13 +486,14 @@ class _ConditionOption(NamedTuple):
     scale: list[LocalizedText] | None
 
 
-class LocalizedConditions(BaseModel):
-    conditions: list[LocalizedCondition]
+class LocalizedCondition(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    blocks: list[LocalizedConditionBlock]
     action: ConditionAction
 
     def render(
         self, options: Mapping[UUID, _ConditionOption], languages: Sequence[str]
-    ) -> Conditions:
+    ) -> Condition:
         def option(evaluation: LocalizedConditionEvaluation) -> _ConditionOption:
             assert evaluation.option_id is not None
             if evaluation.option_id not in options:
@@ -518,11 +519,12 @@ class LocalizedConditions(BaseModel):
                 )
             return [_pick_localized_text(text, languages) for text in options]
 
-        return Conditions(
+        return Condition(
+            id=self.id,
             action=self.action,
-            conditions=[
-                Condition(
-                    **condition.model_dump(exclude={"evaluation"}),
+            blocks=[
+                ConditionBlock(
+                    **block.model_dump(exclude={"evaluation"}),
                     evaluation=[
                         ConditionEvaluation(
                             **evaluation.model_dump(
@@ -531,30 +533,30 @@ class LocalizedConditions(BaseModel):
                             trigger_value=trigger(evaluation),
                             scale=scale(evaluation),
                         )
-                        for evaluation in condition.evaluation
+                        for evaluation in block.evaluation
                     ],
                 )
-                for condition in self.conditions
+                for block in self.blocks
             ],
         )
 
     @classmethod
     def from_rendered(
-        cls, conditions: Conditions, merge: _Merge, where: str
-    ) -> LocalizedConditions:
+        cls, condition: Condition, merge: _Merge, where: str
+    ) -> LocalizedCondition:
         """Take the structure language's conditions, naming an option wherever
         a match trigger is one of the read question's options: matched with
         '==', or compared on a Likert scale. Other languages' triggers are
         translations of the same option and are not read."""
 
         def evaluation(
-            condition: Condition, evaluation: ConditionEvaluation
+            block: ConditionBlock, evaluation: ConditionEvaluation
         ) -> LocalizedConditionEvaluation:
-            options = merge.options.get(condition.question_context.question_id)
+            options = merge.options.get(block.question_context.question_id)
             value = evaluation.trigger_value
             if (
                 options
-                and condition.trigger_type == ConditionTrigger.MATCH
+                and block.trigger_type == ConditionTrigger.MATCH
                 and (
                     evaluation.comparison_operator == "=="
                     or evaluation.scale is not None
@@ -578,13 +580,14 @@ class LocalizedConditions(BaseModel):
             )
 
         return cls(
-            action=conditions.action,
-            conditions=[
-                LocalizedCondition(
-                    **condition.model_dump(exclude={"evaluation"}),
-                    evaluation=[evaluation(condition, e) for e in condition.evaluation],
+            id=condition.id,
+            action=condition.action,
+            blocks=[
+                LocalizedConditionBlock(
+                    **block.model_dump(exclude={"evaluation"}),
+                    evaluation=[evaluation(block, e) for e in block.evaluation],
                 )
-                for condition in conditions.conditions
+                for block in condition.blocks
             ],
         )
 
@@ -626,7 +629,7 @@ class LocalizedQuestion(BaseModel):
     references: list[Reference] | None = None
     image: LocalizedImage | None = None
     user_image: bool = False
-    conditions: LocalizedConditions | None = None
+    conditions: list[LocalizedCondition] = Field(default_factory=list)
     probing_context: ProbingContext | None = None
 
     @model_validator(mode="before")
@@ -663,9 +666,10 @@ class LocalizedQuestion(BaseModel):
                 if self.survey_item is None
                 else _render_survey_item(self.survey_item, languages),
                 "image": None if self.image is None else self.image.render(languages),
-                "conditions": None
-                if self.conditions is None
-                else self.conditions.render(options, languages),
+                "conditions": [
+                    condition.render(options, languages)
+                    for condition in self.conditions
+                ],
             }
         )
 
@@ -833,12 +837,15 @@ def _merge_conditions(
     for n_section, section in enumerate(sections):
         for n_question, question in enumerate(section.questions):
             source = rendered[question.id]
-            if source.conditions is not None:
-                question.conditions = LocalizedConditions.from_rendered(
-                    source.conditions,
+            question.conditions = [
+                LocalizedCondition.from_rendered(
+                    condition,
                     merge,
-                    f"question_sections[{n_section}].questions[{n_question}].conditions",
+                    f"question_sections[{n_section}].questions[{n_question}]"
+                    f".conditions[{n_condition}]",
                 )
+                for n_condition, condition in enumerate(source.conditions)
+            ]
 
 
 # -- The guide -----------------------------------------------------------------
@@ -921,17 +928,19 @@ class LocalizedInterviewGuide(BaseModel):
         }
         for n_section, section in enumerate(self.question_sections):
             for n_question, question in enumerate(section.questions):
-                for condition in (
-                    question.conditions.conditions if question.conditions else []
+                for block in (
+                    block
+                    for condition in question.conditions
+                    for block in condition.blocks
                 ):
-                    read = condition.question_context.question_id
+                    read = block.question_context.question_id
                     if read in grids:
                         raise ValueError(
                             f"question_sections[{n_section}].questions[{n_question}] "
                             "has a condition reading a Likert grid, which conditions "
                             "cannot read"
                         )
-                    for evaluation in condition.evaluation:
+                    for evaluation in block.evaluation:
                         if (
                             evaluation.option_id is not None
                             and owned.get(evaluation.option_id) != read

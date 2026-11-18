@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
-from ainterviewer.interview_guides.conditions import Conditions
+from ainterviewer.interview_guides.conditions import Condition
 from ainterviewer.interview_guides.exceptions import OverwriteError
 from ainterviewer.interview_guides.media import Image
 from ainterviewer.interview_guides.references import QuestionIndex, Reference
@@ -87,7 +87,10 @@ class Question(QuestionBaseExtended):
         False,
         description="Whether the user should be able to upload an image as a response",
     )
-    conditions: Conditions | None = None
+    conditions: list[Condition] = Field(
+        default_factory=list,
+        description="The question's conditions, each with its own action. A condition reading this question's own answer is checked once it is answered; every other condition before the question is asked. When several fire at once, the strongest action is taken.",
+    )
     probing_context: ProbingContext | None = None
 
     # Automatically generated in interview guide generation

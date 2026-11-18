@@ -5,7 +5,7 @@ import asyncio
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -97,10 +97,12 @@ def _consent_guide(action: str) -> InterviewGuide:
                             "id": CONSENT,
                             "main_question": "Consent?",
                             "survey_item": {"type": "radio", "options": ["Ja", "Nej"]},
-                            "conditions": {
-                                "action": action,
-                                "conditions": [_reads(CONSENT, (0, 0), "Nej")],
-                            },
+                            "conditions": [
+                                {
+                                    "action": action,
+                                    "blocks": [_reads(CONSENT, (0, 0), "Nej")],
+                                }
+                            ],
                         },
                         {"id": NEXT, "main_question": "Next?", "max_probes_n": 0},
                     ],
@@ -187,10 +189,12 @@ async def test_skip_probes_before_the_question_still_asks_it():
                             "id": SECOND,
                             "main_question": "Second?",
                             "max_probes_n": 2,
-                            "conditions": {
-                                "action": "skip_probes",
-                                "conditions": [_reads(FIRST, (0, 0), "Ja")],
-                            },
+                            "conditions": [
+                                {
+                                    "action": "skip_probes",
+                                    "blocks": [_reads(FIRST, (0, 0), "Ja")],
+                                }
+                            ],
                         },
                         {"id": THIRD, "main_question": "Third?", "survey_item": radio},
                     ],
@@ -234,10 +238,12 @@ def _skip_probes_guide() -> InterviewGuide:
                             "id": SECOND,
                             "main_question": "Second?",
                             "max_probes_n": 2,
-                            "conditions": {
-                                "action": "skip_probes",
-                                "conditions": [_reads(FIRST, (0, 0), "Ja")],
-                            },
+                            "conditions": [
+                                {
+                                    "action": "skip_probes",
+                                    "blocks": [_reads(FIRST, (0, 0), "Ja")],
+                                }
+                            ],
                         },
                     ],
                 }
@@ -277,6 +283,189 @@ async def test_skip_probes_before_the_question_holds_on_resume():
 @pytest.mark.anyio
 async def test_skip_probes_that_did_not_fire_still_probes_on_resume():
     assert await _resumed_at_second("Nej") == ["Second?"]
+
+
+# ── Several conditions on one question ───────────────────────────────────────────────────────────────────────────────
+
+AFTER = uuid.uuid4()
+
+
+def _condition(action: str, *blocks: dict) -> dict:
+    return {"action": action, "blocks": list(blocks)}
+
+
+def _several_conditions_guide(*conditions: dict) -> InterviewGuide:
+    """FIRST, then SECOND carrying `conditions`, then THIRD; AFTER in a section of
+    its own, to show where a skipped section resumes."""
+    radio = {"type": "radio", "options": ["Ja", "Nej"]}
+    return InterviewGuide.model_validate(
+        {
+            "framing": "Framing",
+            "question_sections": [
+                {
+                    "description": "Section",
+                    "questions": [
+                        {"id": FIRST, "main_question": "First?", "survey_item": radio},
+                        {
+                            "id": SECOND,
+                            "main_question": "Second?",
+                            "max_probes_n": 2,
+                            "conditions": list(conditions),
+                        },
+                        {"id": THIRD, "main_question": "Third?", "survey_item": radio},
+                    ],
+                },
+                {
+                    "description": "Next",
+                    "questions": [
+                        {"id": AFTER, "main_question": "After?", "survey_item": radio}
+                    ],
+                },
+            ],
+        }
+    )
+
+
+async def _run_conditions(
+    guide: InterviewGuide, answers: dict[str, list[str]]
+) -> tuple[list[str], list[str]]:
+    """What was asked, and what was probed."""
+    respondent = Respondent(answers)
+    interviewer = _interviewer(guide, respondent)
+    probed = []
+
+    async def probe(question, section_description):
+        probed.append(question.main_question)
+
+    interviewer.probe = probe
+
+    await interviewer.handle_sections()
+
+    return respondent.asked, probed
+
+
+SKIP_SECTION_ON_NEJ = _condition("skip_section", _reads(FIRST, (0, 0), "Nej"))
+SKIP_PROBES_ON_JA = _condition("skip_probes", _reads(FIRST, (0, 0), "Ja"))
+ANSWERS = {"Second?": ["Because"], "Third?": ["Ja"], "After?": ["Ja"]}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("first", "asked", "probed"),
+    [
+        ("Ja", ["First?", "Second?", "Third?", "After?"], []),
+        ("Nej", ["First?", "After?"], []),
+    ],
+)
+async def test_each_condition_takes_its_own_action(first, asked, probed):
+    guide = _several_conditions_guide(SKIP_SECTION_ON_NEJ, SKIP_PROBES_ON_JA)
+
+    assert await _run_conditions(guide, {"First?": [first], **ANSWERS}) == (
+        asked,
+        probed,
+    )
+
+
+@pytest.mark.anyio
+async def test_neither_condition_firing_leaves_the_question_alone():
+    guide = _several_conditions_guide(
+        _condition("skip_section", _reads(FIRST, (0, 0), "Never")), SKIP_PROBES_ON_JA
+    )
+
+    assert await _run_conditions(guide, {"First?": ["Nej"], **ANSWERS}) == (
+        ["First?", "Second?", "Third?", "After?"],
+        ["Second?"],
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reverse", [False, True])
+async def test_the_strongest_action_wins_whatever_the_order(reverse):
+    conditions = [
+        SKIP_PROBES_ON_JA,
+        _condition("skip_section", _reads(FIRST, (0, 0), "Ja")),
+    ]
+    guide = _several_conditions_guide(
+        *(reversed(conditions) if reverse else conditions)
+    )
+
+    assert await _run_conditions(guide, {"First?": ["Ja"], **ANSWERS}) == (
+        ["First?", "After?"],
+        [],
+    )
+
+
+@pytest.mark.anyio
+async def test_conditions_before_and_after_the_answer_are_timed_apart():
+    # One condition reads an earlier answer and skips probes before SECOND is
+    # asked; the other reads SECOND's own answer and skips the rest of the
+    # section once it is in.
+    guide = _several_conditions_guide(
+        SKIP_PROBES_ON_JA, _condition("skip_section", _reads(SECOND, (0, 1), "Stop"))
+    )
+
+    assert await _run_conditions(
+        guide, {"First?": ["Ja"], "Second?": ["Stop"], "After?": ["Ja"]}
+    ) == (["First?", "Second?", "After?"], [])
+
+
+@pytest.mark.anyio
+async def test_a_condition_on_its_own_answer_skipping_the_question_only_ends_it():
+    guide = _several_conditions_guide(
+        _condition("skip_question", _reads(SECOND, (0, 1), "Stop"))
+    )
+
+    asked, probed = await _run_conditions(
+        guide,
+        {"First?": ["Nej"], "Second?": ["Stop"], "Third?": ["Ja"], "After?": ["Ja"]},
+    )
+
+    assert (asked, probed) == (["First?", "Second?", "Third?", "After?"], [])
+
+
+@pytest.mark.anyio
+async def test_every_condition_due_is_written_down():
+    guide = _several_conditions_guide(SKIP_SECTION_ON_NEJ, SKIP_PROBES_ON_JA)
+    respondent = Respondent({"First?": ["Ja"], **ANSWERS})
+    db = MagicMock()
+    interviewer = _interviewer(guide, respondent, db=db)
+    interviewer.probe = AsyncMock()
+
+    await interviewer.handle_sections()
+
+    evaluations = [
+        (json.loads(call.kwargs["content"])["action"], call.kwargs["response"])
+        for call in db.insert_task.call_args_list
+        if call.kwargs.get("task") == "evaluate_condition"
+    ]
+    assert evaluations == [("skip_section", "False"), ("skip_probes", "True")]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("first", "probed"), [("Ja", []), ("Nej", ["Second?"])])
+async def test_skip_probes_among_other_conditions_holds_on_resume(first, probed):
+    guide = _several_conditions_guide(
+        _condition("skip_section", _reads(FIRST, (0, 0), "Never")), SKIP_PROBES_ON_JA
+    )
+    respondent = Respondent({"Second?": ["Because"], "Third?": ["Ja"]})
+    respondent.asked.extend(["First?", "Second?"])
+    interviewer = _interviewer(guide, respondent)
+    seen = []
+
+    async def probe(question, section_description):
+        seen.append(question.main_question)
+
+    interviewer.probe = probe
+
+    await interviewer.process_history(
+        [
+            StoredMessage("First?", MessageRole.ASSISTANT),
+            StoredMessage(first, MessageRole.USER),
+            StoredMessage("Second?", MessageRole.ASSISTANT, main_question=1),
+        ]
+    )
+
+    assert seen == probed
 
 
 # ── check_if_answered ───────────────────────────────────────────────────────

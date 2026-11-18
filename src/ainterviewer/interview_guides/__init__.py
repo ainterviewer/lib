@@ -1,6 +1,7 @@
 from ainterviewer.interview_guides.conditions import (
     Condition,
     ConditionAction,
+    ConditionBlock,
     ConditionEvaluator,
 )
 from ainterviewer.interview_guides.errors import GuideError, validation_errors
@@ -40,6 +41,7 @@ __all__ = [
     "CheckboxItem",
     "Condition",
     "ConditionAction",
+    "ConditionBlock",
     "ConditionEvaluator",
     "DateItem",
     "DatetimeItem",

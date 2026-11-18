@@ -50,7 +50,7 @@ from ainterviewer.interfaces import (
     StoredMessage,
 )
 from ainterviewer.interview_guides import (
-    Condition,
+    ConditionBlock,
     Image,
     InterviewGuide,
     InterviewMessage,
@@ -59,9 +59,10 @@ from ainterviewer.interview_guides import (
     fill_variables_in_message,
 )
 from ainterviewer.interview_guides.conditions import (
+    Condition,
     ConditionEvaluator,
-    Conditions,
     raise_condition,
+    strongest_action,
 )
 from ainterviewer.interview_guides.history import (
     HistoryMessage,
@@ -716,18 +717,17 @@ class AInterviewer:
         with any other action had not fired, or the question would not be in
         the history. Once probing began, the rule had not fired either.
         """
-        conditions = question.conditions
+        skip_probes = [
+            condition
+            for condition in self.conditions_before(question, carrier)
+            if condition.action == ConditionAction.SKIP_PROBES
+        ]
 
-        if (
-            conditions is None
-            or conditions.action != ConditionAction.SKIP_PROBES
-            or self.reads_own_answer(conditions, carrier)
-            or self.interview_history.current_probe_index != 0
-        ):
+        if not skip_probes or self.interview_history.current_probe_index != 0:
             return True
 
         try:
-            await self.check_conditions(conditions, carrier=carrier)
+            await self.check_conditions(skip_probes, carrier=carrier)
         except SkipProbesCondition:
             return False
 
@@ -950,18 +950,24 @@ class AInterviewer:
         carrier = (self.interview_history.current_section_index, question_index)
         # A rule on the question's own answer waits for that answer; every
         # other rule is checked before the question is asked.
-        check_condition_after = self.reads_own_answer(question.conditions, carrier)
+        conditions_before = self.conditions_before(question, carrier)
+        # Whether the question got past the rules checked before asking it. A
+        # skip_question raised after that comes from a rule on its own answer,
+        # once the question has been asked, and only ends it.
+        asked = False
 
         try:
-            if (conditions := question.conditions) and not check_condition_after:
+            if conditions_before:
                 try:
-                    await self.check_conditions(conditions, carrier=carrier)
+                    await self.check_conditions(conditions_before, carrier=carrier)
                 except SkipProbesCondition:
                     # Raised before the question is asked, so the question
                     # still is -- only its probes are skipped. Letting it
                     # escape would drop the question from the history and
                     # shift every later question's index there.
                     skip_probes = True
+
+            asked = True
 
             # The first question of a section is asked as written; from the
             # second on, it may be reformulated if already answered.
@@ -1005,7 +1011,7 @@ class AInterviewer:
         except SkipProbesCondition:
             pass
         except SkipQuestionCondition:
-            if not check_condition_after:
+            if not asked:
                 await self.handle_skip_question_exception(question)
         except SkipQuestionException:
             pass
@@ -1222,13 +1228,35 @@ class AInterviewer:
         await self.io.send_data(payload)
 
     @staticmethod
-    def reads_own_answer(conditions: Conditions | None, carrier: QuestionIndex) -> bool:
-        """Whether any of a question's rules reads that question's own answer,
-        `carrier` being the question's position in the guide."""
-        return conditions is not None and any(
-            condition.question_context.question_index == carrier
-            for condition in conditions.conditions
+    def reads_own_answer(condition: Condition, carrier: QuestionIndex) -> bool:
+        """Whether a condition reads the answer to the question it hangs off,
+        `carrier` being that question's position in the guide. Such a one is
+        checked once the question is answered: it reads that answer, and any
+        earlier one it combines with is there by then."""
+        return any(
+            block.question_context.question_index == carrier
+            for block in condition.blocks
         )
+
+    def conditions_before(
+        self, question: Question, carrier: QuestionIndex
+    ) -> list[Condition]:
+        """The question's conditions checked before it is asked."""
+        return [
+            condition
+            for condition in question.conditions
+            if not self.reads_own_answer(condition, carrier)
+        ]
+
+    def conditions_after(
+        self, question: Question, carrier: QuestionIndex
+    ) -> list[Condition]:
+        """The question's conditions checked once its main answer is in."""
+        return [
+            condition
+            for condition in question.conditions
+            if self.reads_own_answer(condition, carrier)
+        ]
 
     async def finish_question(
         self,
@@ -1246,10 +1274,10 @@ class AInterviewer:
         exceptions; what they mean is the caller's to decide.
         """
         main_answer = self.interview_history.current_question.main_question.answer
+        conditions_after = self.conditions_after(question, carrier)
 
         if (
-            (conditions := question.conditions) is not None
-            and self.reads_own_answer(conditions, carrier)
+            conditions_after
             # A resumed interview may have stopped after probing began, and
             # then the rules have been checked already.
             and self.interview_history.current_probe_index == 0
@@ -1259,7 +1287,7 @@ class AInterviewer:
             # A security intervention takes precedence over the guide's
             # conditions.
             await self.resolve_security_check()
-            await self.check_conditions(conditions, carrier=carrier)
+            await self.check_conditions(conditions_after, carrier=carrier)
 
         if probe and self.should_probe(question):
             await self.probe(question, section_description)
@@ -1267,14 +1295,32 @@ class AInterviewer:
         await self.resolve_security_check()
 
     async def check_conditions(
-        self, conditions: Conditions, carrier: QuestionIndex
+        self, conditions: list[Condition], carrier: QuestionIndex
     ) -> None:
-        condition_contexts = [
-            self.get_condition_context(condition) for condition in conditions.conditions
+        """Evaluate every one of `conditions`, all due at the same moment, and
+        take the strongest action among those that fire (`strongest_action`).
+
+        All are evaluated, even once one has fired, so each evaluation is
+        written down and the result does not depend on their order.
+        """
+        fired = [
+            condition.action
+            for condition in conditions
+            if await self.evaluate_condition(condition, carrier=carrier)
         ]
 
-        condition_triggered = await self.condition_evaluator.evaluate_conditions(
-            condition_contexts, conditions
+        if (action := strongest_action(fired)) is not None:
+            raise_condition(action)
+
+    async def evaluate_condition(
+        self, condition: Condition, carrier: QuestionIndex
+    ) -> bool:
+        """Evaluate one condition and write the evaluation down. True only
+        when it fires; an undecided one (None) does not."""
+        contexts = [self.get_condition_context(block) for block in condition.blocks]
+
+        condition_triggered = await self.condition_evaluator.evaluate_condition(
+            contexts, condition
         )
 
         self.db.insert_task(
@@ -1282,7 +1328,7 @@ class AInterviewer:
             interview_id=self.interview_id,
             project_id=self.project_id,
             task="evaluate_condition",
-            content=conditions.model_dump_json(),
+            content=condition.model_dump_json(),
             response=str(condition_triggered),
             # "<section>:<question>", both zero-based, matching the indices on a
             # message. A rule checked before its question is asked is written
@@ -1290,8 +1336,7 @@ class AInterviewer:
             context=f"{carrier[0]}:{carrier[1]}",
         )
 
-        if condition_triggered:
-            raise_condition(conditions.action)
+        return condition_triggered is True
 
     def start_security_check(
         self, question: Question, section_description: str
@@ -1447,13 +1492,13 @@ class AInterviewer:
             security_check.cancel()
             self._security_check = None
 
-    def get_condition_context(self, condition: Condition) -> str | None:
-        """The answer a condition reads, or None when there is none: the
+    def get_condition_context(self, block: ConditionBlock) -> str | None:
+        """The answer a condition block reads, or None when there is none: the
         question was skipped by a condition, skipped by the respondent, never
         reached (a skipped section), or took no answer. The evaluator treats
         None as unknown rather than as a mismatch, so a rule reading a branch
         the respondent did not take neither crashes nor fires on it."""
-        section, question = condition.question_context.question_index
+        section, question = block.question_context.question_index
 
         try:
             question_context = self.interview_history[section][question]
@@ -1474,7 +1519,7 @@ class AInterviewer:
         # what a classifier can make sense of.
         main_text = question_context.main_question.answer_text or main_answer.message
 
-        match condition.question_context.part:
+        match block.question_context.part:
             case "main":
                 return main_text
             case "probes":

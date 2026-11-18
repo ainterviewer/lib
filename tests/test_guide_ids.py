@@ -15,8 +15,8 @@ from pydantic import ValidationError
 from ainterviewer.interview_guides import InterviewGuide, Question
 from ainterviewer.interview_guides.conditions import (
     Condition,
+    ConditionBlock,
     ConditionEvaluation,
-    Conditions,
     QuestionContext,
 )
 from ainterviewer.interview_guides.references import Reference
@@ -29,24 +29,26 @@ def _gated(target: Question, *, section: int = 0, question: int = 0) -> Question
     position so tests can make it stale."""
     return Question(
         main_question="Gated",
-        conditions=Conditions(
-            action=ConditionAction.SKIP_QUESTION,
-            conditions=[
-                Condition(
-                    question_context=QuestionContext(
-                        question_index=(section, question), question_id=target.id
-                    ),
-                    evaluation=[ConditionEvaluation(trigger_value="no")],
-                )
-            ],
-        ),
+        conditions=[
+            Condition(
+                action=ConditionAction.SKIP_QUESTION,
+                blocks=[
+                    ConditionBlock(
+                        question_context=QuestionContext(
+                            question_index=(section, question), question_id=target.id
+                        ),
+                        evaluation=[ConditionEvaluation(trigger_value="no")],
+                    )
+                ],
+            )
+        ],
     )
 
 
 def _context(guide: InterviewGuide, section: int, question: int) -> QuestionContext:
     conditions = guide.question_sections[section].questions[question].conditions
-    assert conditions is not None
-    return conditions.conditions[0].question_context
+    assert conditions
+    return conditions[0].blocks[0].question_context
 
 
 def test_ids_are_assigned_and_survive_a_round_trip():

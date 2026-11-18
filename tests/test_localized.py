@@ -24,16 +24,16 @@ from ainterviewer.interview_guides import (
 from ainterviewer.interview_guides import localized as loc
 from ainterviewer.interview_guides.conditions import (
     Condition,
+    ConditionBlock,
     ConditionEvaluation,
     ConditionEvaluator,
-    Conditions,
     QuestionContext,
 )
 from ainterviewer.interview_guides.extra import Consent, Welcome
 from ainterviewer.interview_guides.localized import (
     LocalizedCondition,
+    LocalizedConditionBlock,
     LocalizedConditionEvaluation,
-    LocalizedConditions,
     LocalizedInterviewGuide,
     LocalizedOption,
     LocalizedQuestion,
@@ -65,17 +65,20 @@ def _guide(
         main_question=f"{language} why?",
         probes=[probe],
         id=_ids["gated"],
-        conditions=Conditions(
-            action=ConditionAction.SKIP_QUESTION,
-            conditions=[
-                Condition(
-                    question_context=QuestionContext(
-                        question_index=(0, 0), question_id=radio.id
-                    ),
-                    evaluation=[ConditionEvaluation(trigger_value=never)],
-                )
-            ],
-        ),
+        conditions=[
+            Condition(
+                id=_ids["condition"],
+                action=ConditionAction.SKIP_QUESTION,
+                blocks=[
+                    ConditionBlock(
+                        question_context=QuestionContext(
+                            question_index=(0, 0), question_id=radio.id
+                        ),
+                        evaluation=[ConditionEvaluation(trigger_value=never)],
+                    )
+                ],
+            )
+        ],
     )
     return InterviewGuide(
         framing=f"{language} framing",
@@ -92,7 +95,12 @@ def _guide(
     )
 
 
-_ids = {"radio": uuid4(), "gated": uuid4(), "section": uuid4()}
+_ids = {
+    "radio": uuid4(),
+    "gated": uuid4(),
+    "section": uuid4(),
+    "condition": uuid4(),
+}
 EN = _guide("EN", often="Often", never="Never", probe="Tell me more", ask="How often?")
 DA = _guide("DA", often="Ofte", never="Aldrig", probe="Fortæl mere", ask="Hvor ofte?")
 
@@ -118,7 +126,7 @@ class TestFieldsMirrorTheRenderedModels:
             (loc.LocalizedLikertItem, LikertItem, set()),
             (loc.LocalizedLikertGridItem, LikertGridItem, {"row_order"}),
             (loc.LocalizedSliderItem, SliderItem, set()),
-            (LocalizedCondition, Condition, set()),
+            (LocalizedConditionBlock, ConditionBlock, set()),
             (loc.LocalizedConsent, Consent, set()),
             (LocalizedWelcome, Welcome, set()),
         ],
@@ -158,10 +166,23 @@ class TestRoundTrip:
         never = radio.survey_item.options[1]
         assert never.text == {"EN": "Never", "DA": "Aldrig"}
 
-        assert gated.conditions is not None
-        (evaluation,) = gated.conditions.conditions[0].evaluation
+        assert gated.conditions
+        (evaluation,) = gated.conditions[0].blocks[0].evaluation
         assert evaluation.option_id == never.id
         assert evaluation.trigger_value is None
+
+    def test_condition_keeps_its_id_in_every_language(self):
+        source = LocalizedInterviewGuide.from_rendered(
+            {"EN": EN, "DA": DA}, structure="EN"
+        )
+        (condition,) = source.question_sections[0].questions[1].conditions
+        assert condition.id == EN.question_sections[0].questions[1].conditions[0].id
+
+        for language in ("EN", "DA"):
+            (rendered,) = (
+                source.render(language).question_sections[0].questions[1].conditions
+            )
+            assert rendered.id == condition.id
 
 
 class TestFromRenderedNeverInvents:
@@ -198,8 +219,8 @@ class TestFromRenderedNeverInvents:
     def test_trigger_that_is_no_option_stays_a_pattern(self):
         en = EN.model_copy(deep=True)
         gated = en.question_sections[0].questions[1]
-        assert gated.conditions is not None
-        gated.conditions.conditions[0].evaluation[0].trigger_value = "Sometimes"
+        assert gated.conditions
+        gated.conditions[0].blocks[0].evaluation[0].trigger_value = "Sometimes"
         report: list[str] = []
 
         source = LocalizedInterviewGuide.from_rendered(
@@ -207,8 +228,8 @@ class TestFromRenderedNeverInvents:
         )
 
         conditions = source.question_sections[0].questions[1].conditions
-        assert conditions is not None
-        evaluation = conditions.conditions[0].evaluation[0]
+        assert conditions
+        evaluation = conditions[0].blocks[0].evaluation[0]
         assert (evaluation.option_id, evaluation.trigger_value) == (None, "Sometimes")
         assert any("Sometimes" in line for line in report)
 
@@ -246,8 +267,8 @@ class TestRender:
         evaluator = ConditionEvaluator()
         for language, answer in (("EN", "Never"), ("DA", "Aldrig")):
             gated = source.render(language).question_sections[0].questions[1]
-            assert gated.conditions is not None
-            assert await evaluator.evaluate_conditions([answer], gated.conditions)
+            assert gated.conditions
+            assert await evaluator.evaluate_condition([answer], gated.conditions[0])
 
     @pytest.mark.anyio
     async def test_rewording_an_option_moves_the_trigger_with_it(self, source):
@@ -256,9 +277,9 @@ class TestRender:
         radio.survey_item.options[1].text["DA"] = "Aldrig nogensinde"
 
         gated = source.render("DA").question_sections[0].questions[1]
-        assert gated.conditions is not None
-        assert await ConditionEvaluator().evaluate_conditions(
-            ["Aldrig nogensinde"], gated.conditions
+        assert gated.conditions
+        assert await ConditionEvaluator().evaluate_condition(
+            ["Aldrig nogensinde"], gated.conditions[0]
         )
 
 
@@ -278,21 +299,23 @@ class TestValidation:
         )
         gated = LocalizedQuestion(
             main_question={"EN": "Why?"},
-            conditions=LocalizedConditions(
-                action=ConditionAction.SKIP_QUESTION,
-                conditions=[
-                    LocalizedCondition(
-                        question_context=QuestionContext(
-                            question_index=(0, 0), question_id=radio.id
-                        ),
-                        evaluation=[
-                            LocalizedConditionEvaluation(
-                                option_id=option_id(radio, other)
-                            )
-                        ],
-                    )
-                ],
-            ),
+            conditions=[
+                LocalizedCondition(
+                    action=ConditionAction.SKIP_QUESTION,
+                    blocks=[
+                        LocalizedConditionBlock(
+                            question_context=QuestionContext(
+                                question_index=(0, 0), question_id=radio.id
+                            ),
+                            evaluation=[
+                                LocalizedConditionEvaluation(
+                                    option_id=option_id(radio, other)
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ],
         )
         return {
             "question_sections": [
@@ -317,7 +340,7 @@ class TestValidation:
 
     def test_classification_cannot_name_an_option(self):
         with pytest.raises(ValidationError, match="classification"):
-            LocalizedCondition(
+            LocalizedConditionBlock(
                 question_context=QuestionContext(
                     question_index=(0, 0), question_id=uuid4()
                 ),
@@ -390,21 +413,23 @@ def _likert_guide(
     )
     gated = LocalizedQuestion(
         main_question={"EN": "Why not?", "DA": "Hvorfor ikke?"},
-        conditions=LocalizedConditions(
-            action=ConditionAction.SKIP_QUESTION,
-            conditions=[
-                LocalizedCondition(
-                    question_context=QuestionContext(
-                        question_index=(0, 0), question_id=scale.id
-                    ),
-                    evaluation=[
-                        LocalizedConditionEvaluation(
-                            option_id=options[2].id, comparison_operator=operator
-                        )
-                    ],
-                )
-            ],
-        ),
+        conditions=[
+            LocalizedCondition(
+                action=ConditionAction.SKIP_QUESTION,
+                blocks=[
+                    LocalizedConditionBlock(
+                        question_context=QuestionContext(
+                            question_index=(0, 0), question_id=scale.id
+                        ),
+                        evaluation=[
+                            LocalizedConditionEvaluation(
+                                option_id=options[2].id, comparison_operator=operator
+                            )
+                        ],
+                    )
+                ],
+            )
+        ],
     )
     return LocalizedInterviewGuide.model_validate(
         {"question_sections": [{"questions": [q.model_dump() for q in (scale, gated)]}]}
@@ -423,23 +448,23 @@ class TestLikertOrder:
             ("DA", "Uenig", False),
         ):
             gated = source.render(language).question_sections[0].questions[1]
-            assert gated.conditions is not None
+            assert gated.conditions
             assert (
-                await evaluator.evaluate_conditions([answer], gated.conditions)
+                await evaluator.evaluate_condition([answer], gated.conditions[0])
                 is expected
             )
 
     def test_renders_the_scale(self):
         gated = _likert_guide("<").render("DA").question_sections[0].questions[1]
-        assert gated.conditions is not None
-        (evaluation,) = gated.conditions.conditions[0].evaluation
+        assert gated.conditions
+        (evaluation,) = gated.conditions[0].blocks[0].evaluation
         assert evaluation.trigger_value == "Enig"
         assert evaluation.scale == ["Uenig", "Neutral", "Enig", "Meget enig"]
 
     def test_equals_renders_no_scale(self):
         gated = _likert_guide("==").render("EN").question_sections[0].questions[1]
-        assert gated.conditions is not None
-        assert gated.conditions.conditions[0].evaluation[0].scale is None
+        assert gated.conditions
+        assert gated.conditions[0].blocks[0].evaluation[0].scale is None
 
     def test_round_trips_naming_the_option(self):
         source = _likert_guide(">")
@@ -448,8 +473,8 @@ class TestLikertOrder:
         )
         assert _dump(again.render("DA")) == _dump(source.render("DA"))
         conditions = again.question_sections[0].questions[1].conditions
-        assert conditions is not None
-        (evaluation,) = conditions.conditions[0].evaluation
+        assert conditions
+        (evaluation,) = conditions[0].blocks[0].evaluation
         assert evaluation.option_id is not None
         assert evaluation.comparison_operator == ">"
 

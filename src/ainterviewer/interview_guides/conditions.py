@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import operator
+from collections.abc import Iterable
 from typing import Literal, NoReturn, Protocol, assert_never
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +24,23 @@ comparison_operators = {
     ">": operator.gt,
     ">=": operator.ge,
 }
+
+
+# Strongest first. When several of a question's conditions fire at the same
+# moment, the strongest action is taken: it subsumes the rest (a skipped
+# section has no probes left to skip), so the order the conditions are listed
+# in does not matter.
+ACTION_PRECEDENCE: tuple[ConditionAction, ...] = (
+    ConditionAction.END_INTERVIEW,
+    ConditionAction.SKIP_SECTION,
+    ConditionAction.SKIP_QUESTION,
+    ConditionAction.SKIP_PROBES,
+)
+
+
+def strongest_action(actions: Iterable[ConditionAction]) -> ConditionAction | None:
+    """The strongest of `actions` by `ACTION_PRECEDENCE`, or None if empty."""
+    return min(actions, key=ACTION_PRECEDENCE.index, default=None)
 
 
 def raise_condition(action: ConditionAction) -> NoReturn:
@@ -50,13 +68,22 @@ class Classifier(Protocol):
     ) -> bool: ...
 
 
-class Conditions(BaseModel):
-    conditions: list[Condition]
+class Condition(BaseModel):
+    """Blocks combined into one verdict, and the action taken when it is True.
+    A question may carry several conditions, each with its own action (see
+    `Question.conditions`)."""
+
+    id: UUID = Field(
+        default_factory=uuid4,
+        description="Stable identity of the condition, shared by every translation of it. Recorded with each evaluation, so its firings can be counted.",
+    )
+    blocks: list[ConditionBlock]
     action: ConditionAction
 
 
-class Condition(BaseModel):
-    """Create a condition that must be met to ask a question"""
+class ConditionBlock(BaseModel):
+    """One part of a condition: the answer to one question, checked by its
+    evaluations."""
 
     question_context: QuestionContext
     evaluation: list[ConditionEvaluation]
@@ -64,12 +91,12 @@ class Condition(BaseModel):
     trigger_type: ConditionTrigger = ConditionTrigger.MATCH
     combine_next: Literal["AND", "OR"] | None = Field(
         default=None,
-        description="Operator to combine this condition's result with the next. None for the last condition.",
+        description="Operator to combine this block's result with the next. None for the last block.",
     )
 
 
 class QuestionContext(BaseModel):
-    """The question a condition reads its answer from.
+    """The question a condition block reads its answer from.
 
     `question_id` is the source of truth. `question_index` is its position,
     which the interview loop reads; the guide derives it from the id whenever
@@ -155,59 +182,56 @@ class ConditionEvaluator:
     def __init__(self, classifier: Classifier | None = None):
         self.classifier = classifier
 
-    async def evaluate_conditions(
-        self, contexts: list[str | None], conditions: Conditions
+    async def evaluate_condition(
+        self, contexts: list[str | None], condition: Condition
     ) -> bool | None:
-        """Evaluate multiple conditions against their corresponding contexts.
+        """Evaluate a condition's blocks against their corresponding contexts.
 
         A context of None is a question without an answer, which makes its
-        condition unknown (see `combine`). The result is None when the
-        unknowns leave it undecided; the action only fires on True.
+        block unknown (see `combine`). The result is None when the unknowns
+        leave it undecided; the action only fires on True.
         """
-        condition_list = conditions.conditions
+        blocks = condition.blocks
 
-        if not condition_list:
+        if not blocks:
             return True
 
-        if len(contexts) != len(condition_list):
+        if len(contexts) != len(blocks):
             raise ValueError(
-                f"Number of contexts ({len(contexts)}) must match number of conditions ({len(condition_list)})"
+                f"Number of contexts ({len(contexts)}) must match number of blocks ({len(blocks)})"
             )
 
-        result = await self.evaluate_condition(contexts[0], condition_list[0])
+        result = await self.evaluate_block(contexts[0], blocks[0])
 
-        for i in range(len(condition_list) - 1):
-            current_condition = condition_list[i]
-            next_result = await self.evaluate_condition(
-                contexts[i + 1], condition_list[i + 1]
-            )
+        for i in range(len(blocks) - 1):
+            next_result = await self.evaluate_block(contexts[i + 1], blocks[i + 1])
 
-            if current_condition.combine_next is None:
+            if (combine_next := blocks[i].combine_next) is None:
                 raise ValueError(
-                    "Must specify a combine_next value when there are more conditions"
+                    "Must specify a combine_next value when there are more blocks"
                 )
-            result = combine(result, current_condition.combine_next, next_result)
+            result = combine(result, combine_next, next_result)
 
         return result
 
-    async def evaluate_condition(
-        self, context: str | None, condition: Condition
+    async def evaluate_block(
+        self, context: str | None, block: ConditionBlock
     ) -> bool | None:
-        """Evaluate a condition against the given context, or None when there
-        is no answer to evaluate it against. Negating unknown leaves it
+        """Evaluate a block against the given context, or None when there is
+        no answer to evaluate it against. Negating unknown leaves it
         unknown."""
         if context is None:
             return None
 
-        match condition.trigger_type:
+        match block.trigger_type:
             case ConditionTrigger.MATCH:
-                result = evaluate_match_condition(context, condition.evaluation)
+                result = evaluate_match_condition(context, block.evaluation)
             case ConditionTrigger.CLASSIFICATION:
                 result = await self._evaluate_classification_condition(
-                    context, condition.evaluation
+                    context, block.evaluation
                 )
 
-        return not result if condition.negated else result
+        return not result if block.negated else result
 
     async def _evaluate_classification_condition(
         self, context: str, evaluations: list[ConditionEvaluation]
