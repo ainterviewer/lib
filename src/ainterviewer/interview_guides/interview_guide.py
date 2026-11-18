@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import warnings
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
@@ -109,6 +109,10 @@ class InterviewGuideBase[Q: QuestionBase](BaseModel):
 class TimedMessage(BaseModel):
     """A message that is displayed to the interviewee after a certain amount of time"""
 
+    id: UUID = Field(
+        default_factory=uuid4,
+        description="Stable identity of the timed message, shared by every translation of it. Stored with the message once sent, so a resumed interview does not send it again.",
+    )
     message: str = Field(description="The message to display")
 
     time: int = Field(
@@ -167,7 +171,12 @@ class InterviewGuide(InterviewGuideBase[Question]):
             for section in self.question_sections
             for question in section.questions
         ]
-        for kind, ids in (("section", section_ids), ("question", question_ids)):
+        timed_ids = [message.id for message in self.timed_messages or []]
+        for kind, ids in (
+            ("section", section_ids),
+            ("question", question_ids),
+            ("timed message", timed_ids),
+        ):
             if duplicates := sorted({str(i) for i in ids if ids.count(i) > 1}):
                 raise ValueError(f"Duplicate {kind} id(s): {duplicates}")
         return self

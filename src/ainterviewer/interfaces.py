@@ -90,6 +90,9 @@ class OutgoingMessage(_OutgoingData):
     # Lets a client tell which question it is answering without counting
     # messages, which shuffling and conditions make unreliable.
     question_id: UUID | None = None
+    # A timed message the guide asks to be shown in a modal rather than in
+    # the chat.
+    as_modal: bool = False
 
 
 class OutgoingData(BaseModel):
@@ -126,7 +129,7 @@ class StoredMessage(Protocol):
     resume an interview. The stored row's own class lives with whoever stores
     it, not in this library.
 
-    Only the fields `AInterviewer.is_settled` reads so far; the rest of the
+    Only the fields `AInterviewer` reads off it so far; the rest of the
     resume path still takes the rows untyped.
     """
 
@@ -136,6 +139,8 @@ class StoredMessage(Protocol):
     main_question: int | None
     can_answer: bool
     skipped_by_condition: bool
+    # The guide's `TimedMessage.id` on a timed message, None on any other.
+    timed_message_id: UUID | None
 
 
 class PersistenceProtocol(Protocol):
@@ -177,7 +182,8 @@ class PersistenceProtocol(Protocol):
         sub_question: int | None = None,
         is_introduction: bool = False,
         outro: bool = False,
-        timed: bool = False,
+        # Set on a timed message only: the guide's `TimedMessage.id`.
+        timed_message_id: UUID | None = None,
         skipped_by_condition: bool = False,
         security_intervention: SecurityIntervention | None = None,
     ) -> int: ...

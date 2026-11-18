@@ -264,7 +264,7 @@ class InterviewHistory(BaseModel):
                     self.introduction = history_message
                 elif message.outro:
                     self.outro = history_message
-                elif message.timed:
+                elif message.timed_message_id is not None:
                     self.timed_messages.append(history_message)
                 elif message.section is None or message.main_question is None:
                     # Sent outside the interview structure

@@ -734,7 +734,7 @@ class StoredMessage:
     survey_item: Any = None
     is_introduction: bool = False
     outro: bool = False
-    timed: bool = False
+    timed_message_id: uuid.UUID | None = None
     skipped_by_condition: bool = False
     include_in_history: bool = True
     image: Any = None

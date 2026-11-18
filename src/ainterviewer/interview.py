@@ -110,22 +110,13 @@ class AInterviewer:
     ):
         self.interview_started = datetime.now(UTC)
 
-        # NOTE:
-        # If previous time spent is larger than timed_message.time, the timed
-        # message will be removed. This is to avoid showing the timed message
-        # twice.
-        # TODO:
-        # Should be improved by storing the timed message in the database
-        # instead.
-
-        if interview_guide.timed_messages:
-            interview_guide.timed_messages = [
-                timed_message
-                for timed_message in interview_guide.timed_messages
-                if previous_time_spent <= timed_message.time
-            ]
-
         self.previous_time_spent: int = previous_time_spent
+
+        # The guide's timed messages already stored, by id: filled from the
+        # stored history on resume, so none is sent twice. Kept here rather
+        # than by removing them from the guide, which is saved back to the
+        # database whenever a section or question is generated.
+        self.sent_timed_messages: set[UUID] = set()
 
         self.io: IOProtocol = io
         self.db: PersistenceProtocol = db
@@ -388,7 +379,6 @@ class AInterviewer:
         questions_asked: int | None = None,
         is_introduction: bool = False,
         outro: bool = False,
-        timed: bool = False,
         question_id: UUID | None = None,
         security_intervention: SecurityIntervention | None = None,
     ) -> None:
@@ -406,7 +396,6 @@ class AInterviewer:
                 questions_asked=questions_asked,
                 is_introduction=is_introduction,
                 outro=outro,
-                timed=timed,
                 question_id=question_id,
                 security_intervention=security_intervention,
             )
@@ -425,7 +414,8 @@ class AInterviewer:
         questions_asked: int | None = None,
         is_introduction: bool = False,
         outro: bool = False,
-        timed: bool = False,
+        timed_message_id: UUID | None = None,
+        as_modal: bool = False,
         question_id: UUID | None = None,
         security_intervention: SecurityIntervention | None = None,
     ) -> OutgoingData | OutgoingMessage:
@@ -462,7 +452,7 @@ class AInterviewer:
             ),
             is_introduction=is_introduction,
             outro=outro,
-            timed=timed,
+            timed_message_id=timed_message_id,
             security_intervention=security_intervention,
             interview_id=self.interview_id,
             project_id=self.project_id,
@@ -488,6 +478,7 @@ class AInterviewer:
                 progress=progress,
                 is_probe=bool(self.interview_history.current_probe_index),
                 question_id=question_id,
+                as_modal=as_modal,
                 security_intervention=security_intervention,
             )
 
@@ -529,6 +520,12 @@ class AInterviewer:
                 await self.process_history(interview_history)
 
             await self.handle_sections()
+
+            # One that fell due during the last answer has no question left to
+            # go out with.
+            await self.send_timed_messages(
+                self.store_timed_messages(await self.due_timed_messages())
+            )
         except EndInterviewCondition:
             end_reason = (
                 InterviewEndReason.SECURITY
@@ -619,6 +616,12 @@ class AInterviewer:
         message = self.interview_history.process_history(
             interview_history, self.interview_guide
         )
+
+        self.sent_timed_messages |= {
+            row.timed_message_id
+            for row in interview_history
+            if row.timed_message_id is not None
+        }
 
         if not message:
             raise ValueError("No messages in interview history")
@@ -1116,7 +1119,8 @@ class AInterviewer:
             question_id=question.id if isinstance(question, Question) else None,
         )
 
-        await self.deliver(timed_payloads, payload)
+        await self.send_timed_messages(timed_payloads)
+        await self.io.send_data(payload)
 
         if isinstance(question, Question) and question.can_answer is False:
             return CustomToken.no_answer
@@ -1148,7 +1152,8 @@ class AInterviewer:
             question_id=question.id,
         )
 
-        await self.deliver(timed_payloads, payload)
+        await self.send_timed_messages(timed_payloads)
+        await self.io.send_data(payload)
 
         if isinstance(question, Question) and question.can_answer is False:
             return CustomToken.no_answer
@@ -1161,42 +1166,46 @@ class AInterviewer:
         return answer
 
     async def due_timed_messages(self) -> list[tuple[TimedMessage, str]]:
-        """Takes every timed message whose time has come off the guide, with
-        the text to send for it.
+        """Every timed message whose time has come and that has not been sent,
+        earliest first, with the text to send for it.
 
         Timed from the start of the interview, not of this session: a resumed
-        interview has `previous_time_spent` behind it already.
+        interview has `previous_time_spent` behind it already. One that fell
+        due in an earlier session without being sent is due now.
         """
-        # TODO:
-        # - Timed messages should be recognised in the stored history, so they
-        # are not sent again if somebody reconnects. Currently this is handled
-        # by looking at the time spent in earlier sessions, which is not bullet
-        # proof. Maybe give them an ID or index.
         if not self.interview_guide.timed_messages:
             return []
 
         elapsed = self.previous_time_spent + self.time_spent
-        due, remaining = [], []
+        due = sorted(
+            (
+                tm
+                for tm in self.interview_guide.timed_messages
+                if elapsed > tm.time and tm.id not in self.sent_timed_messages
+            ),
+            key=lambda tm: tm.time,
+        )
 
-        for tm in self.interview_guide.timed_messages:
-            (due if elapsed > tm.time else remaining).append(tm)
-
-        self.interview_guide.timed_messages = remaining
-
-        texts = []
-        for tm in due:
-            tm.message = fill_variables_in_message(
-                text=tm.message, referable_values=self.referable_values
+        return [
+            (
+                tm,
+                await self.preprocess_message(
+                    fill_variables_in_message(
+                        text=tm.message, referable_values=self.referable_values
+                    )
+                ),
             )
-            texts.append((tm, await self.preprocess_message(tm.message)))
-
-        return texts
+            for tm in due
+        ]
 
     def store_timed_messages(
         self, timed_messages: list[tuple[TimedMessage, str]]
     ) -> list[OutgoingData | OutgoingMessage]:
         """Stores timed messages and returns what to send for them; for
-        `deliver` to send before the question or probe they precede."""
+        `send_timed_messages` to send before the question or probe they precede.
+
+        Stored counts as sent: a reconnect replays the stored history.
+        """
         payloads = []
 
         for tm, text in timed_messages:
@@ -1207,25 +1216,22 @@ class AInterviewer:
                     can_answer=False,
                     include_in_history=tm.include_in_history,
                     with_interview_structure=False,
-                    timed=True,
+                    timed_message_id=tm.id,
+                    as_modal=tm.as_modal,
                 )
             )
+            self.sent_timed_messages.add(tm.id)
 
         return payloads
 
-    async def deliver(
-        self,
-        timed_payloads: list[OutgoingData | OutgoingMessage],
-        payload: OutgoingData | OutgoingMessage,
+    async def send_timed_messages(
+        self, timed_payloads: list[OutgoingData | OutgoingMessage]
     ) -> None:
-        """Sends stored timed messages, each given time to be read, then the
-        question or probe they precede."""
+        """Sends stored timed messages, each given time to be read."""
         for timed_payload in timed_payloads:
             await self.io.send_data(timed_payload)
             # TODO: Move sleep to frontend
             await asyncio.sleep(2.5)
-
-        await self.io.send_data(payload)
 
     @staticmethod
     def reads_own_answer(condition: Condition, carrier: QuestionIndex) -> bool:

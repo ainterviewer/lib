@@ -91,7 +91,9 @@ def _guide(
                 questions=[radio, gated],
             )
         ],
-        timed_messages=[TimedMessage(message=f"{language} hurry", time=60)],
+        timed_messages=[
+            TimedMessage(id=_ids["timed"], message=f"{language} hurry", time=60)
+        ],
     )
 
 
@@ -100,6 +102,7 @@ _ids = {
     "gated": uuid4(),
     "section": uuid4(),
     "condition": uuid4(),
+    "timed": uuid4(),
 }
 EN = _guide("EN", often="Often", never="Never", probe="Tell me more", ask="How often?")
 DA = _guide("DA", often="Ofte", never="Aldrig", probe="Fortæl mere", ask="Hvor ofte?")

@@ -854,6 +854,7 @@ def _merge_conditions(
 class LocalizedTimedMessage(BaseModel):
     """`TimedMessage` with its text per language."""
 
+    id: UUID = Field(default_factory=uuid4)
     message: LocalizedText = Field(default_factory=dict)
     time: int
     include_in_history: bool = False

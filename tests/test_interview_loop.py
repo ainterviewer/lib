@@ -581,7 +581,11 @@ async def test_resume_after_the_respondent_skipped():
 @pytest.mark.anyio
 async def test_resume_after_a_timed_message():
     timed = StoredMessage(
-        "Halfway", MessageRole.ASSISTANT, section=None, main_question=None, timed=True
+        "Halfway",
+        MessageRole.ASSISTANT,
+        section=None,
+        main_question=None,
+        timed_message_id=uuid.uuid4(),
     )
     interviewer, respondent, _ = await _resume(
         _plain_guide(), [FIRST_ASKED, StoredMessage("a", MessageRole.USER), timed]
@@ -594,7 +598,11 @@ async def test_resume_after_a_timed_message():
 @pytest.mark.anyio
 async def test_resume_after_a_timed_message_before_any_question():
     timed = StoredMessage(
-        "Hello", MessageRole.ASSISTANT, section=None, main_question=None, timed=True
+        "Hello",
+        MessageRole.ASSISTANT,
+        section=None,
+        main_question=None,
+        timed_message_id=uuid.uuid4(),
     )
     respondent = Respondent({"First?": ["a"], "Second?": ["a"]})
     interviewer = _interviewer(_plain_guide(max_probes_n=0), respondent)
@@ -651,7 +659,7 @@ def _stored_rows(interviewer) -> list[StoredMessage]:
         "section",
         "main_question",
         "sub_question",
-        "timed",
+        "timed_message_id",
         "can_answer",
         "skipped_by_condition",
     )
@@ -698,7 +706,7 @@ async def test_session_cancelled_after_a_timed_message_resumes_at_the_probe(
     # The probe was never sent, but it was stored with the timed message.
     assert respondent.asked == ["First?", "Halfway"]
     stored = _stored_rows(interviewer)
-    assert [(row.content, row.timed) for row in stored[-2:]] == [
+    assert [(row.content, row.timed_message_id is not None) for row in stored[-2:]] == [
         ("Halfway", True),
         ("Why?", False),
     ]
@@ -719,6 +727,127 @@ async def test_session_cancelled_after_a_timed_message_resumes_at_the_probe(
     # The probe is answered, and probing goes on with the budget left.
     assert resumed_respondent.answers["Why?"] == []
     assert probed == ["First?"]
+
+
+def _timed_guide(*timed: TimedMessage, **guide) -> InterviewGuide:
+    plain = _plain_guide(max_probes_n=0)
+    return plain.model_copy(update={"timed_messages": list(timed), **guide})
+
+
+def _overdue(interviewer, seconds: int = 60):
+    interviewer.interview_started = datetime.now(UTC) - timedelta(seconds=seconds)
+
+
+@pytest.mark.anyio
+async def test_timed_messages_go_out_earliest_first():
+    later = TimedMessage(message="Later", time=20)
+    earlier = TimedMessage(message="Earlier", time=10)
+    respondent = Respondent({"First?": ["a"], "Second?": ["a"]})
+    interviewer = _interviewer(_timed_guide(later, earlier), respondent)
+    _overdue(interviewer)
+
+    await interviewer.handle_sections()
+
+    assert respondent.asked == ["Earlier", "Later", "First?", "Second?"]
+
+
+@pytest.mark.anyio
+async def test_timed_message_is_stored_with_its_id_and_sent_as_a_modal():
+    timed = TimedMessage(message="Halfway", time=10, as_modal=True)
+    respondent = Respondent({"First?": ["a"], "Second?": ["a"]})
+    interviewer = _interviewer(_timed_guide(timed), respondent)
+    _overdue(interviewer)
+
+    await interviewer.handle_sections()
+
+    frame = respondent.frames[0]
+    assert (frame.content, frame.as_modal) == ("Halfway", True)
+    assert not any(frame.as_modal for frame in respondent.frames[1:])
+    row = _stored_rows(interviewer)[0]
+    assert row.timed_message_id == timed.id
+
+
+@pytest.mark.anyio
+async def test_timed_message_leaves_the_guide_untouched():
+    # The guide is saved back whenever a section or question is generated, so
+    # sending one must not take it off the guide or fill its variables in.
+    timed = TimedMessage(message="Hi {{ interview_id }}", time=10)
+    guide = _timed_guide(timed)
+    respondent = Respondent({"First?": ["a"], "Second?": ["a"]})
+    interviewer = _interviewer(guide, respondent)
+    _overdue(interviewer)
+
+    await interviewer.handle_sections()
+
+    assert guide.timed_messages == [timed]
+    assert timed.message == "Hi {{ interview_id }}"
+    assert respondent.asked[0] == f"Hi {interviewer.interview_id}"
+
+
+@pytest.mark.anyio
+async def test_resume_does_not_send_a_stored_timed_message_again():
+    timed = TimedMessage(message="Halfway", time=10)
+    stored = [
+        FIRST_ASKED,
+        StoredMessage("a", MessageRole.USER),
+        StoredMessage(
+            "Halfway",
+            MessageRole.ASSISTANT,
+            section=None,
+            main_question=None,
+            timed_message_id=timed.id,
+        ),
+    ]
+    respondent = Respondent({"Second?": ["a"]})
+    # The time spent was never written: the earlier session was killed.
+    interviewer = _interviewer(_timed_guide(timed), respondent, previous_time_spent=0)
+    _overdue(interviewer)
+
+    await interviewer.process_history(stored)
+    await interviewer.handle_sections()
+
+    assert respondent.asked == ["Second?"]
+
+
+@pytest.mark.anyio
+async def test_resume_sends_a_timed_message_that_fell_due_but_was_never_sent():
+    # Due at 10s, but the earlier session ended 20s in, before another
+    # question went out with it.
+    timed = TimedMessage(message="Halfway", time=10)
+    respondent = Respondent({"Second?": ["a"]})
+    interviewer = _interviewer(_timed_guide(timed), respondent, previous_time_spent=20)
+
+    await interviewer.process_history(
+        [FIRST_ASKED, StoredMessage("a", MessageRole.USER)]
+    )
+    await interviewer.handle_sections()
+
+    assert respondent.asked == ["Halfway", "Second?"]
+
+
+@pytest.mark.anyio
+async def test_timed_message_due_during_the_last_answer_goes_out_before_the_outro():
+    timed = TimedMessage(message="Halfway", time=30)
+
+    class Slow(Respondent):
+        async def receive_message(self, message_id: int, message_type=None):
+            # The answer to the last question takes the interview past 30s.
+            if self.asked[-1] == "Second?":
+                _overdue(interviewer)
+            return await super().receive_message(message_id, message_type)
+
+    respondent = Slow({"First?": ["a"], "Second?": ["a"]})
+    interviewer = _interviewer(_timed_guide(timed, outro="Bye"), respondent)
+
+    await interviewer.interview()
+
+    assert respondent.asked == ["First?", "Second?", "Halfway", "Bye"]
+
+
+def test_timed_message_ids_must_be_unique():
+    timed = TimedMessage(message="Halfway", time=10)
+    with pytest.raises(ValueError, match="Duplicate timed message id"):
+        InterviewGuide(timed_messages=[timed, timed.model_copy()])
 
 
 # ── Exhaustion ──────────────────────────────────────────────────────────────

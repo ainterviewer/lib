@@ -7,6 +7,7 @@ turn the answer will land on, so these pin the turn being the right one, on the
 live path and on the resume path alike.
 """
 
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -40,7 +41,7 @@ class StoredMessage:
     survey_item: Any = None
     is_introduction: bool = False
     outro: bool = False
-    timed: bool = False
+    timed_message_id: uuid.UUID | None = None
     skipped_by_condition: bool = False
     include_in_history: bool = True
     image: Any = None
