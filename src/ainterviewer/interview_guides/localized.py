@@ -27,7 +27,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import Annotated, Literal, NamedTuple
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, EmailStr, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from ainterviewer.interview_guides.conditions import (
     Condition,
@@ -36,7 +36,12 @@ from ainterviewer.interview_guides.conditions import (
     QuestionContext,
 )
 from ainterviewer.interview_guides.errors import GuideError
-from ainterviewer.interview_guides.extra import Consent, Welcome
+from ainterviewer.interview_guides.extra import (
+    EMAIL_REQUIRED,
+    Consent,
+    OptionalEmail,
+    Welcome,
+)
 from ainterviewer.interview_guides.interview_guide import (
     InterviewGuide,
     InterviewMessage,
@@ -1190,9 +1195,17 @@ class LocalizedConsent(BaseModel):
 class LocalizedWelcome(BaseModel):
     title: LocalizedText = Field(default_factory=dict)
     text: LocalizedText = Field(default_factory=dict)
-    email: EmailStr
+    #: Required while `with_id`, as on `Welcome`.
+    email: OptionalEmail = None
     video_file_name: str | None = None
+    #: Show the box with the contact email and the interview's ID.
     with_id: bool = True
+
+    @model_validator(mode="after")
+    def _email_when_shown(self):
+        if self.with_id and self.email is None:
+            raise ValueError(EMAIL_REQUIRED)
+        return self
 
     def texts(self) -> Iterator[tuple[str, LocalizedText]]:
         yield "title", self.title

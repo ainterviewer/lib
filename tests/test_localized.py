@@ -497,6 +497,20 @@ class TestWelcome:
             title="Hej", text="Velkommen", email="a@example.org", with_id=False
         )
 
+    @pytest.mark.parametrize("email", [None, ""])
+    def test_no_email_is_needed_without_the_contact_box(self, email):
+        welcome = LocalizedWelcome(text={"EN": "Hi"}, email=email, with_id=False)
+
+        assert welcome.email is None
+        assert welcome.render("EN").email is None
+
+    @pytest.mark.parametrize("email", [None, ""])
+    def test_the_contact_box_needs_an_email(self, email):
+        with pytest.raises(ValidationError, match="contact email is required"):
+            LocalizedWelcome(text={"EN": "Hi"}, email=email)
+        with pytest.raises(ValidationError, match="contact email is required"):
+            Welcome(title="", text="Hi", email=email)
+
 
 class TestTranslateMissing:
     @pytest.mark.anyio
