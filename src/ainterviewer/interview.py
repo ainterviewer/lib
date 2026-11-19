@@ -1047,12 +1047,6 @@ class AInterviewer:
     async def ask_question(self, question: Question) -> str:
         """Asks the user a question and returns the answer"""
 
-        # TODO: Reimplement
-        # if question.alternative_main_questions:
-        #     question.main_question = random.choice(
-        #         question.alternative_main_questions + [question.main_question]
-        #     )
-
         question.main_question = fill_variables_in_message(
             text=question.main_question,
             referable_values=self.referable_values,

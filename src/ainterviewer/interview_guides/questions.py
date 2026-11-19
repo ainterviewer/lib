@@ -54,10 +54,6 @@ class Question(QuestionBaseExtended):
         default_factory=uuid4,
         description="Stable identity of the question. Survives reordering and is shared by every translation of it; conditions and references point at it.",
     )
-    alternative_main_questions: list[str] | None = Field(
-        None,
-        description="List of alternative formulations of the main question, will be chosen at random.",
-    )
 
     check_if_answered: bool = Field(
         False,

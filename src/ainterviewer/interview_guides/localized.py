@@ -605,7 +605,6 @@ _QUESTION_TEXT: set[str] = {
     "main_question",
     "description",
     "probes",
-    "alternative_main_questions",
     "survey_item",
     "image",
     "conditions",
@@ -621,7 +620,6 @@ class LocalizedQuestion(BaseModel):
     main_question: LocalizedText = Field(default_factory=dict)
     description: LocalizedText | None = None
     probes: list[LocalizedText] | None = None
-    alternative_main_questions: list[LocalizedText] | None = None
     max_probes_n: int | None = Field(default=3, ge=0)
     max_probes_time: float | None = Field(None, ge=0)
     survey_item: LocalizedSurveyItem | None = None
@@ -662,12 +660,6 @@ class LocalizedQuestion(BaseModel):
                 "probes": None
                 if self.probes is None
                 else [_pick_localized_text(probe, languages) for probe in self.probes],
-                "alternative_main_questions": None
-                if self.alternative_main_questions is None
-                else [
-                    _pick_localized_text(wording, languages)
-                    for wording in self.alternative_main_questions
-                ],
                 "survey_item": None
                 if self.survey_item is None
                 else _render_survey_item(self.survey_item, languages),
@@ -685,8 +677,6 @@ class LocalizedQuestion(BaseModel):
             yield f"{where}.description", self.description
         for n, probe in enumerate(self.probes or []):
             yield f"{where}.probes[{n}]", probe
-        for n, wording in enumerate(self.alternative_main_questions or []):
-            yield f"{where}.alternative_main_questions[{n}]", wording
         match self.survey_item:
             case (
                 LocalizedRadioItem()
@@ -731,13 +721,6 @@ class LocalizedQuestion(BaseModel):
                 "probes": merge.texts(
                     {lang: q.probes for lang, q in questions.items()},
                     f"{where}.probes",
-                ),
-                "alternative_main_questions": merge.texts(
-                    {
-                        lang: q.alternative_main_questions
-                        for lang, q in questions.items()
-                    },
-                    f"{where}.alternative_main_questions",
                 ),
                 "survey_item": _merge_survey_item(
                     {lang: q.survey_item for lang, q in questions.items()}, merge, where

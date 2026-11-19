@@ -559,3 +559,22 @@ class TestTranslateMissing:
             )
             == source
         )
+
+
+def test_a_stored_question_with_alternative_wordings_still_loads():
+    # `alternative_main_questions` was removed; guides saved before still
+    # carry it and must load, the field dropped.
+    stored = {
+        "main_question": {"EN": "How are you?"},
+        "alternative_main_questions": [{"EN": "How do you do?"}],
+    }
+    question = LocalizedQuestion.model_validate(stored)
+    assert "alternative_main_questions" not in question.model_dump()
+    rendered = question.render({}, ["EN"])
+    assert rendered.main_question == "How are you?"
+    assert (
+        Question.model_validate(
+            {"main_question": "x", "alternative_main_questions": ["y"]}
+        ).main_question
+        == "x"
+    )
