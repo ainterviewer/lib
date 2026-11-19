@@ -623,7 +623,7 @@ class LocalizedQuestion(BaseModel):
     probes: list[LocalizedText] | None = None
     alternative_main_questions: list[LocalizedText] | None = None
     max_probes_n: int | None = Field(default=3, ge=0)
-    max_probes_time: float | None = Field(None, gt=0)
+    max_probes_time: float | None = Field(None, ge=0)
     survey_item: LocalizedSurveyItem | None = None
     can_answer: bool = True
     check_if_answered: bool = False

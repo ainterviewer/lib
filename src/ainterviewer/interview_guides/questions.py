@@ -26,7 +26,9 @@ class QuestionBase(BaseModel):
         default=3, ge=0, description="Max number of probes."
     )
     max_probes_time: float | None = Field(
-        None, gt=0, description="Max time to spend on probing, in seconds."
+        None,
+        ge=0,
+        description="Max time to spend on probing, in seconds. 0 turns probing off.",
     )
 
 
@@ -114,27 +116,6 @@ class Question(QuestionBaseExtended):
             setattr(self, key, value)
         elif strict:
             raise OverwriteError(f"{self.__data[key]=:}, {key=:} {value=:}")
-
-    @model_validator(mode="after")
-    def check_optionals(self):
-        # TODO:
-        # Add more checks
-        if self.max_probes_n == 0 and self.max_probes_time:
-            raise ValueError(
-                "Probing time specified, but max_probes_n is 0. Set max_probes_n to None (null) to only have time limit."
-            )
-
-        # TODO: Handle in frontend
-        # if (
-        #     self.probes
-        #     and (self.max_probes_n == 0 or self.max_probes_n is None)
-        #     and (self.max_probes_time is None or self.max_probes_time == 0)
-        # ):
-        #     raise ValueError(
-        #         f"Probe questions specified, but no proper constraint is set. {self.max_probes_n=:}, {self.max_probes_time=:}"
-        #     )
-
-        return self
 
     @model_validator(mode="after")
     def check_references(self):

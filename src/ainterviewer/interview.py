@@ -760,7 +760,9 @@ class AInterviewer:
     @staticmethod
     def should_probe(question: Question) -> bool:
         """Whether the guide asks for probes on this question at all; how many
-        is up to `can_probe`."""
+        is up to `can_probe`. Either limit at 0 turns probing off."""
+        if question.max_probes_n == 0 or question.max_probes_time == 0:
+            return False
         return bool(question.max_probes_n or question.max_probes_time)
 
     @staticmethod
