@@ -91,11 +91,16 @@ class ConditionBlock(BaseModel):
     evaluations.
 
     A checkbox answer is read as the options ticked, and an option matches
-    when it is one of them, whatever else was ticked."""
+    when it is one of them, whatever else was ticked. `exclusive` narrows
+    that to "and nothing else"."""
 
     question_context: QuestionContext
     evaluation: list[ConditionEvaluation]
     negated: bool = False
+    exclusive: bool = Field(
+        default=False,
+        description="For a checkbox answer: also require that nothing was ticked besides the options this block matches with '=='. Ignored for any other answer.",
+    )
     trigger_type: ConditionTrigger = ConditionTrigger.MATCH
     combine_next: Literal["AND", "OR"] | None = Field(
         default=None,
@@ -234,6 +239,8 @@ class ConditionEvaluator:
         match block.trigger_type:
             case ConditionTrigger.MATCH:
                 result = evaluate_match_condition(context, block.evaluation)
+                if block.exclusive and isinstance(context, list):
+                    result = result and _only_matched(context, block.evaluation)
             case ConditionTrigger.CLASSIFICATION:
                 text = (
                     context
@@ -314,6 +321,18 @@ def evaluate_match_condition(
 
 def _normalize(value: str | float) -> str:
     return str(value).strip().casefold()
+
+
+def _only_matched(selected: list[str], evaluations: list[ConditionEvaluation]) -> bool:
+    """Whether every ticked value is one the evaluations match with '==':
+    what `ConditionBlock.exclusive` adds. A value typed into "Other" is
+    none of them."""
+    matched = {
+        _normalize(evaluation.trigger_value)
+        for evaluation in evaluations
+        if evaluation.comparison_operator == "=="
+    }
+    return all(_normalize(value) in matched for value in selected)
 
 
 def _evaluate_single(context: Answer, evaluation: ConditionEvaluation) -> bool:

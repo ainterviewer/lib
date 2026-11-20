@@ -24,6 +24,7 @@ def _make_condition(
     section: int = 0,
     question: int = 0,
     negated: bool = False,
+    exclusive: bool = False,
     trigger_type: ConditionTrigger = ConditionTrigger.MATCH,
     combine_next: Literal["AND", "OR"] | None = None,
 ) -> ConditionBlock:
@@ -33,6 +34,7 @@ def _make_condition(
         ),
         evaluation=evaluations,
         negated=negated,
+        exclusive=exclusive,
         trigger_type=trigger_type,
         combine_next=combine_next,
     )
@@ -221,9 +223,68 @@ class TestEvaluateCondition:
         assert await evaluator.evaluate_block("no", cond) is True
 
     @pytest.mark.anyio
-    async def test_checkbox_includes(self, evaluator):
+    @pytest.mark.parametrize(
+        ("selected", "expected"),
+        [
+            (["Dog"], True),
+            (["dog "], True),
+            (["Dog", "Cat"], False),
+            (["Cat"], False),
+            (["Dog", "something I typed"], False),
+            ([], False),
+        ],
+    )
+    async def test_exclusive_one_option(self, evaluator, selected, expected):
+        cond = _make_condition(
+            [ConditionEvaluation(trigger_value="Dog")], exclusive=True
+        )
+        assert await evaluator.evaluate_block(selected, cond) is expected
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ("combine", "selected", "expected"),
+        [
+            ("AND", ["Dog", "Cat"], True),
+            ("AND", ["Dog"], False),
+            ("AND", ["Dog", "Cat", "Fish"], False),
+            ("OR", ["Dog"], True),
+            ("OR", ["Cat"], True),
+            ("OR", ["Dog", "Cat"], True),
+            ("OR", ["Dog", "Fish"], False),
+        ],
+    )
+    async def test_exclusive_several_options(
+        self, evaluator, combine, selected, expected
+    ):
+        cond = _make_condition(
+            [
+                ConditionEvaluation(trigger_value="Dog", combine_next=combine),
+                ConditionEvaluation(trigger_value="Cat"),
+            ],
+            exclusive=True,
+        )
+        assert await evaluator.evaluate_block(selected, cond) is expected
+
+    @pytest.mark.anyio
+    async def test_not_exclusive_includes(self, evaluator):
         cond = _make_condition([ConditionEvaluation(trigger_value="Dog")])
         assert await evaluator.evaluate_block(["Dog", "Cat"], cond) is True
+
+    @pytest.mark.anyio
+    async def test_exclusive_negated(self, evaluator):
+        """Negating "only Dog" fires on anything else, Dog among others too."""
+        cond = _make_condition(
+            [ConditionEvaluation(trigger_value="Dog")], exclusive=True, negated=True
+        )
+        assert await evaluator.evaluate_block(["Dog"], cond) is False
+        assert await evaluator.evaluate_block(["Dog", "Cat"], cond) is True
+
+    @pytest.mark.anyio
+    async def test_exclusive_ignored_for_text(self, evaluator):
+        cond = _make_condition(
+            [ConditionEvaluation(trigger_value="yes")], exclusive=True
+        )
+        assert await evaluator.evaluate_block("yes", cond) is True
 
     @pytest.mark.anyio
     async def test_classification_reads_checkbox_as_text(self):

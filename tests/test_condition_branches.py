@@ -311,7 +311,7 @@ PETS = uuid.uuid4()
 PET_OPTIONS = ["Dog", "Cat", "Yes, a fish"]
 
 
-def _pets_guide(*evaluations: dict) -> InterviewGuide:
+def _pets_guide(*evaluations: dict, exclusive: bool = False) -> InterviewGuide:
     """Asks which pets the respondent has, then about dogs, skipping that
     question when the rule reading the pets fires."""
     return InterviewGuide.model_validate(
@@ -341,6 +341,7 @@ def _pets_guide(*evaluations: dict) -> InterviewGuide:
                                             "question_index": (0, 0),
                                         },
                                         "evaluation": list(evaluations),
+                                        "exclusive": exclusive,
                                     }
                                 )
                             ],
@@ -352,21 +353,32 @@ def _pets_guide(*evaluations: dict) -> InterviewGuide:
     )
 
 
-async def _skipped(answer: str, *evaluations: dict) -> bool:
+async def _skipped(answer: str, *evaluations: dict, exclusive: bool = False) -> bool:
     respondent = Respondent(
         {"Which pets do you have?": [answer], "Tell me about your dog.": ["Woof"]}
     )
-    await _interviewer(_pets_guide(*evaluations), respondent).handle_sections()
+    await _interviewer(
+        _pets_guide(*evaluations, exclusive=exclusive), respondent
+    ).handle_sections()
     return "Tell me about your dog." not in respondent.asked
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("answer", "skipped"),
-    [("Dog", True), ("Cat, Dog", True), ("Cat", False)],
+    ("answer", "exclusive", "skipped"),
+    [
+        ("Dog", False, True),
+        ("Cat, Dog", False, True),
+        ("Cat", False, False),
+        ("Dog", True, True),
+        ("Cat, Dog", True, False),
+        ("Dog, a lizard", True, False),
+    ],
 )
-async def test_checkbox_includes(answer, skipped):
-    assert await _skipped(answer, {"trigger_value": "Dog"}) is skipped
+async def test_checkbox_includes_or_only(answer, exclusive, skipped):
+    assert (
+        await _skipped(answer, {"trigger_value": "Dog"}, exclusive=exclusive) is skipped
+    )
 
 
 @pytest.mark.anyio

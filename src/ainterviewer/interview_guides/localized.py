@@ -471,15 +471,20 @@ class LocalizedConditionBlock(BaseModel):
     question_context: QuestionContext
     evaluation: list[LocalizedConditionEvaluation]
     negated: bool = False
+    exclusive: bool = Field(
+        default=False,
+        description="For a checkbox answer: also require that nothing was ticked besides the options this block names. See `ConditionBlock.exclusive`.",
+    )
     trigger_type: ConditionTrigger = ConditionTrigger.MATCH
     combine_next: Literal["AND", "OR"] | None = None
 
     @model_validator(mode="after")
     def _options_only_match(self):
-        if self.trigger_type == ConditionTrigger.CLASSIFICATION and any(
-            evaluation.option_id for evaluation in self.evaluation
-        ):
-            raise ValueError("A classification condition cannot name an option")
+        if self.trigger_type == ConditionTrigger.CLASSIFICATION:
+            if any(evaluation.option_id for evaluation in self.evaluation):
+                raise ValueError("A classification condition cannot name an option")
+            if self.exclusive:
+                raise ValueError("A classification condition cannot be exclusive")
         return self
 
 
