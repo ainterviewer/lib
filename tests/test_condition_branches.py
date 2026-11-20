@@ -303,3 +303,74 @@ async def test_skip_of_an_unskippable_question_is_ignored():
     )
     assert respondent.asked == ["Har du børn?", "Vil du gerne have børn?"]
     assert respondent.answers["Har du børn?"] == []
+
+
+# ── Checkbox answers ────────────────────────────────────────────────────────
+
+PETS = uuid.uuid4()
+PET_OPTIONS = ["Dog", "Cat", "Yes, a fish"]
+
+
+def _pets_guide(*evaluations: dict) -> InterviewGuide:
+    """Asks which pets the respondent has, then about dogs, skipping that
+    question when the rule reading the pets fires."""
+    return InterviewGuide.model_validate(
+        {
+            "framing": "Framing",
+            "question_sections": [
+                {
+                    "description": "Pets",
+                    "questions": [
+                        {
+                            "id": PETS,
+                            "main_question": "Which pets do you have?",
+                            "survey_item": {
+                                "type": "checkbox",
+                                "options": PET_OPTIONS,
+                                "with_other": True,
+                            },
+                        },
+                        {
+                            "main_question": "Tell me about your dog.",
+                            "max_probes_n": 0,
+                            "conditions": [
+                                _skip_if(
+                                    {
+                                        "question_context": {
+                                            "question_id": PETS,
+                                            "question_index": (0, 0),
+                                        },
+                                        "evaluation": list(evaluations),
+                                    }
+                                )
+                            ],
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+
+
+async def _skipped(answer: str, *evaluations: dict) -> bool:
+    respondent = Respondent(
+        {"Which pets do you have?": [answer], "Tell me about your dog.": ["Woof"]}
+    )
+    await _interviewer(_pets_guide(*evaluations), respondent).handle_sections()
+    return "Tell me about your dog." not in respondent.asked
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("answer", "skipped"),
+    [("Dog", True), ("Cat, Dog", True), ("Cat", False)],
+)
+async def test_checkbox_includes(answer, skipped):
+    assert await _skipped(answer, {"trigger_value": "Dog"}) is skipped
+
+
+@pytest.mark.anyio
+async def test_checkbox_option_with_a_comma():
+    assert await _skipped("Cat, Yes, a fish", {"trigger_value": "Yes, a fish"})
+    # "Yes" alone is no option, so it is not read out of "Yes, a fish".
+    assert not await _skipped("Yes, a fish", {"trigger_value": "Yes"})

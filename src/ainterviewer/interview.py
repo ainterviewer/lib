@@ -59,6 +59,7 @@ from ainterviewer.interview_guides import (
     fill_variables_in_message,
 )
 from ainterviewer.interview_guides.conditions import (
+    Answer,
     Condition,
     ConditionEvaluator,
     raise_condition,
@@ -72,9 +73,14 @@ from ainterviewer.interview_guides.history import (
 )
 from ainterviewer.interview_guides.references import QuestionIndex
 from ainterviewer.interview_guides.sections import QuestionSection
-from ainterviewer.interview_guides.survey_items import SurveyItem
+from ainterviewer.interview_guides.survey_items import (
+    CheckboxItem,
+    SurveyItem,
+    split_checkbox_answer,
+)
 from ainterviewer.interview_guides.types import (
     ConditionAction,
+    ConditionTrigger,
     ProbingContext,
     SecurityAction,
 )
@@ -1494,12 +1500,17 @@ class AInterviewer:
             security_check.cancel()
             self._security_check = None
 
-    def get_condition_context(self, block: ConditionBlock) -> str | None:
+    def get_condition_context(self, block: ConditionBlock) -> Answer | None:
         """The answer a condition block reads, or None when there is none: the
         question was skipped by a condition, skipped by the respondent, never
         reached (a skipped section), or took no answer. The evaluator treats
         None as unknown rather than as a mismatch, so a rule reading a branch
-        the respondent did not take neither crashes nor fires on it."""
+        the respondent did not take neither crashes nor fires on it.
+
+        A checkbox answer matched against options is read as the values
+        ticked, split with the options of the item as it was shown -- in the
+        respondent's language, which the condition's options are rendered
+        in too."""
         section, question = block.question_context.question_index
 
         try:
@@ -1521,7 +1532,13 @@ class AInterviewer:
         # what a classifier can make sense of.
         main_text = question_context.main_question.answer_text or main_answer.message
 
+        survey_item = question_context.main_question.survey_item
         match block.question_context.part:
+            case "main" if (
+                isinstance(survey_item, CheckboxItem)
+                and block.trigger_type == ConditionTrigger.MATCH
+            ):
+                return split_checkbox_answer(main_answer.message, survey_item.options)
             case "main":
                 return main_text
             case "probes":

@@ -58,13 +58,31 @@ class TestEvaluateSingle:
         ev = ConditionEvaluation(trigger_value="Yes")
         assert _evaluate_single("YES", ev) is True
 
-    def test_multi_select_pipe_match(self):
+    def test_checkbox_includes(self):
         ev = ConditionEvaluation(trigger_value="b")
-        assert _evaluate_single("a | b | c", ev) is True
+        assert _evaluate_single(["a", "b", "c"], ev) is True
 
-    def test_multi_select_pipe_no_match(self):
+    def test_checkbox_does_not_include(self):
         ev = ConditionEvaluation(trigger_value="d")
-        assert _evaluate_single("a | b | c", ev) is False
+        assert _evaluate_single(["a", "b", "c"], ev) is False
+
+    def test_checkbox_option_with_comma(self):
+        ev = ConditionEvaluation(trigger_value="yes, often")
+        assert _evaluate_single(["Yes, often", "No"], ev) is True
+
+    def test_checkbox_no_partial_match(self):
+        ev = ConditionEvaluation(trigger_value="dog")
+        assert _evaluate_single(["Hotdog"], ev) is False
+
+    def test_text_matches_whole_answer(self):
+        """Text is matched whole: a '|' or ',' in it splits nothing."""
+        ev = ConditionEvaluation(trigger_value="b")
+        assert _evaluate_single("a | b", ev) is False
+        assert _evaluate_single("a, b", ev) is False
+
+    def test_checkbox_has_no_order(self):
+        ev = ConditionEvaluation(trigger_value="1", comparison_operator=">=")
+        assert _evaluate_single(["2"], ev) is False
 
     def test_numeric_greater_than(self):
         ev = ConditionEvaluation(trigger_value="18", comparison_operator=">=")
@@ -132,28 +150,28 @@ class TestEvaluateMatchCondition:
             ConditionEvaluation(trigger_value="a", combine_next="AND"),
             ConditionEvaluation(trigger_value="b"),
         ]
-        assert evaluate_match_condition("a | b", evals) is True
+        assert evaluate_match_condition(["a", "b"], evals) is True
 
     def test_and_one_false(self):
         evals = [
             ConditionEvaluation(trigger_value="a", combine_next="AND"),
             ConditionEvaluation(trigger_value="c"),
         ]
-        assert evaluate_match_condition("a | b", evals) is False
+        assert evaluate_match_condition(["a", "b"], evals) is False
 
     def test_or_one_true(self):
         evals = [
             ConditionEvaluation(trigger_value="a", combine_next="OR"),
             ConditionEvaluation(trigger_value="c"),
         ]
-        assert evaluate_match_condition("a | b", evals) is True
+        assert evaluate_match_condition(["a", "b"], evals) is True
 
     def test_or_both_false(self):
         evals = [
             ConditionEvaluation(trigger_value="x", combine_next="OR"),
             ConditionEvaluation(trigger_value="y"),
         ]
-        assert evaluate_match_condition("a | b", evals) is False
+        assert evaluate_match_condition(["a", "b"], evals) is False
 
     def test_missing_combine_next_raises(self):
         evals = [
@@ -161,7 +179,7 @@ class TestEvaluateMatchCondition:
             ConditionEvaluation(trigger_value="b"),
         ]
         with pytest.raises(ValueError, match="Must specify a combine_next"):
-            evaluate_match_condition("a | b", evals)
+            evaluate_match_condition(["a", "b"], evals)
 
     def test_three_evaluations_and_or(self):
         """A AND B OR C — left-to-right: (A AND B) OR C"""
@@ -171,7 +189,7 @@ class TestEvaluateMatchCondition:
             ConditionEvaluation(trigger_value="c"),
         ]
         # a matches, x does not -> False after AND; c matches -> True after OR
-        assert evaluate_match_condition("a | c", evals) is True
+        assert evaluate_match_condition(["a", "c"], evals) is True
 
 
 # ── ConditionEvaluator.evaluate_condition ──────────────────────────────────
@@ -201,6 +219,23 @@ class TestEvaluateCondition:
     async def test_negated_false_becomes_true(self, evaluator):
         cond = _make_condition([ConditionEvaluation(trigger_value="yes")], negated=True)
         assert await evaluator.evaluate_block("no", cond) is True
+
+    @pytest.mark.anyio
+    async def test_checkbox_includes(self, evaluator):
+        cond = _make_condition([ConditionEvaluation(trigger_value="Dog")])
+        assert await evaluator.evaluate_block(["Dog", "Cat"], cond) is True
+
+    @pytest.mark.anyio
+    async def test_classification_reads_checkbox_as_text(self):
+        classifier = AsyncMock()
+        classifier.classify.return_value = True
+        evaluator = _make_evaluator(classifier=classifier)
+        cond = _make_condition(
+            [ConditionEvaluation(trigger_value="has a pet")],
+            trigger_type=ConditionTrigger.CLASSIFICATION,
+        )
+        await evaluator.evaluate_block(["Dog", "Cat"], cond)
+        classifier.classify.assert_called_once_with("Dog, Cat", "has a pet")
 
     @pytest.mark.anyio
     async def test_classification_without_classifier_raises(self):
