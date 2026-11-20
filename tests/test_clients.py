@@ -10,9 +10,9 @@ from ainterviewer.lpm.clients import openrouter_model_kwargs
 from ainterviewer.lpm.types import Message, MessageRole
 
 
-def test_gpt_oss_prefers_deepinfra():
+def test_gpt_oss_prefers_bedrock_eu():
     assert openrouter_model_kwargs("openrouter:openai/gpt-oss-120b") == {
-        "extra_body": {"provider": {"order": ["deepinfra"]}}
+        "extra_body": {"provider": {"order": ["amazon-bedrock/eu-west-1"]}}
     }
 
 

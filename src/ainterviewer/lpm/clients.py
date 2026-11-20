@@ -26,7 +26,7 @@ _DUMMY_MESSAGES: list[Message] = [{"role": MessageRole.USER, "content": "Hello"}
 # routing: a preferred provider that does not serve the model only adds a
 # failed attempt before the fallback.
 OPENROUTER_PROVIDERS: dict[str, dict[str, Any]] = {
-    "openai/gpt-oss-120b": {"order": ["deepinfra"]},
+    "openai/gpt-oss-120b": {"order": ["amazon-bedrock/eu-west-1"]},
 }
 
 
