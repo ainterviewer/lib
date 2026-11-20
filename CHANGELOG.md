@@ -4,6 +4,12 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.5] - 2026-11-20
+
+### Internal
+
+- (llm) Route gpt-oss on OpenRouter to Bedrock eu-west-1
+
 ## [0.8.4] - 2026-11-19
 
 ### Features
