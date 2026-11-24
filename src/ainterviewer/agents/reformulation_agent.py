@@ -4,6 +4,7 @@ from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.prompts.agent_prompts import ReformulationAgentPrompts
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
+from ainterviewer.utils import strip_leading_filler
 
 ReformulationReason = Literal["already_answered", "segue", "skipped"]
 
@@ -52,7 +53,9 @@ class ReformulationAgent(BaseAgent[ReformulationAgentPrompts]):
 
         self.logger.info(f"Reformulating question: {reformulation_prompt}")
 
-        reformulated_question = await self.chat_api(messages)
+        reformulated_question = strip_leading_filler(
+            await self.chat_api(messages), self._language
+        )
 
         self.logger.info(f"Reformulated question: {reformulated_question}")
 

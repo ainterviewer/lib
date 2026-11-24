@@ -8,6 +8,7 @@ from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
 from ainterviewer.agents.types import DiceStrategy
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
+from ainterviewer.utils import strip_leading_filler
 
 
 class SpecializedProbeType(BaseModel):
@@ -117,7 +118,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             Message(role=MessageRole.USER, content=probing_prompt)
         ]
         self.logger.info(f"Generating probe: {messages}")
-        probe = await self.chat_api(messages)
+        probe = strip_leading_filler(await self.chat_api(messages), self._language)
         self.logger.info(f"Probe generated: {probe}")
         return probe
 
@@ -153,7 +154,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             Message(role=MessageRole.USER, content=probing_prompt)
         ]
         self.logger.info(f"Generating specialized probe ({strategy_name})")
-        question = await self.chat_api(messages)
+        question = strip_leading_filler(await self.chat_api(messages), self._language)
         self.logger.info(f"Specialized probe ({strategy_name}): {question}")
         return {"strategy": strategy_name, "question": question}
 
@@ -254,7 +255,7 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
             f"Master selecting best from {len(candidate_probes)} candidates"
         )
 
-        probe = await self.chat_api(messages)
+        probe = strip_leading_filler(await self.chat_api(messages), self._language)
 
         self.logger.info(f"Master selected probe: {probe}")
 

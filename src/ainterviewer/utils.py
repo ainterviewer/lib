@@ -1,4 +1,5 @@
 import base64
+import re
 from datetime import datetime
 from functools import cache
 from pathlib import Path
@@ -87,3 +88,35 @@ def create_transcript(messages: list[Message], interviewee: bool = False) -> str
         ]
     )
     return transcript
+
+
+# gpt-oss tends to open a Danish question with the English hesitation "Er"
+# (a single token, shared with the Danish verb), then write the real question:
+# "Er er der andre ...", "Er hvad var grunden ...". "Er" is only stripped when
+# what follows could not continue a question that starts with the verb "er":
+# punctuation, the verb repeated, a question word, or another finite verb.
+_DA_LEADING_ER = re.compile(
+    r"""
+    ^(?P<lead>\s*)Er
+    (?:
+        \s*[,.…-]+\s*                    # "Er, ..." / "Er... "
+      | \s+(?=(?i:er|hvad|hvordan|hvorfor|hvilke|hvilken|hvilket|hvem|hvornår
+                 |kan|kunne|har|havde|vil|ville|skal|skulle|må|bør|synes|tror
+                 |oplever|føler|gør|går|bruger|tænker|husker)\b)
+    )
+    """,
+    re.VERBOSE,
+)
+
+
+def strip_leading_filler(text: str, language: LanguageCode) -> str:
+    """Remove a hesitation "Er" an LLM put in front of a Danish question."""
+    if language.upper() != "DA":
+        return text
+    match = _DA_LEADING_ER.match(text)
+    if match is None:
+        return text
+    rest = text[match.end() :]
+    if not rest:
+        return text
+    return match["lead"] + rest[0].upper() + rest[1:]
