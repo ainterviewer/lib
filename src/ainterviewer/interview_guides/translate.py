@@ -18,7 +18,35 @@ from ainterviewer.utils import get_language_dict
 _MAX_BATCH_SIZE = 8
 _MAX_TRANSLATION_RETRIES = 3
 _MAX_TOKENS = 100_000
-_TEMPERATURE = 0
+# Not 0: greedy decoding favours the most literal rendering, which is what
+# makes translations read as translated.
+_TEMPERATURE = 0.3
+
+
+def _system_prompt(target_language: str) -> str:
+    """The respondent reads this text as the interviewer's own words, so it
+    has to read as written in the target language, not translated into it."""
+    return (
+        f"You are a professional translator and native {target_language} "
+        f"speaker, localizing an interview for respondents who read only "
+        f"{target_language}. Translate each numbered source string into "
+        f"{target_language}.\n\n"
+        "Write the way a native speaker would naturally phrase it, not word "
+        "for word:\n"
+        "- Do not mirror the source's sentence structure, word order or "
+        "idioms. Restructure sentences freely, and use the greetings, set "
+        "phrases and collocations a native speaker would actually use.\n"
+        "- Keep the source's register and tone (how formal, how warm), and "
+        "keep it consistent across all strings.\n"
+        "- Keep the meaning exact: add or drop no information, neither soften "
+        "nor sharpen a question, and do not make a neutral question leading. "
+        "A question stays a question; answer options stay parallel and "
+        "distinct from each other.\n"
+        "- Leave placeholders and template variables (such as {} or "
+        "{{ name }}), URLs, email addresses and markup exactly as they are.\n\n"
+        "Return JSON only, with exactly one field per expected key. "
+        "Do not add explanations."
+    )
 
 
 def _build_translation_batch_model(size: int) -> type[BaseModel]:
@@ -54,12 +82,7 @@ async def _translate_batch(
     messages = [
         Message(
             role=MessageRole.SYSTEM,
-            content=(
-                f"Translate each numbered source string into {target_language}. "
-                "Preserve meaning and tone. "
-                "Return JSON only, with exactly one field per expected key. "
-                "Do not add explanations."
-            ),
+            content=_system_prompt(target_language),
         ),
         Message(
             role=MessageRole.USER,
