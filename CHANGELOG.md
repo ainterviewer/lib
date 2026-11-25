@@ -4,6 +4,20 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.11] - 2026-11-25
+
+### Breaking Changes
+
+- (media) `MediaModel.data`, `MediaModel.encode`, `MediaModel.read`,
+`LocalizedImage.data` and `ProjectStorage.image_path` are removed. Stored
+guides and messages with a `data` key still load; it is ignored. An
+application has to serve guide images itself, from its own image directory
+under `ProjectStorage.base_path`.
+
+### Internal
+
+- (media) Send guide images by name only [**breaking**]
+
 ## [0.8.10] - 2026-11-25
 
 ## [0.8.9] - 2026-11-25
