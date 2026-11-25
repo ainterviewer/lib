@@ -1058,11 +1058,9 @@ class AInterviewer:
             referable_values=self.referable_values,
         )
 
-        if (image := question.image) and not image.data:
-            image.encode(self.project_id)
-
-            # FIXME: Having and image and segue at the same time does not
-            # currently perform very well.
+        image = question.image
+        # FIXME: Having and image and segue at the same time does not
+        # currently perform very well.
 
         question_text = question.main_question
 

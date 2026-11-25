@@ -399,7 +399,6 @@ class LocalizedImage(BaseModel):
 
     type: MediaType = "image"
     name: str = Field(description="The filename")
-    data: str | None = Field(None, repr=False)
     primer: LocalizedText | None = None
     description: LocalizedText = Field(default_factory=dict)
     alt: LocalizedText = Field(default_factory=dict)
@@ -407,7 +406,6 @@ class LocalizedImage(BaseModel):
     def render(self, languages: Sequence[str]) -> Image:
         return Image(
             name=self.name,
-            data=self.data,
             primer=_pick_optional(self.primer, languages),
             description=_pick_localized_text(self.description, languages),
             alt=_pick_localized_text(self.alt, languages),
@@ -423,7 +421,6 @@ def _merge_image(
     present = {language: image for language, image in images.items() if image}
     return LocalizedImage(
         name=base.name,
-        data=base.data,
         primer=merge.text(
             {language: image.primer for language, image in present.items()}
         ),

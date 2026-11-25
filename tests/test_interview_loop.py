@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ainterviewer.exceptions import EndInterviewCondition
-from ainterviewer.interview_guides import InterviewGuide, TimedMessage
+from ainterviewer.interview_guides import Image, InterviewGuide, TimedMessage
 from ainterviewer.interview_guides.history import HistoryMessage, Turn
 from ainterviewer.types import MessageRole
 from tests.test_condition_branches import SKIP, Respondent, _interviewer, _reads
@@ -880,3 +880,45 @@ async def test_exhaustion_is_judged_with_the_section_description():
     await interviewer.has_main_question_been_exhausted(question, "The section")
 
     assert contexts[0]["section_description"] == "The section"
+
+
+# ── Images ──────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_an_image_goes_out_by_name_only():
+    """The library reads no image: the message names it and the application
+    serves it. Data an older guide still holds is dropped on load."""
+    guide = InterviewGuide.model_validate(
+        {
+            "framing": "Framing",
+            "question_sections": [
+                {
+                    "description": "Section",
+                    "questions": [
+                        {
+                            "main_question": "What do you see?",
+                            "max_probes_n": 0,
+                            "image": {
+                                "name": "photo.png",
+                                "data": "data:image/png;base64,AAAA",
+                                "description": "A photo",
+                                "alt": "A photo",
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    respondent = Respondent({"What do you see?": ["A cat"]})
+    db = MagicMock()
+
+    await _interviewer(guide, respondent, db).handle_sections()
+
+    (image,) = [f.image for f in respondent.frames if f.image]
+    assert isinstance(image, Image)
+    assert image.name == "photo.png"
+    assert "data" not in image.model_dump()
+    stored = [c.kwargs.get("image") for c in db.insert_message.call_args_list]
+    assert [i.name for i in stored if i] == ["photo.png"]
