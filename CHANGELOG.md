@@ -4,6 +4,24 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.9] - 2026-11-25
+
+### Breaking Changes
+
+- (storage) ProjectStorage.email_attachments_path and qr_code_path,
+BaseStorage.video_path, audio_path, get_all_media_paths and entity_path,
+and ExperimentStorage.qr_code_path are removed; image_path is only on
+ProjectStorage; MediaType is removed. Build those directories from the
+storage's base_path.
+
+### Bug Fixes
+
+- (media) Read a guide image from the project's image directory only
+
+### Internal
+
+- (storage) Keep only the storage roots and guide images [**breaking**]
+
 ## [0.8.8] - 2026-11-24
 
 ### Bug Fixes
