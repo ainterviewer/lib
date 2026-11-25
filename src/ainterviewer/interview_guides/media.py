@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Literal, Self
 
 from pydantic import UUID4, BaseModel, Field
@@ -15,8 +15,16 @@ class MediaModel(BaseModel):
     data: str | None = Field(repr=False)
 
     def encode(self, project_id: UUID4):
+        """Read the file `name` from the project's image directory into
+        `data`. Only its last path component counts: a name is written by
+        whoever edits the guide, and "../" in it would otherwise read any
+        file the process can, to send it to the respondent. Windows paths
+        split on both "/" and "\\", so they drop either kind of path."""
+        name = PureWindowsPath(self.name).name
+        if name in {"", ".", ".."}:
+            raise FileNotFoundError(f"Not an image file name: {self.name!r}")
         self.data = encode_image(
-            settings.storage.project_storage.image_path(project_id) / self.name
+            settings.storage.project_storage.image_path(project_id) / name
         )
 
     @classmethod
