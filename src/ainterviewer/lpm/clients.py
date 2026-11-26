@@ -141,6 +141,14 @@ async def chat[T: BaseModel](
         # TODO: re-enable once logit bias is validated against gpt-oss-120b in staging
         extra_model_kwargs = {}  # get_extra_model_kwargs(model, response_format is not None)
 
+        # Only as a default: an argument given here would replace one the
+        # caller chose, as keywords passed at the call win over the partial's.
+        if (
+            settings.llm.vllm_max_tokens is not None
+            and "max_tokens" not in model_kwargs
+        ):
+            extra_model_kwargs["max_tokens"] = settings.llm.vllm_max_tokens
+
         chat_completion = await chat(
             model="vllm:" + model,
             api_base=server_endpoint,

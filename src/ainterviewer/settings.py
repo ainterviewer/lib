@@ -258,6 +258,14 @@ class LLMSettings(ConfigSection):
 
     seed: int = 4268
 
+    #: Ceiling on the tokens one call to the self-hosted vLLM server may
+    #: generate, reasoning included, for calls that set no `max_tokens` of
+    #: their own; `None` for no ceiling. It is there to stop a runaway, not to
+    #: shape replies: the longest seen in benchmarks is under 700 tokens, and a
+    #: call that reaches the ceiling mid-reasoning gets no answer at all. At
+    #: ~70 tokens/s, 4096 caps such a call at about a minute.
+    vllm_max_tokens: int | None = 4096
+
     @computed_field
     @property
     def llm_endpoint(self) -> str:

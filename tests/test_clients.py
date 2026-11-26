@@ -58,3 +58,43 @@ def test_structured_chat_raises_when_nothing_parsed(monkeypatch, message, reason
     # Returning None here used to surface as an AttributeError in the caller.
     with pytest.raises(StructuredOutputError, match=reason):
         _structured_chat(monkeypatch, **message)
+
+
+def _sent_kwargs(monkeypatch, model: str, **chat_kwargs) -> dict:
+    """The arguments `chat()` hands the provider for one plain call."""
+    sent: dict = {}
+
+    async def acompletion(**kwargs):
+        sent.update(kwargs)
+        return _completion(content="Hello")
+
+    monkeypatch.setattr(clients, "acompletion", acompletion)
+    asyncio.run(
+        clients.chat(
+            [Message(role=MessageRole.USER, content="Hi")],
+            model=model,
+            **chat_kwargs,
+        )
+    )
+    return sent
+
+
+def test_vllm_calls_get_the_max_tokens_ceiling(monkeypatch):
+    monkeypatch.setattr(clients.settings.llm, "vllm_max_tokens", 4096)
+    assert _sent_kwargs(monkeypatch, "openai/gpt-oss-120b")["max_tokens"] == 4096
+
+
+def test_a_callers_max_tokens_wins_over_the_ceiling(monkeypatch):
+    monkeypatch.setattr(clients.settings.llm, "vllm_max_tokens", 4096)
+    sent = _sent_kwargs(monkeypatch, "openai/gpt-oss-120b", max_tokens=200)
+    assert sent["max_tokens"] == 200
+
+
+def test_no_ceiling_when_switched_off(monkeypatch):
+    monkeypatch.setattr(clients.settings.llm, "vllm_max_tokens", None)
+    assert "max_tokens" not in _sent_kwargs(monkeypatch, "openai/gpt-oss-120b")
+
+
+def test_hosted_providers_get_no_ceiling(monkeypatch):
+    monkeypatch.setattr(clients.settings.llm, "vllm_max_tokens", 4096)
+    assert "max_tokens" not in _sent_kwargs(monkeypatch, "openai:gpt-5-mini")
