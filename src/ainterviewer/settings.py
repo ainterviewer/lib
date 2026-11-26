@@ -3,7 +3,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import (
@@ -265,6 +265,14 @@ class LLMSettings(ConfigSection):
     #: call that reaches the ceiling mid-reasoning gets no answer at all. At
     #: ~70 tokens/s, 4096 caps such a call at about a minute.
     vllm_max_tokens: int | None = 4096
+
+    #: How hard a reasoning model on the vLLM server thinks before answering,
+    #: for calls that set no `reasoning_effort` of their own; `None` leaves it
+    #: to the model (gpt-oss: "medium"). Nothing streams, so every reasoning
+    #: token is waited for: "low" halved the time to a reply in benchmarks
+    #: (proxy repo, bench/results), and is what the same model gets on
+    #: OpenRouter.
+    vllm_reasoning_effort: Literal["low", "medium", "high"] | None = "low"
 
     @computed_field
     @property

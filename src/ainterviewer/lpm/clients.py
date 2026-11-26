@@ -148,6 +148,11 @@ async def chat[T: BaseModel](
             and "max_tokens" not in model_kwargs
         ):
             extra_model_kwargs["max_tokens"] = settings.llm.vllm_max_tokens
+        if (
+            settings.llm.vllm_reasoning_effort is not None
+            and "reasoning_effort" not in model_kwargs
+        ):
+            extra_model_kwargs["reasoning_effort"] = settings.llm.vllm_reasoning_effort
 
         chat_completion = await chat(
             model="vllm:" + model,

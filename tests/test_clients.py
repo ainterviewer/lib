@@ -98,3 +98,20 @@ def test_no_ceiling_when_switched_off(monkeypatch):
 def test_hosted_providers_get_no_ceiling(monkeypatch):
     monkeypatch.setattr(clients.settings.llm, "vllm_max_tokens", 4096)
     assert "max_tokens" not in _sent_kwargs(monkeypatch, "openai:gpt-5-mini")
+
+
+def test_vllm_calls_reason_at_the_configured_effort(monkeypatch):
+    monkeypatch.setattr(clients.settings.llm, "vllm_reasoning_effort", "low")
+    sent = _sent_kwargs(monkeypatch, "openai/gpt-oss-120b")
+    assert sent["reasoning_effort"] == "low"
+
+
+def test_a_callers_reasoning_effort_wins(monkeypatch):
+    monkeypatch.setattr(clients.settings.llm, "vllm_reasoning_effort", "low")
+    sent = _sent_kwargs(monkeypatch, "openai/gpt-oss-120b", reasoning_effort="high")
+    assert sent["reasoning_effort"] == "high"
+
+
+def test_reasoning_effort_left_to_the_model_when_unset(monkeypatch):
+    monkeypatch.setattr(clients.settings.llm, "vllm_reasoning_effort", None)
+    assert "reasoning_effort" not in _sent_kwargs(monkeypatch, "openai/gpt-oss-120b")
