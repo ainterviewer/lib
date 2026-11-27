@@ -82,7 +82,6 @@ from ainterviewer.interview_guides.survey_items import (
 from ainterviewer.interview_guides.types import (
     ConditionAction,
     ConditionTrigger,
-    ProbeSteering,
     ProbingContext,
     SecurityAction,
 )
@@ -436,6 +435,7 @@ class AInterviewer:
         as_modal: bool = False,
         question_id: UUID | None = None,
         security_intervention: SecurityIntervention | None = None,
+        suggested_probe: str | None = None,
     ) -> OutgoingData | OutgoingMessage:
         """Stores a message and returns what to send for it.
 
@@ -472,6 +472,7 @@ class AInterviewer:
             outro=outro,
             timed_message_id=timed_message_id,
             security_intervention=security_intervention,
+            suggested_probe=suggested_probe,
             interview_id=self.interview_id,
             project_id=self.project_id,
         )
@@ -1144,9 +1145,12 @@ class AInterviewer:
 
         return answer
 
-    async def ask_probe(self, question: Question, probe: str, verbatim: bool = False):
-        # A strict probe is the guide's own text and is sent as written.
-        message = probe.strip() if verbatim else await self.preprocess_message(probe)
+    async def ask_probe(
+        self, question: Question, probe: str, suggested_probe: str | None = None
+    ):
+        """Ask `probe`; `suggested_probe` is the suggestion it was asked from,
+        under reword or strict, kept so it is not asked again."""
+        message = await self.preprocess_message(probe)
         timed_messages = await self.due_timed_messages()
 
         # Nothing awaited until everything is stored, as in `ask_question`.
@@ -1154,7 +1158,9 @@ class AInterviewer:
 
         history_message = HistoryMessage(message=message)
 
-        self.interview_history.add_probe(probe=Turn(question=history_message))
+        self.interview_history.add_probe(
+            probe=Turn(question=history_message, suggested_probe=suggested_probe)
+        )
 
         payload = self.store_data(
             message,
@@ -1163,6 +1169,7 @@ class AInterviewer:
             can_skip=question.can_skip,
             include_in_history=not question.exclude_from_history,
             question_id=question.id,
+            suggested_probe=suggested_probe,
         )
 
         await self.send_timed_messages(timed_payloads)
@@ -1579,17 +1586,20 @@ class AInterviewer:
             # None: no suggestion is left to ask under reword or strict. A
             # plain break, not a condition, so the security check on the last
             # answer is still resolved by the caller.
-            if probe is None or probe.lower().startswith(CustomToken.end_of_probe):
+            if probe is None:
                 break
+
+            if isinstance(probe, SuggestedProbe):
+                text, suggested_probe = probe.question, probe.suggestion
+            elif probe.lower().startswith(CustomToken.end_of_probe):
+                break
+            else:
+                text, suggested_probe = probe, None
 
             # The last answer has to be acted on before the next probe is asked.
             await self.resolve_security_check()
 
-            answer = await self.ask_probe(
-                question,
-                probe,
-                verbatim=question.probe_steering == ProbeSteering.STRICT,
-            )
+            answer = await self.ask_probe(question, text, suggested_probe)
 
             if answer == CustomToken.skip_question:
                 # NOTE: skipping a probe moves the interview to the next main
@@ -1604,9 +1614,9 @@ class AInterviewer:
         section_description: str,
         question: Question,
         transcript: str,
-    ) -> str | None:
-        """The next probe, or None when the question's steering requires a
-        suggestion and none is left to ask."""
+    ) -> str | SuggestedProbe | None:
+        """The next probe: picked from the open suggestions under reword or
+        strict, None there once none is left to ask."""
         open_probes = await self.unanswered_suggestions(question, transcript)
         previous_probes = [
             probe.question.message
@@ -1681,7 +1691,7 @@ class AInterviewer:
         transcript: str,
         suggestions: list[str],
         previous_probes: list[str],
-    ) -> str:
+    ) -> SuggestedProbe:
         """A probe picked from `suggestions` under reword or strict, written
         down with the suggestion it came from.
 
@@ -1725,7 +1735,7 @@ class AInterviewer:
             model=self.probing_agent.model,
         )
 
-        return picked.question
+        return picked
 
     async def can_probe(self, question: Question, section_description: str) -> bool:
         if (
@@ -1781,20 +1791,31 @@ class AInterviewer:
     async def unanswered_suggestions(
         self, question: Question, transcript: str
     ) -> list[str]:
-        """The question's suggested probes, minus those the respondent has
-        already answered: shown to the probing agent, a suggestion that was
-        answered, asked or not, tends to come back as a reworded repeat.
+        """The question's suggested probes, with their variables filled in,
+        minus those already asked (as a probe's `suggested_probe`, or word
+        for word) and those the respondent has already answered: shown to the
+        probing agent, a suggestion that was answered, asked or not, tends to
+        come back as a reworded repeat.
 
-        Falls back to all of them if the classification fails, so it can
-        never stop the interview from probing.
+        Falls back to those not yet asked if the classification fails, so it
+        can never stop the interview from probing.
         """
-        suggestions = question.probes or []
+        # Filled before pruning: an asked probe is compared as it was sent.
+        suggestions = [
+            fill_variables_in_message(
+                text=suggestion, referable_values=self.referable_values
+            )
+            for suggestion in question.probes or []
+        ]
 
-        # Asked word for word already: certain without asking the classifier,
-        # and still left out when it fails.
+        # Asked already, from its mark or word for word: certain without
+        # asking the classifier, and still left out when it fails. The mark
+        # is what catches a reworded one, whatever the respondent answered.
         asked = {
-            _normalized(probe.question.message)
+            _normalized(text)
             for probe in self.interview_history.current_question.probes
+            for text in (probe.question.message, probe.suggested_probe)
+            if text
         }
         suggestions = [s for s in suggestions if _normalized(s) not in asked]
 

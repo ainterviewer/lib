@@ -34,6 +34,10 @@ class Turn(BaseModel):
     # `HistoryMessage` holds only text, and a closed-ended answer ("Agree", "4")
     # is worth very little on its own to anything reading the history back.
     survey_item: SurveyItem | None = None
+    # The suggested probe this turn was asked from, under reword or strict
+    # steering, with its variables filled in. Under reword the question is
+    # worded differently, so this is what tells the suggestion was asked.
+    suggested_probe: str | None = None
 
     @property
     def is_free_text(self) -> bool:
@@ -321,6 +325,7 @@ class InterviewHistory(BaseModel):
                             Turn(
                                 question=history_message,
                                 survey_item=message.survey_item,
+                                suggested_probe=message.suggested_probe,
                             )
                         )
 

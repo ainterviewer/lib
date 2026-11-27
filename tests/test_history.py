@@ -48,6 +48,7 @@ class StoredMessage:
     can_answer: bool = True
     message_type: MessageType = MessageType.TEXT
     security_intervention: Any = None
+    suggested_probe: str | None = None
 
 
 def guide(*survey_items: Any) -> InterviewGuide:

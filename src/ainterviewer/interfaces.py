@@ -141,6 +141,9 @@ class StoredMessage(Protocol):
     skipped_by_condition: bool
     # The guide's `TimedMessage.id` on a timed message, None on any other.
     timed_message_id: UUID | None
+    # On a probe asked from one of the question's suggested probes, under
+    # reword or strict steering: that suggestion. None on any other message.
+    suggested_probe: str | None
 
 
 class PersistenceProtocol(Protocol):
@@ -186,6 +189,9 @@ class PersistenceProtocol(Protocol):
         timed_message_id: UUID | None = None,
         skipped_by_condition: bool = False,
         security_intervention: SecurityIntervention | None = None,
+        # On a probe asked from one of the question's suggested probes: that
+        # suggestion, with its variables filled in.
+        suggested_probe: str | None = None,
     ) -> int: ...
 
     def insert_task(

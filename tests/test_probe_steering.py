@@ -2,7 +2,7 @@
 (`Question.probe_steering`)."""
 
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -14,15 +14,26 @@ from ainterviewer.agents.probing_agent import (
 )
 from ainterviewer.interview_guides.history import HistoryMessage, Turn
 from ainterviewer.interview_guides.types import ProbeSteering
+from ainterviewer.types import MessageRole
 from tests.test_condition_branches import Respondent, _interviewer
-from tests.test_interview_loop import _plain_guide
+from tests.test_history import StoredMessage
+from tests.test_interview_loop import _plain_guide, _stored_rows
 
 SUGGESTIONS = ["Why?", "When?", "Who else?"]
 
 
-def _setup(steering="loose", probes=SUGGESTIONS, answered=None, asked=()):
-    guide = _plain_guide(probes=probes, max_probes_n=3, probe_steering=steering)
-    interviewer = _interviewer(guide, Respondent({}))
+def _setup(
+    steering="loose",
+    probes=SUGGESTIONS,
+    answered=None,
+    asked=(),
+    respondent=None,
+    **question,
+):
+    guide = _plain_guide(
+        probes=probes, probe_steering=steering, **{"max_probes_n": 3, **question}
+    )
+    interviewer = _interviewer(guide, respondent or Respondent({}))
     interviewer.classification_agent.answered_suggestions = AsyncMock(
         return_value=answered or []
     )
@@ -40,7 +51,13 @@ def _setup(steering="loose", probes=SUGGESTIONS, answered=None, asked=()):
         main_question=Turn(question=HistoryMessage(message="First?")),
     )
     for probe in asked:
-        history.add_probe(probe=Turn(question=HistoryMessage(message=probe)))
+        # A pair is a reworded probe and the suggestion it was asked from.
+        message, suggestion = probe if isinstance(probe, tuple) else (probe, None)
+        history.add_probe(
+            probe=Turn(
+                question=HistoryMessage(message=message), suggested_probe=suggestion
+            )
+        )
     return interviewer, question
 
 
@@ -63,7 +80,9 @@ async def test_loose_asks_the_general_agent():
 async def test_reword_and_strict_pick_from_the_open_suggestions(steering):
     interviewer, question = _setup(steering, answered=["Why?"])
 
-    assert await _generate(interviewer, question) == "When?"
+    assert await _generate(interviewer, question) == SuggestedProbe(
+        suggestion="When?", question="When?"
+    )
     pick = interviewer.probing_agent.generate_suggested_probe.call_args.kwargs
     assert pick["steering"] == steering
     assert pick["suggestions"] == ["When?", "Who else?"]
@@ -107,7 +126,9 @@ async def test_a_failed_pick_asks_the_first_suggestion_as_written():
         side_effect=RuntimeError("model down")
     )
 
-    assert await _generate(interviewer, question) == "Why?"
+    assert await _generate(interviewer, question) == SuggestedProbe(
+        suggestion="Why?", question="Why?"
+    )
     response = json.loads(interviewer.db.insert_task.call_args.kwargs["response"])
     assert response["error"] == "RuntimeError: model down"
 
@@ -124,17 +145,143 @@ async def test_suggestions_asked_word_for_word_are_left_out_at_every_level():
 
 
 @pytest.mark.anyio
-async def test_a_strict_probe_skips_the_message_preprocessing():
-    interviewer, question = _setup("strict")
-    interviewer.preprocess_message = AsyncMock(return_value="cut")
-    interviewer.receive_data = AsyncMock(return_value="answer")
+async def test_suggestions_are_filled_in_before_they_are_pruned():
+    interviewer, question = _setup(
+        "strict",
+        probes=["Why {{ product }}?", "When did {{ product }} start?"],
+        asked=["Why Acme?"],
+    )
+    interviewer.referable_values["product"] = "Acme"
 
-    await interviewer.ask_probe(question, " Why? And how? ", verbatim=True)
+    # Asked as filled in, so pruned as filled in.
+    assert await interviewer.unanswered_suggestions(question, "Q: First?") == [
+        "When did Acme start?"
+    ]
+    picked = await _generate(interviewer, question)
+    assert picked == SuggestedProbe(
+        suggestion="When did Acme start?", question="When did Acme start?"
+    )
 
-    interviewer.preprocess_message.assert_not_awaited()
-    assert interviewer.interview_history.current_question.probes[
-        -1
-    ].question.message == ("Why? And how?")
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("classifier_fails", [False, True])
+async def test_a_reworded_suggestion_is_not_asked_again(classifier_fails):
+    # Reworded, and left unanswered: neither the text nor the classifier
+    # rules it out, only the mark.
+    interviewer, question = _setup(
+        "reword", asked=[("So why was that, do you think?", "Why?")]
+    )
+    if classifier_fails:
+        interviewer.classification_agent.answered_suggestions.side_effect = RuntimeError
+
+    assert await interviewer.unanswered_suggestions(question, "Q: First?") == [
+        "When?",
+        "Who else?",
+    ]
+
+
+def _probing(interviewer):
+    """Probe without the classifiers and the security check, which would
+    reach a model."""
+    interviewer.contains_refusal = AsyncMock(return_value=False)
+    interviewer.has_main_question_been_exhausted = AsyncMock(return_value=False)
+    interviewer.start_security_check = MagicMock()
+
+
+def _reworded(**kwargs):
+    suggestion = kwargs["suggestions"][0]
+    return SuggestedProbe(suggestion=suggestion, question=f"Reworded: {suggestion}")
+
+
+async def _probe(interviewer, question):
+    await interviewer.probe(question, "Section")
+    return [
+        probe.question.message
+        for probe in interviewer.interview_history.current_question.probes
+    ]
+
+
+@pytest.mark.anyio
+async def test_reword_asks_each_suggestion_once_and_then_stops():
+    answers = {f"Reworded: {s}": ["Not sure"] for s in SUGGESTIONS}
+    interviewer, question = _setup(
+        "reword", respondent=Respondent(answers), max_probes_n=10
+    )
+    interviewer.probing_agent.generate_suggested_probe.side_effect = _reworded
+    _probing(interviewer)
+
+    assert await _probe(interviewer, question) == [
+        "Reworded: Why?",
+        "Reworded: When?",
+        "Reworded: Who else?",
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("steering", ["reword", "strict"])
+async def test_steering_keeps_to_the_probe_limit(steering):
+    interviewer, question = _setup(
+        steering, respondent=Respondent({"Why?": ["a"]}), max_probes_n=1
+    )
+    _probing(interviewer)
+
+    assert await _probe(interviewer, question) == ["Why?"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("steering", ["reword", "strict"])
+async def test_steering_stops_once_the_question_is_exhausted(steering):
+    interviewer, question = _setup(
+        steering,
+        respondent=Respondent({"Why?": ["a"]}),
+        max_probes_n=10,
+        check_if_exhausted=True,
+    )
+    _probing(interviewer)
+    interviewer.has_main_question_been_exhausted.return_value = True
+
+    assert await _probe(interviewer, question) == ["Why?"]
+
+
+@pytest.mark.anyio
+async def test_the_suggestion_a_probe_was_asked_from_is_stored():
+    interviewer, question = _setup(
+        "reword", respondent=Respondent({"Reworded: Why?": ["Not sure"]})
+    )
+    interviewer.probing_agent.generate_suggested_probe.side_effect = _reworded
+    _probing(interviewer)
+    interviewer.can_probe = AsyncMock(side_effect=[True, False])
+
+    await interviewer.probe(question, "Section")
+
+    probe, _answer = _stored_rows(interviewer)[-2:]
+    assert (probe.content, probe.suggested_probe) == ("Reworded: Why?", "Why?")
+
+
+@pytest.mark.anyio
+async def test_a_resumed_interview_knows_which_suggestion_was_asked():
+    stored = [
+        StoredMessage("First?", MessageRole.ASSISTANT),
+        StoredMessage("Yes", MessageRole.USER),
+        StoredMessage(
+            "So why was that?",
+            MessageRole.ASSISTANT,
+            sub_question=1,
+            suggested_probe="Why?",
+        ),
+        StoredMessage("Not sure", MessageRole.USER, sub_question=1),
+    ]
+    guide = _plain_guide(probes=SUGGESTIONS, probe_steering="reword")
+    resumed = _interviewer(guide, Respondent({}))
+    resumed.classification_agent.answered_suggestions = AsyncMock(return_value=[])
+
+    resumed.interview_history.process_history(stored, guide)
+
+    question = guide.question_sections[0].questions[0]
+    assert await resumed.unanswered_suggestions(question, "Q: First?") == [
+        "When?",
+        "Who else?",
+    ]
 
 
 def _parse(model, **fields):

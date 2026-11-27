@@ -178,7 +178,7 @@ class Harness:
         return "answer"
 
     async def ask_probe(
-        self, question: Question, probe: str, verbatim: bool = False
+        self, question: Question, probe: str, suggested_probe: str | None = None
     ) -> str:
         self.events.append("ask_probe")
         history = self.interviewer.interview_history
@@ -741,6 +741,7 @@ class StoredMessage:
     include_in_history: bool = True
     image: Any = None
     can_answer: bool = True
+    suggested_probe: str | None = None
 
 
 def _stored_history(

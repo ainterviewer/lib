@@ -662,6 +662,7 @@ def _stored_rows(interviewer) -> list[StoredMessage]:
         "timed_message_id",
         "can_answer",
         "skipped_by_condition",
+        "suggested_probe",
     )
     rows = []
     for call in interviewer.db.insert_message.call_args_list:
