@@ -107,7 +107,6 @@ class AInterviewer:
         project_id: UUID4,
         interview_id: UUID4,
         previous_time_spent: int = 0,
-        one_question: bool = False,
         template_loader: BaseLoader | None = None,
         language: LanguageCode = "EN",
         referable_values: dict[str, Any] | None = None,
@@ -129,7 +128,12 @@ class AInterviewer:
 
         self.config: InterviewConfig = config
 
-        self.one_question: bool = one_question
+        # NOTE:
+        # Cuts every assistant message after its first question mark: a guard
+        # from when models ignored the instruction to ask one question at a
+        # time. No consumer turned it on, so it is no longer a parameter; kept
+        # off until a benchmark shows whether current models still need it.
+        self.one_question: bool = False
 
         self.interview_guide: InterviewGuide = interview_guide
 
