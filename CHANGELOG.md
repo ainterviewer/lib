@@ -4,6 +4,22 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.14] - 2026-11-27
+
+### Features
+
+- (probing) Let a question steer its probes by its suggested probes
+
+### Bug Fixes
+
+- (probing) Don't ask a reworded suggestion again, also after a resume
+
+### Internal
+
+- Describe per-feature preview access
+- Point cliff.toml at the platform repo
+- Drop the one_question parameter
+
 ## [0.8.13] - 2026-11-27
 
 ### Bug Fixes
