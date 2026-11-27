@@ -1762,13 +1762,24 @@ class AInterviewer:
         return response
 
     async def contains_refusal(self) -> bool:
+        """Whether the latest answer refuses the question it answers.
+
+        Only the latest turn is judged: a respondent who refused the main
+        question may still answer a probe, and an earlier refusal must not
+        stop the probing that follows it. The main question is given as
+        context, without its answer, so a short reply to a probe can be read.
+        """
         now = time.time()
-        current_question_transcript = (
-            self.interview_history.current_question.transcribe()
-        )
+        question = self.interview_history.current_question
+        turn = self.interview_history.current_turn
+        assert turn is not None, "No turn to check for a refusal"
+
+        current_turn_transcript = turn.transcribe()
         contains_refusal = await self.classification_agent.classify(
-            current_question_transcript,
+            current_turn_transcript,
             "The respondent explicitly refuses to answer the question or expresses a wish to skip to the next question",
+            interview_history="Main question: "
+            + question.main_question.question.message,
         )
         time_spend = time.time() - now
 
@@ -1776,8 +1787,8 @@ class AInterviewer:
             message_id=self.interview_history.current_message_id + 1,
             interview_id=self.interview_id,
             project_id=self.project_id,
-            task="contains_multiple_refusals",
-            content=current_question_transcript,
+            task="contains_refusal",
+            content=current_turn_transcript,
             response=str(contains_refusal),
             time_spend=int(time_spend),
         )

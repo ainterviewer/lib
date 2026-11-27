@@ -61,6 +61,13 @@ class Turn(BaseModel):
             return f"A ({self.survey_item.type})"
         return "A"
 
+    def transcribe(self, with_survey_labels: bool = False) -> str:
+        """Render this turn as ``Q: …`` and, once answered, ``A: …``."""
+        transcript = "Q: " + self.question.message
+        if (answer := self.answer_text) is not None:
+            transcript += f"\n{self.answer_label(with_survey_labels)}: " + answer
+        return transcript
+
 
 class InterviewHistory(BaseModel):
     introduction: HistoryMessage | None = None
@@ -466,19 +473,14 @@ class QuestionHistory(BaseModel):
                 f"{self.image.description.message}\n"
             )
 
-        transcript += "Q: " + self.main_question.question.message + "\n"
-        if (answer := self.main_question.answer_text) is not None:
-            label = self.main_question.answer_label(with_survey_labels)
-            transcript += f"{label}: " + answer + "\n"
-        else:
+        # An answered main question runs straight into its first probe; every
+        # other turn is followed by a blank line.
+        transcript += self.main_question.transcribe(with_survey_labels) + "\n"
+        if self.main_question.answer_text is None:
             transcript += "\n"
 
         for probe in self.probes:
-            transcript += "Q: " + probe.question.message + "\n"
-            if (answer := probe.answer_text) is not None:
-                label = probe.answer_label(with_survey_labels)
-                transcript += f"{label}: " + answer + "\n"
-            transcript += "\n"
+            transcript += probe.transcribe(with_survey_labels) + "\n\n"
 
         return transcript.strip()
 
