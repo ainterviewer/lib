@@ -1,11 +1,15 @@
 import asyncio
+from dataclasses import dataclass
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, create_model
 
 from ainterviewer.agents.base import BaseAgent
 from ainterviewer.agents.config import ProbingPromptSlots
 from ainterviewer.agents.prompts.agent_prompts import ProbingAgentPrompts
 from ainterviewer.agents.types import DiceStrategy
+from ainterviewer.exceptions import StructuredOutputError
+from ainterviewer.interview_guides.types import ProbeSteering
 from ainterviewer.lpm.types import Message
 from ainterviewer.types import LanguageCode, MessageRole
 from ainterviewer.utils import strip_leading_filler
@@ -66,6 +70,58 @@ class DiceProbesMultiple(DiceProbes):
     probing_types: set[DiceStrategy] = Field(..., description=DICE_SHORT_DESCRIPTION)
 
 
+# A second try when the reply does not fit the schema, as in `SecurityAgent`.
+SUGGESTED_PROBE_ATTEMPTS = 2
+
+
+@dataclass(frozen=True)
+class SuggestedProbe:
+    """A probe asked from one of the question's suggested probes."""
+
+    suggestion: str
+    """The suggestion it was chosen from, as written in the guide."""
+    question: str
+    """What is asked: the suggestion reworded, or as written under strict."""
+
+
+def suggested_probe_model(
+    steering: ProbeSteering, suggestions: list[str]
+) -> type[BaseModel]:
+    """The reply schema for picking one of `suggestions`, built per call so
+    the choice is constrained to them.
+
+    Under strict the suggestion is chosen by its text, which is then asked as
+    returned: constrained decoding keeps it to one of the literals, so no
+    number has to be mapped back. Under reword it is chosen by its number,
+    since its text is not what is asked.
+    """
+    match steering:
+        case ProbeSteering.STRICT:
+            return create_model(
+                "StrictSuggestedProbe",
+                suggestion=(
+                    Literal[tuple(suggestions)],  # ty:ignore[invalid-type-form]
+                    Field(
+                        description="The suggested probe to ask, exactly as written."
+                    ),
+                ),
+            )
+        case ProbeSteering.REWORD:
+            return create_model(
+                "RewordedSuggestedProbe",
+                suggestion=(
+                    Literal[tuple(range(1, len(suggestions) + 1))],  # ty:ignore[invalid-type-form]
+                    Field(description="The number of the suggested probe chosen."),
+                ),
+                question=(
+                    str,
+                    Field(description="The chosen suggestion, reworded to ask."),
+                ),
+            )
+        case _:
+            raise ValueError(f"No suggested probe is picked under {steering}")
+
+
 class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
     def __init__(
         self,
@@ -121,6 +177,64 @@ class ProbingAgent(BaseAgent[ProbingAgentPrompts]):
         probe = strip_leading_filler(await self.chat_api(messages), self._language)
         self.logger.info(f"Probe generated: {probe}")
         return probe
+
+    async def generate_suggested_probe(
+        self,
+        steering: ProbeSteering,
+        section_description: str,
+        question_description: str,
+        main_question: str,
+        transcript: str,
+        suggestions: list[str],
+        previous_probes: list[str],
+    ) -> SuggestedProbe:
+        """Ask one of `suggestions`: reworded under reword, as written under
+        strict. Raises once the attempts run out, the last failure with it."""
+        # Duplicates would collapse into one literal; dropping them keeps the
+        # numbering under reword in step with the list shown.
+        suggestions = list(dict.fromkeys(suggestions))
+        response_model = suggested_probe_model(steering, suggestions)
+
+        prompt = self.prompts.generate_suggested_probe_prompt(
+            steering=steering,
+            interview_framing=self.interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            interview_transcript=transcript,
+            suggestions=suggestions,
+            previous_probes=previous_probes,
+            response_schema=response_model.model_json_schema(),
+        )
+        messages = self.messages + [Message(role=MessageRole.USER, content=prompt)]
+
+        self.logger.info(f"Generating {steering} suggested probe: {messages}")
+
+        error: Exception | None = None
+        for _ in range(SUGGESTED_PROBE_ATTEMPTS):
+            try:
+                reply = await self.chat_api(messages, response_format=response_model)
+            except (ValidationError, StructuredOutputError) as exception:
+                error = exception
+                continue
+
+            # Built at runtime, so its fields are read from the dump.
+            choice = reply.model_dump()
+            if steering == ProbeSteering.STRICT:
+                probe = SuggestedProbe(
+                    suggestion=choice["suggestion"], question=choice["suggestion"]
+                )
+            else:
+                probe = SuggestedProbe(
+                    suggestion=suggestions[choice["suggestion"] - 1],
+                    question=strip_leading_filler(choice["question"], self._language),
+                )
+
+            self.logger.info(f"Suggested probe generated: {probe}")
+            return probe
+
+        assert error is not None
+        raise error
 
     # ################### #
     # Specialized Probing #

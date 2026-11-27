@@ -70,6 +70,7 @@ from ainterviewer.interview_guides.survey_items import (
 from ainterviewer.interview_guides.types import (
     ConditionAction,
     ConditionTrigger,
+    ProbeSteering,
     ProbingContext,
 )
 from ainterviewer.types import LanguageCode
@@ -637,6 +638,7 @@ class LocalizedQuestion(BaseModel):
     user_image: bool = False
     conditions: list[LocalizedCondition] = Field(default_factory=list)
     probing_context: ProbingContext | None = None
+    probe_steering: ProbeSteering = ProbeSteering.LOOSE
 
     @model_validator(mode="before")
     @classmethod

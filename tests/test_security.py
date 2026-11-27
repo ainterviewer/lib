@@ -177,7 +177,9 @@ class Harness:
         history.add_answer(HistoryMessage(message="answer"))
         return "answer"
 
-    async def ask_probe(self, question: Question, probe: str) -> str:
+    async def ask_probe(
+        self, question: Question, probe: str, verbatim: bool = False
+    ) -> str:
         self.events.append("ask_probe")
         history = self.interviewer.interview_history
         history.add_probe(probe=Turn(question=HistoryMessage(message=probe)))

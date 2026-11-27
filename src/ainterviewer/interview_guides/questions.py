@@ -7,7 +7,7 @@ from ainterviewer.interview_guides.exceptions import OverwriteError
 from ainterviewer.interview_guides.media import Image
 from ainterviewer.interview_guides.references import QuestionIndex, Reference
 from ainterviewer.interview_guides.survey_items import SurveyItem
-from ainterviewer.interview_guides.types import ProbingContext
+from ainterviewer.interview_guides.types import ProbeSteering, ProbingContext
 
 
 class QuestionBase(BaseModel):
@@ -90,6 +90,10 @@ class Question(QuestionBaseExtended):
         description="The question's conditions, each with its own action. A condition reading this question's own answer is checked once it is answered; every other condition before the question is asked. When several fire at once, the strongest action is taken.",
     )
     probing_context: ProbingContext | None = None
+    probe_steering: ProbeSteering = Field(
+        ProbeSteering.LOOSE,
+        description="How closely the probes follow the suggested probes: 'loose' may use one, 'reword' always asks one reworded to fit the conversation, 'strict' always asks one as written. Under 'reword' and 'strict', probing ends once every suggestion has been asked or answered; without suggestions they probe as 'loose'.",
+    )
 
     # Automatically generated in interview guide generation
     index: QuestionIndex | None = Field(

@@ -20,6 +20,7 @@ from ainterviewer.agents import (
     VisualAgent,
 )
 from ainterviewer.agents.config import AgentConfigs
+from ainterviewer.agents.probing_agent import SuggestedProbe
 from ainterviewer.agents.reformulation_agent import ReformulationReason
 from ainterviewer.agents.security_policy import TriggeredDecision
 from ainterviewer.agents.types import ProbingStrategy
@@ -81,6 +82,7 @@ from ainterviewer.interview_guides.survey_items import (
 from ainterviewer.interview_guides.types import (
     ConditionAction,
     ConditionTrigger,
+    ProbeSteering,
     ProbingContext,
     SecurityAction,
 )
@@ -94,6 +96,12 @@ from ainterviewer.types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _normalized(text: str) -> str:
+    """Text compared for being the same probe: case, surrounding whitespace
+    and trailing punctuation aside."""
+    return text.strip().rstrip("?!.").strip().casefold()
 
 
 class AInterviewer:
@@ -1136,8 +1144,9 @@ class AInterviewer:
 
         return answer
 
-    async def ask_probe(self, question: Question, probe: str):
-        message = await self.preprocess_message(probe)
+    async def ask_probe(self, question: Question, probe: str, verbatim: bool = False):
+        # A strict probe is the guide's own text and is sent as written.
+        message = probe.strip() if verbatim else await self.preprocess_message(probe)
         timed_messages = await self.due_timed_messages()
 
         # Nothing awaited until everything is stored, as in `ask_question`.
@@ -1567,13 +1576,20 @@ class AInterviewer:
                 transcript=transcript,
             )
 
-            if probe.lower().startswith(CustomToken.end_of_probe):
+            # None: no suggestion is left to ask under reword or strict. A
+            # plain break, not a condition, so the security check on the last
+            # answer is still resolved by the caller.
+            if probe is None or probe.lower().startswith(CustomToken.end_of_probe):
                 break
 
             # The last answer has to be acted on before the next probe is asked.
             await self.resolve_security_check()
 
-            answer = await self.ask_probe(question, probe)
+            answer = await self.ask_probe(
+                question,
+                probe,
+                verbatim=question.probe_steering == ProbeSteering.STRICT,
+            )
 
             if answer == CustomToken.skip_question:
                 # NOTE: skipping a probe moves the interview to the next main
@@ -1588,10 +1604,30 @@ class AInterviewer:
         section_description: str,
         question: Question,
         transcript: str,
-    ):
+    ) -> str | None:
+        """The next probe, or None when the question's steering requires a
+        suggestion and none is left to ask."""
+        open_probes = await self.unanswered_suggestions(question, transcript)
+        previous_probes = [
+            probe.question.message
+            for probe in self.interview_history.current_question.probes
+        ]
+
+        # Without suggestions in the guide, reword and strict probe as loose.
+        if question.probe_steering.must_use_suggestion and question.probes:
+            if not open_probes:
+                return None
+
+            return await self.generate_suggested_probe(
+                section_description=section_description,
+                question=question,
+                transcript=transcript,
+                suggestions=open_probes,
+                previous_probes=previous_probes,
+            )
 
         suggested_probes = None
-        if open_probes := await self.unanswered_suggestions(question, transcript):
+        if open_probes:
             suggested_probes = "\n".join("- " + probe for probe in open_probes)
 
         if ProbingStrategy.DICE_MASTER_TO_ONE_PROBE in self.config.probing_strategy:
@@ -1633,13 +1669,63 @@ class AInterviewer:
             suggested_probes=suggested_probes,
             probe_number=self.interview_history.current_probe_index + 1,
             max_probes=question.max_probes_n,
-            previous_probes=[
-                probe.question.message
-                for probe in self.interview_history.current_question.probes
-            ],
+            previous_probes=previous_probes,
         )
 
         return probe
+
+    async def generate_suggested_probe(
+        self,
+        section_description: str,
+        question: Question,
+        transcript: str,
+        suggestions: list[str],
+        previous_probes: list[str],
+    ) -> str:
+        """A probe picked from `suggestions` under reword or strict, written
+        down with the suggestion it came from.
+
+        Should the agent fail to pick one, the first suggestion is asked as
+        written: still one of them, as the steering promises.
+        """
+        start_time = time.time()
+        steering = question.probe_steering
+
+        try:
+            picked = await self.probing_agent.generate_suggested_probe(
+                steering=steering,
+                section_description=section_description,
+                question_description=question.description or "",
+                main_question=question.main_question,
+                transcript=transcript,
+                suggestions=suggestions,
+                previous_probes=previous_probes,
+            )
+            response = {"suggestion": picked.suggestion, "question": picked.question}
+        except Exception as error:
+            logger.exception(
+                "Picking a suggested probe failed in interview %s", self.interview_id
+            )
+            picked = SuggestedProbe(suggestion=suggestions[0], question=suggestions[0])
+            response = {
+                "suggestion": picked.suggestion,
+                "question": picked.question,
+                "error": f"{type(error).__name__}: {error}",
+            }
+
+        self.db.insert_task(
+            message_id=self.interview_history.current_message_id + 1,
+            interview_id=self.interview_id,
+            project_id=self.project_id,
+            task="suggested_probe",
+            reason=steering,
+            content=json.dumps(suggestions),
+            response=json.dumps(response),
+            time_spend=int(time.time() - start_time),
+            model=self.probing_agent.model,
+        )
+
+        return picked.question
 
     async def can_probe(self, question: Question, section_description: str) -> bool:
         if (
@@ -1703,6 +1789,15 @@ class AInterviewer:
         never stop the interview from probing.
         """
         suggestions = question.probes or []
+
+        # Asked word for word already: certain without asking the classifier,
+        # and still left out when it fails.
+        asked = {
+            _normalized(probe.question.message)
+            for probe in self.interview_history.current_question.probes
+        }
+        suggestions = [s for s in suggestions if _normalized(s) not in asked]
+
         if not suggestions:
             return []
 

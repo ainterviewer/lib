@@ -1,0 +1,46 @@
+Please choose the next follow-up question from the researcher's suggested probes, based on the following instructions.
+
+# Context
+
+## Interview Framing
+{{ interview_framing }}
+
+## Section description:
+{{ section_description }}
+
+## Question description:
+{{ question_description }}
+
+## Main question:
+{{ main_question }}
+
+## Transcript:
+{{ interview_transcript }}
+
+## Suggested probes:
+{% for suggestion in suggestions -%}
+{{ loop.index }}. {{ suggestion }}
+{% endfor %}
+{%- if previous_probes %}
+## Follow-ups already asked for this main question:
+{% for probe in previous_probes -%}
+- {{ probe }}
+{% endfor %}
+{%- endif %}
+# Selection instructions
+- You must ask one of the suggested probes above; asking a question of your own is not an option
+- Choose the suggestion that follows most naturally from the respondent's last answer and that the interview has not yet covered
+{%- if steering == "reword" %}
+- Reword the chosen suggestion so it fits naturally into the chat interview. You may build on what the respondent just said (e.g. refer back to something they mentioned), but keep what the suggestion asks about: do not widen, narrow or replace it
+- Ask one question only, and do not fold in a second suggestion
+{%- if translation %}
+- The interview is conducted in {{ translation }}. Write the reworded question directly in {{ translation }}, phrased the way a native {{ translation }}-speaking interviewer would naturally say it
+{%- endif %}
+{%- else %}
+- The chosen suggestion is asked exactly as written, so pick it by its text
+{%- endif %}
+- Respond with a JSON object matching the following schema:
+
+```json
+{{ response_schema | json }}
+```

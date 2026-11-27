@@ -18,6 +18,7 @@ from ainterviewer.interview_guides import InterviewGuide, Question
 from ainterviewer.interview_guides.interview_guide import QuestionSection
 from ainterviewer.interview_guides.questions import QuestionBase
 from ainterviewer.interview_guides.sections import QuestionSectionTemplate
+from ainterviewer.interview_guides.types import ProbeSteering
 from ainterviewer.synthesize.interviewees import (
     INTERVIEWEE_INFORMATION_TEMPLATE,
     InterviewSubject,
@@ -170,6 +171,33 @@ class ProbingAgentPrompts(BasePrompts):
             probe_number=probe_number,
             max_probes=max_probes if probe_number else None,
             previous_probes=previous_probes,
+        )
+
+    def generate_suggested_probe_prompt(
+        self,
+        steering: ProbeSteering,
+        interview_framing: str,
+        section_description: str,
+        question_description: str,
+        main_question: str,
+        interview_transcript: str,
+        suggestions: list[str],
+        previous_probes: list[str],
+        response_schema: dict,
+    ) -> str:
+        """Render the prompt that picks one of `suggestions` for the next
+        probe: reworded under reword, as written under strict."""
+        return self.get_template("probing_agent/suggested_probe_prompt.jinja").render(
+            steering=steering,
+            interview_framing=interview_framing,
+            section_description=section_description,
+            question_description=question_description,
+            main_question=main_question,
+            interview_transcript=interview_transcript,
+            suggestions=suggestions,
+            previous_probes=previous_probes,
+            response_schema=response_schema,
+            translation=self.translation,
         )
 
     STRATEGY_TEMPLATE_MAP: ClassVar[dict[DiceStrategy, str]] = {
