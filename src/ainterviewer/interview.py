@@ -34,6 +34,7 @@ from ainterviewer.embedding import (
 )
 from ainterviewer.exceptions import (
     EndInterviewCondition,
+    ModelUnavailable,
     SkipProbesCondition,
     SkipQuestionCondition,
     SkipQuestionException,
@@ -247,6 +248,11 @@ class AInterviewer:
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
+        # A check still running when the interview stops -- it failed, or the
+        # respondent left mid-answer -- has nobody left to act on its decision,
+        # and its error would go unretrieved.
+        self.cancel_security_check()
+
         if not self.interview_history.is_finished:
             self.db.update_interview_status(
                 self.project_id,
@@ -1410,6 +1416,11 @@ class AInterviewer:
                 question_description=question_description,
                 transcript=transcript,
             )
+        except ModelUnavailable:
+            # Not a bad reply: the model is not there, and the probe generated
+            # alongside would find the same. Raised, so the respondent hears
+            # about it now rather than after that call has failed as well.
+            raise
         except Exception as error:
             # The check runs on every answer; letting one bad reply end the
             # session would take the respondent's interview down with it and
@@ -1712,6 +1723,11 @@ class AInterviewer:
                 previous_probes=previous_probes,
             )
             response = {"suggestion": picked.suggestion, "question": picked.question}
+        except ModelUnavailable:
+            # The fallback is for a pick that went wrong. With no model, it
+            # would ask a suggestion word for word and carry on as if nothing
+            # were the matter.
+            raise
         except Exception as error:
             logger.exception(
                 "Picking a suggested probe failed in interview %s", self.interview_id
@@ -1798,7 +1814,8 @@ class AInterviewer:
         come back as a reworded repeat.
 
         Falls back to those not yet asked if the classification fails, so it
-        can never stop the interview from probing.
+        can never stop the interview from probing -- unless the model is not
+        there at all (`ModelUnavailable`), which the probe would hit next.
         """
         # Filled before pruning: an asked probe is compared as it was sent.
         suggestions = [
@@ -1829,6 +1846,10 @@ class AInterviewer:
                 main_question=question.main_question,
                 suggestions=suggestions,
             )
+        except ModelUnavailable:
+            # The probe this feeds needs the same model: falling back would
+            # only spend that call finding out.
+            raise
         except Exception:
             logger.exception("Classifying answered suggestions failed")
             return suggestions

@@ -12,6 +12,7 @@ from ainterviewer.agents.probing_agent import (
     SuggestedProbe,
     suggested_probe_model,
 )
+from ainterviewer.exceptions import ModelUnavailable, UnavailableReason
 from ainterviewer.interview_guides.history import HistoryMessage, Turn
 from ainterviewer.interview_guides.types import ProbeSteering
 from ainterviewer.types import MessageRole
@@ -131,6 +132,21 @@ async def test_a_failed_pick_asks_the_first_suggestion_as_written():
     )
     response = json.loads(interviewer.db.insert_task.call_args.kwargs["response"])
     assert response["error"] == "RuntimeError: model down"
+
+
+@pytest.mark.anyio
+async def test_a_missing_model_does_not_ask_the_first_suggestion():
+    """Asking a suggestion as written would carry on as if nothing were the
+    matter, and leave the respondent no wiser about the outage."""
+    interviewer, question = _setup("reword")
+    interviewer.probing_agent.generate_suggested_probe = AsyncMock(
+        side_effect=ModelUnavailable("test", UnavailableReason.BUSY, retry_after=5)
+    )
+
+    with pytest.raises(ModelUnavailable):
+        await _generate(interviewer, question)
+    tasks = [call.kwargs["task"] for call in interviewer.db.insert_task.call_args_list]
+    assert "suggested_probe" not in tasks
 
 
 @pytest.mark.anyio

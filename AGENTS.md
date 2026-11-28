@@ -63,6 +63,27 @@ git -C ../backend worktree add -b feat/my-change \
   then `git branch -d <branch>`. `git worktree list` shows what is open;
   `git worktree prune` forgets a worktree whose directory was deleted by hand.
 
+## A model that is not there
+
+`chat()` (`lpm/clients.py`) is the one place a provider's error is read. A
+503 or 429 comes out as `ModelUnavailable` (`exceptions.py`), with a
+`reason` and a `retry_after`, taken from the error's `code` and `Retry-After`
+-- our EC2 proxy names each refusal in its body (`Refusal` in the proxy
+repo), and the OpenAI SDK and any-llm carry the code through. A refusal the
+proxy calls final (`capacity_unavailable`, `inference_disabled`) has no
+`retry_after`: nothing is on its way up to wait for.
+
+- **Every fallback re-raises it.** A fallback (`except Exception`, carry on
+  with a default) is for a reply that went wrong. With no model it only
+  hides the outage, and the next call spends its own time finding the same
+  thing -- that is how a cold start once took three minutes of typing dots
+  to reach the respondent. Put `except ModelUnavailable: raise` ahead of any
+  new `except Exception` around an agent call, and test it.
+- **Deciding to wait is the caller's.** The library raises at once and never
+  sleeps on a refusal; the self-hosted model's client runs with no SDK
+  retries for that reason. The backend owns the respondent's socket, so it
+  tells them and waits.
+
 ## Commits
 
 Commit messages follow Conventional Commits (enforced by the `commit-msg`

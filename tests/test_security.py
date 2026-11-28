@@ -19,7 +19,12 @@ from ainterviewer.agents.security_policy import (
     default_security_policy,
 )
 from ainterviewer.config import InterviewConfig
-from ainterviewer.exceptions import EndInterviewCondition, SkipSectionCondition
+from ainterviewer.exceptions import (
+    EndInterviewCondition,
+    ModelUnavailable,
+    SkipSectionCondition,
+    UnavailableReason,
+)
 from ainterviewer.interfaces import (
     OutgoingMessage,
     SecurityIntervention,
@@ -447,6 +452,43 @@ class TestInterviewSecurity:
         logged = harness.logged_assessments
         assert [log.get("reason") for log in logged] == [None] * 3
         assert all("unparseable" in log["response"] for log in logged)
+
+    @pytest.mark.anyio
+    async def test_a_missing_model_is_raised(self):
+        """Passing over a failed check is for a reply that went wrong. With
+        no model, the probe generated alongside fails too: the interview
+        stops and says so, instead of probing on unchecked."""
+        harness = Harness()
+
+        async def unavailable(**kwargs):
+            raise ModelUnavailable("test", UnavailableReason.STARTING, retry_after=60)
+
+        harness.patch_agent("assess", unavailable)
+
+        with pytest.raises(ModelUnavailable):
+            await harness.handle_question()
+
+        assert "ask_probe" not in harness.events
+        assert harness.logged_assessments == []
+
+    @pytest.mark.anyio
+    async def test_a_check_still_running_is_cancelled_on_exit(self):
+        """Nobody is left to act on a check the interview stopped before."""
+        harness = Harness()
+        cancelled = asyncio.Event()
+
+        async def hanging():
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+
+        async with harness.interviewer as iv:
+            iv._security_check = asyncio.create_task(hanging())
+            await asyncio.sleep(0)
+
+        assert harness.interviewer._security_check is None
+        await asyncio.wait_for(cancelled.wait(), timeout=1)
 
     @pytest.mark.anyio
     async def test_skip_probes_on_main_answer(self):

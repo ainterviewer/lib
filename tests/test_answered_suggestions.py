@@ -9,11 +9,13 @@ from ainterviewer.agents.classification_agent import (
     AnsweredSuggestionsModel,
     ClassificationAgent,
 )
+from ainterviewer.exceptions import ModelUnavailable, UnavailableReason
 from ainterviewer.interview_guides.history import HistoryMessage, Turn
 from tests.test_condition_branches import Respondent, _interviewer
 from tests.test_interview_loop import _plain_guide
 
 SUGGESTIONS = ["Why?", "When?", "Who else?"]
+UNAVAILABLE = ModelUnavailable("test", UnavailableReason.STARTING, retry_after=60)
 
 
 def _probing_setup(answered=None, error=None, probes=SUGGESTIONS):
@@ -78,6 +80,17 @@ async def test_all_suggestions_are_kept_when_the_classification_fails():
     assert (
         await _suggested_probes(interviewer, question) == "- Why?\n- When?\n- Who else?"
     )
+
+
+@pytest.mark.anyio
+async def test_a_missing_model_is_not_fallen_back_on():
+    """The probe needs the same model; carrying on would spend its call
+    finding out, and keep the respondent waiting for both."""
+    interviewer, question = _probing_setup(error=UNAVAILABLE)
+
+    with pytest.raises(ModelUnavailable):
+        await _suggested_probes(interviewer, question)
+    interviewer.probing_agent.generate_probe.assert_not_awaited()
 
 
 @pytest.mark.anyio

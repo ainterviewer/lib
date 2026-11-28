@@ -115,3 +115,52 @@ def test_a_callers_reasoning_effort_wins(monkeypatch):
 def test_reasoning_effort_left_to_the_model_when_unset(monkeypatch):
     monkeypatch.setattr(clients.settings.llm, "vllm_reasoning_effort", None)
     assert "reasoning_effort" not in _sent_kwargs(monkeypatch, "openai/gpt-oss-120b")
+
+
+@pytest.mark.parametrize(
+    ("model", "self_hosted"),
+    [
+        ("gpt-oss-120b", True),
+        ("openai/gpt-oss-120b", True),
+        ("openrouter:openai/gpt-oss-120b", False),
+        ("openai:gpt-5", False),
+        ("gemini:gemini-3-flash", False),
+        ("alex:glm-5.3-flash", False),
+    ],
+)
+def test_models_without_a_provider_are_self_hosted(model, self_hosted):
+    assert clients.is_self_hosted(model) is self_hosted
+
+
+def _routed_to(monkeypatch, model: str) -> str:
+    """The model `chat` hands any-llm for `model`: prefixed `vllm:` when it
+    goes to the self-hosted server."""
+    sent: list[str] = []
+
+    async def acompletion(**kwargs):
+        sent.append(kwargs["model"])
+        return _completion(content="Hi")
+
+    monkeypatch.setattr(clients, "acompletion", acompletion)
+    asyncio.run(
+        clients.chat([Message(role=MessageRole.USER, content="Hi")], model=model)
+    )
+    return sent[0]
+
+
+@pytest.mark.parametrize("prefix", clients.HOSTED_PREFIXES)
+def test_every_hosted_prefix_has_its_own_client(monkeypatch, prefix):
+    """What the warm-up calls hosted, `chat` never sends to vLLM."""
+    assert not _routed_to(monkeypatch, f"{prefix}some-model").startswith("vllm:")
+
+
+def test_a_model_without_a_prefix_goes_to_vllm(monkeypatch):
+    assert _routed_to(monkeypatch, "gpt-oss-120b") == "vllm:gpt-oss-120b"
+
+
+def test_a_hosted_prefix_without_a_branch_is_refused(monkeypatch):
+    """Not sent to vLLM, which the warm-up would not have started for it."""
+    monkeypatch.setattr(clients, "HOSTED_PREFIXES", (*clients.HOSTED_PREFIXES, "new:"))
+
+    with pytest.raises(ValueError, match="no branch"):
+        _routed_to(monkeypatch, "new:some-model")
