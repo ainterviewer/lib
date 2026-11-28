@@ -4,6 +4,12 @@ Generated from [Conventional Commits](https://www.conventionalcommits.org) by
 [git-cliff](https://git-cliff.org). Releases older than the earliest entry below
 predate this changelog — see `git log` for their history.
 
+## [0.8.15] - 2026-11-28
+
+### Bug Fixes
+
+- (interview) Stop at once when the model is not there
+
 ## [0.8.14] - 2026-11-27
 
 ### Features
